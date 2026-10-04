@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Pool } from 'pg';
+import { Pool, QueryResultRow } from 'pg';
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
@@ -16,6 +16,11 @@ export class DatabaseService implements OnModuleDestroy {
     this.pool.on('error', (err) => {
       this.logger.error('Erreur de connexion a la base : ' + err.message);
     });
+  }
+
+  async query<T extends QueryResultRow>(text: string, params: unknown[] = []): Promise<T[]> {
+    const res = await this.pool.query<T>(text, params);
+    return res.rows;
   }
 
   async ping(): Promise<boolean> {

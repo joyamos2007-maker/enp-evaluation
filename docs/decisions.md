@@ -102,3 +102,10 @@
 
 \- Département pilote et date de la campagne.
 
+## 2026-10-04 - Mots de passe et acces a la base
+- Decision : hachage des mots de passe avec argon2id (bibliotheque
+  @node-rs/argon2) ; requetes SQL directes avec le module pg, sans ORM, et
+  fichiers SQL numerotes dans infra/sql.
+- Raison : un outil de moins a apprendre en travaillant seul ; la separation
+  entre le registre de participation et l'urne reste visible ligne par ligne.
+
