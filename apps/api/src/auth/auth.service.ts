@@ -4,11 +4,13 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { type Utilisateur, UsersService } from '../users/users.service';
 import { PasswordService } from './password.service';
+import { type SessionEmise, SessionService } from './session.service';
 import { DUREE_JETON_SECONDES, TokenService } from './token.service';
 
 const MESSAGE_ECHEC = 'Identifiant ou mot de passe incorrect';
+const MESSAGE_SESSION = 'Session expiree, reconnectez-vous';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +20,7 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
+    private readonly sessions: SessionService,
   ) {}
 
   async connecter(identifiant: string, motDePasse: string) {
@@ -49,6 +52,30 @@ export class AuthService {
       await this.users.reinitialiserEchecs(utilisateur.id);
     }
 
+    const refresh = await this.sessions.creer(utilisateur.id);
+    return this.reponseAvec(utilisateur, refresh);
+  }
+
+  async rafraichir(jetonBrut: string) {
+    const session = await this.sessions.renouveler(jetonBrut);
+    const utilisateur = await this.users.trouverParId(session.userId);
+
+    // Compte supprime ou desactive depuis la derniere connexion : on coupe tout
+    if (!utilisateur || !utilisateur.actif) {
+      await this.sessions.revoquer(session.jeton);
+      throw new UnauthorizedException(MESSAGE_SESSION);
+    }
+    return this.reponseAvec(utilisateur, { jeton: session.jeton, expireLe: session.expireLe });
+  }
+
+  async deconnecter(jetonBrut: string): Promise<void> {
+    await this.sessions.revoquer(jetonBrut);
+  }
+
+  private async reponseAvec(
+    utilisateur: Pick<Utilisateur, 'id' | 'nom' | 'prenom'>,
+    refresh: SessionEmise,
+  ) {
     const roles = await this.users.rolesDe(utilisateur.id);
     return {
       accessToken: this.tokens.signerAcces({ sub: String(utilisateur.id), roles }),
@@ -59,6 +86,7 @@ export class AuthService {
         prenom: utilisateur.prenom,
         roles,
       },
+      refresh,
     };
   }
 

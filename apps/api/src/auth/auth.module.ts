@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { DiagnosticController } from './diagnostic.controller';
 import { PasswordService } from './password.service';
 import { RolesGuard } from './roles.guard';
+import { SessionService } from './session.service';
 import { TokenService } from './token.service';
 
 @Module({
@@ -15,6 +16,7 @@ import { TokenService } from './token.service';
   providers: [
     PasswordService,
     TokenService,
+    SessionService,
     AuthService,
     // Portiers globaux, dans cet ordre : d'abord le jeton, ensuite les roles
     { provide: APP_GUARD, useClass: AuthGuard },

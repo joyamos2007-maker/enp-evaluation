@@ -141,3 +141,20 @@
   valable 15 minutes ; les echecs sur identifiants inexistants ne sont pas comptes.
 - A faire : fonction de deverrouillage par la Scolarite ; jeton de
   rafraichissement et expiration apres 30 min d'inactivite (etape 5.6).
+  
+  ## 2026-10-05 - Session et jeton de rafraichissement
+- Decision : jeton d'acces de 15 min + jeton de session aleatoire dans un cookie
+  HttpOnly, SameSite=Strict, limite au chemin /api/v1/auth, Secure en production.
+  La base ne garde que l'empreinte SHA-256. Rotation a chaque renouvellement ;
+  si un ancien jeton revient, toute la session est revoquee. Inactivite : 30 min
+  sans renouvellement ; duree maximale : 8 h.
+- Raison : le jeton de session n'est pas lisible par JavaScript (limite le vol par
+  faille XSS) et il est revocable cote serveur.
+- Limites connues : un jeton d'acces deja emis reste valable jusqu'a 15 min apres
+  une deconnexion ; la coupure par inactivite survient entre 15 et 30 min de
+  vraie inactivite (le delai court depuis le dernier renouvellement) ;
+  deux renouvellements simultanes (deux onglets) declenchent la detection de vol ;
+  les lignes expirees ne sont pas encore purgees ; CORS non configure.
+- A faire : le frontend doit renouveler un seul jeton a la fois (semaine 5) et
+  appeler /auth/refresh au chargement de la page ; purge periodique de la table ;
+  revoquer toutes les sessions lors d'un changement de mot de passe.

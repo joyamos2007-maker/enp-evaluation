@@ -16,6 +16,12 @@ describe('UsersService', () => {
     await expect(service.trouverParIdentifiant('TEST-0001')).resolves.toMatchObject({ id: 1 });
   });
 
+  it('retrouve un utilisateur par son identifiant numerique', async () => {
+    db.query.mockResolvedValueOnce([{ id: 4, nom: 'TEST' }]).mockResolvedValueOnce([]);
+    await expect(service.trouverParId(4)).resolves.toMatchObject({ id: 4 });
+    await expect(service.trouverParId(99)).resolves.toBeNull();
+  });
+
   it('liste les roles', async () => {
     db.query.mockResolvedValue([{ role: 'etudiant' }, { role: 'delegue' }]);
     await expect(service.rolesDe(1)).resolves.toEqual(['etudiant', 'delegue']);

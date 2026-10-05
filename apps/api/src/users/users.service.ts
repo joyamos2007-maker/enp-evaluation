@@ -14,18 +14,28 @@ export interface Utilisateur {
   verrouille_jusqua: Date | null;
 }
 
+const COLONNES = `id, matricule, email, nom, prenom, mot_de_passe_hash, actif,
+                  tentatives_echouees, verrouille_jusqua`;
+
 @Injectable()
 export class UsersService {
   constructor(private readonly db: DatabaseService) {}
 
   async trouverParIdentifiant(identifiant: string): Promise<Utilisateur | null> {
     const rows = await this.db.query<Utilisateur>(
-      `SELECT id, matricule, email, nom, prenom, mot_de_passe_hash, actif,
-              tentatives_echouees, verrouille_jusqua
+      `SELECT ${COLONNES}
        FROM identity.users
        WHERE matricule = $1 OR LOWER(email) = LOWER($1)
        LIMIT 1`,
       [identifiant],
+    );
+    return rows[0] ?? null;
+  }
+
+  async trouverParId(id: number): Promise<Utilisateur | null> {
+    const rows = await this.db.query<Utilisateur>(
+      `SELECT ${COLONNES} FROM identity.users WHERE id = $1`,
+      [id],
     );
     return rows[0] ?? null;
   }
