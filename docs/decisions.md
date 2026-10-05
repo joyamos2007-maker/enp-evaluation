@@ -118,3 +118,13 @@
   unique evite de reveler quels matricules existent.
 - A faire : jeton de rafraichissement, verrouillage apres echecs, HTTPS en production.
 
+## 2026-10-05 - Roles et protection des routes
+- Decision : decorateur @Acces('role1', 'role2') qui applique la verification du
+  jeton puis des roles (un seul des roles indiques suffit). Les noms de roles
+  sont dans un type unique (src/auth/roles.ts).
+- Raison : une faute de frappe sur un role est detectee a la compilation ; l'ordre
+  des portiers est garanti.
+- Limites connues : les roles sont lus dans le jeton, donc un changement de role
+  n'agit qu'apres expiration du jeton (15 min) ; une route sans @Acces est
+  publique, a corriger par une protection par defaut avant le MVP.
+- A faire : supprimer le DiagnosticController avant la production.
