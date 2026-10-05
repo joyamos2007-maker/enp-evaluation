@@ -108,4 +108,13 @@
   fichiers SQL numerotes dans infra/sql.
 - Raison : un outil de moins a apprendre en travaillant seul ; la separation
   entre le registre de participation et l'urne reste visible ligne par ligne.
+  
+  ## 2026-10-04 - Jeton de connexion
+- Decision : jeton d acces JWT signe (HS256) de 15 minutes, produit avec la
+  bibliotheque jsonwebtoken ; un secret distinct par usage (acces, rafraichissement,
+  vote). Meme message d erreur pour un mauvais mot de passe et un identifiant inconnu.
+- Raison : jsonwebtoken fonctionne independamment de la version de NestJS (la
+  compatibilite de @nestjs/jwt avec NestJS 12 n a pas ete verifiee) ; le message
+  unique evite de reveler quels matricules existent.
+- A faire : jeton de rafraichissement, verrouillage apres echecs, HTTPS en production.
 
