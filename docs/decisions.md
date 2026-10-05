@@ -158,3 +158,14 @@
 - A faire : le frontend doit renouveler un seul jeton a la fois (semaine 5) et
   appeler /auth/refresh au chargement de la page ; purge periodique de la table ;
   revoquer toutes les sessions lors d'un changement de mot de passe.
+  
+  ## 2026-10-05 - Referentiels : UE et cours
+- Decision : schema ref. L UE (ref.ue) est le catalogue ; le cours (ref.course =
+  UE x formation x annee x semestre) est l unite evaluee. Le course_id du registre
+  de participation et de l urne designe ref.course.id. Inscriptions, affectations
+  et delegues se rattachent a identity.users.
+- Raison : une meme UE peut etre dispensee chaque annee et dans plusieurs
+  formations ; evaluer le cours evite de melanger les promotions.
+- Limites connues : pas encore de cle etrangere entre evaluation.participation_ledger
+  et ref.course (a ajouter apres les donnees de test) ; aucune archive annuelle (V2).
+- Anonymat : aucune table de ballot ne reference ref ni identity.
