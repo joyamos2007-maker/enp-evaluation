@@ -169,3 +169,11 @@
 - Limites connues : pas encore de cle etrangere entre evaluation.participation_ledger
   et ref.course (a ajouter apres les donnees de test) ; aucune archive annuelle (V2).
 - Anonymat : aucune table de ballot ne reference ref ni identity.
+
+## 2026-10-05 - Donnees de test fictives
+- Decision : infra/sql/dev-donnees-test.sql cree un campus, une formation, 2 UE,
+  2 cours (INF501 avec 5 inscrits, INF502 avec 3) et 8 comptes TEST-xxxx sans mot
+  de passe. Le fichier est relancable et reserve au developpement.
+- Raison : disposer de donnees realistes pour tester les routes, l import CSV
+  et le seuil de 5 repondants, sans aucune donnee reelle.
+- Regle : ne jamais executer ce fichier sur le serveur de production.
