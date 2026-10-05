@@ -6,16 +6,16 @@ import {
   HttpCode,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import type { RequeteAuthentifiee } from './auth.types';
+import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(200)
   async login(@Body() corps: unknown) {
@@ -34,7 +34,6 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(AuthGuard)
   moi(@Req() requete: RequeteAuthentifiee) {
     return requete.utilisateur;
   }

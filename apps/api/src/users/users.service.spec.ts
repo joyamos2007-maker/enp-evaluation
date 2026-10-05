@@ -20,4 +20,18 @@ describe('UsersService', () => {
     db.query.mockResolvedValue([{ role: 'etudiant' }, { role: 'delegue' }]);
     await expect(service.rolesDe(1)).resolves.toEqual(['etudiant', 'delegue']);
   });
+
+  it('enregistre un echec avec le seuil et la duree de verrouillage', async () => {
+    db.query.mockResolvedValue([]);
+    await service.enregistrerEchec(7);
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][1]).toEqual([7, 5, 15]);
+  });
+
+  it('remet le compteur d echecs a zero', async () => {
+    db.query.mockResolvedValue([]);
+    await service.reinitialiserEchecs(7);
+    expect(db.query.mock.calls[0][0]).toContain('tentatives_echouees = 0');
+    expect(db.query.mock.calls[0][1]).toEqual([7]);
+  });
 });

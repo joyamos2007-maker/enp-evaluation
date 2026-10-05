@@ -128,3 +128,16 @@
   n'agit qu'apres expiration du jeton (15 min) ; une route sans @Acces est
   publique, a corriger par une protection par defaut avant le MVP.
 - A faire : supprimer le DiagnosticController avant la production.
+
+## 2026-10-05 - Verrouillage et protection par defaut
+- Decision : 5 echecs de connexion consecutifs verrouillent le compte 15 minutes
+  (reponse 429, mot de passe non teste pendant le verrouillage). Toute route
+  exige un jeton, sauf celles marquees @Public() (connexion, sante).
+- Raison : limiter les attaques par essais repetes ; supprimer le risque
+  d'oublier de proteger une route.
+- Limites connues : un attaquant qui connait un matricule peut verrouiller ce
+  compte (a limiter par une limitation de debit par adresse au deploiement) ;
+  le message 429 revele que le compte existe ; un jeton deja emis reste
+  valable 15 minutes ; les echecs sur identifiants inexistants ne sont pas comptes.
+- A faire : fonction de deverrouillage par la Scolarite ; jeton de
+  rafraichissement et expiration apres 30 min d'inactivite (etape 5.6).

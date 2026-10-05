@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
@@ -11,7 +12,14 @@ import { TokenService } from './token.service';
 @Module({
   imports: [UsersModule],
   controllers: [AuthController, DiagnosticController],
-  providers: [PasswordService, TokenService, AuthService, AuthGuard, RolesGuard],
-  exports: [PasswordService, TokenService, AuthGuard, RolesGuard],
+  providers: [
+    PasswordService,
+    TokenService,
+    AuthService,
+    // Portiers globaux, dans cet ordre : d'abord le jeton, ensuite les roles
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
+  exports: [PasswordService, TokenService],
 })
 export class AuthModule {}

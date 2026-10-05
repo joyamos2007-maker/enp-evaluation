@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { DUREE_VERROUILLAGE_MINUTES, MAX_ECHECS } from './users.constants';
 
 export interface Utilisateur {
   id: number;
@@ -35,5 +36,27 @@ export class UsersService {
       [userId],
     );
     return rows.map((r) => r.role);
+  }
+
+  // Une seule requete atomique : le compteur monte, et au seuil le compte
+  // est verrouille puis le compteur repart a zero.
+  async enregistrerEchec(userId: number): Promise<void> {
+    await this.db.query(
+      `UPDATE identity.users
+       SET tentatives_echouees = CASE WHEN tentatives_echouees + 1 >= $2::int
+                                      THEN 0 ELSE tentatives_echouees + 1 END,
+           verrouille_jusqua = CASE WHEN tentatives_echouees + 1 >= $2::int
+                                    THEN NOW() + make_interval(mins => $3::int)
+                                    ELSE verrouille_jusqua END
+       WHERE id = $1`,
+      [userId, MAX_ECHECS, DUREE_VERROUILLAGE_MINUTES],
+    );
+  }
+
+  async reinitialiserEchecs(userId: number): Promise<void> {
+    await this.db.query(
+      'UPDATE identity.users SET tentatives_echouees = 0, verrouille_jusqua = NULL WHERE id = $1',
+      [userId],
+    );
   }
 }

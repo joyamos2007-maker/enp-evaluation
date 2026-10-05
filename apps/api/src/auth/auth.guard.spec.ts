@@ -2,14 +2,23 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
 
 function contexte(requete: unknown) {
-  return { switchToHttp: () => ({ getRequest: () => requete }) } as never;
+  return {
+    getHandler: () => 'handler',
+    getClass: () => 'classe',
+    switchToHttp: () => ({ getRequest: () => requete }),
+  } as never;
 }
 
 describe('AuthGuard', () => {
   const tokens = { verifierAcces: jest.fn() };
-  const garde = new AuthGuard(tokens as never);
+  const reflector = { getAllAndOverride: jest.fn() };
+  const garde = new AuthGuard(tokens as never, reflector as never);
 
-  beforeEach(() => tokens.verifierAcces.mockReset());
+  beforeEach(() => {
+    tokens.verifierAcces.mockReset();
+    reflector.getAllAndOverride.mockReset();
+    reflector.getAllAndOverride.mockReturnValue(false);
+  });
 
   it('refuse une requete sans jeton', () => {
     expect(() => garde.canActivate(contexte({ headers: {} }))).toThrow(UnauthorizedException);
@@ -28,5 +37,11 @@ describe('AuthGuard', () => {
     };
     expect(garde.canActivate(contexte(requete))).toBe(true);
     expect(requete.utilisateur).toEqual({ id: 3, roles: ['enseignant'] });
+  });
+
+  it('laisse passer une route publique sans jeton', () => {
+    reflector.getAllAndOverride.mockReturnValue(true);
+    expect(garde.canActivate(contexte({ headers: {} }))).toBe(true);
+    expect(tokens.verifierAcces).not.toHaveBeenCalled();
   });
 });
