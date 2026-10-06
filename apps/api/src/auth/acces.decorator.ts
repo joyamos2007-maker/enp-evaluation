@@ -1,15 +1,13 @@
-import { applyDecorators, UseGuards } from '@nestjs/common';
-import { AuthGuard } from './auth.guard';
 import type { Role } from './roles';
 import { Roles } from './roles.decorator';
-import { RolesGuard } from './roles.guard';
 
 /**
- * Protege une route : exige un jeton valide, puis (si des roles sont
- * indiques) au moins un de ces roles.
+ * Indique quels roles peuvent utiliser une route.
+ * Le jeton est verifie par le portier global (AuthGuard) : toute route est
+ * protegee par defaut, sauf celles marquees @Public().
  *   @Acces()                       -> toute personne connectee
  *   @Acces('scolarite', 'admin')   -> scolarite OU admin
  */
 export function Acces(...roles: Role[]) {
-  return applyDecorators(UseGuards(AuthGuard, RolesGuard), Roles(...roles));
+  return Roles(...roles);
 }

@@ -177,3 +177,22 @@
 - Raison : disposer de donnees realistes pour tester les routes, l import CSV
   et le seuil de 5 repondants, sans aucune donnee reelle.
 - Regle : ne jamais executer ce fichier sur le serveur de production.
+
+## 2026-10-06 - Questionnaire et campagnes
+- Decision : l'unite evaluee est ref.course (une UE offerte pour un programme,
+  une annee et un semestre). Dans l'API, le champ ueId contient ref.course.id.
+  Une campagne couvre un departement, une annee et un semestre (une seule par
+  trio) et fige la version du questionnaire a sa creation. Cycle : brouillon,
+  ouverte, close, restituee. Les etudiants n'y accedent que si elle est ouverte
+  et dans sa periode. Les cles etrangeres du registre et de l'urne sont ajoutees ;
+  l'urne ne reference jamais un etudiant.
+- Raison : l'offre d'une UE varie selon le programme et le semestre ; une
+  campagne par trio correspond a la grille de synthese par semestre.
+- Limites connues : "terminee" signifie que la participation est enregistree
+  (jeton emis), pas qu'un bulletin a ete depose ; la cloture est manuelle (pas de
+  cloture automatique a la date de fin) ; aucun role "chef de departement"
+  n'est lie a un departement (table a creer en phase 4) ; ref.ue et ref.course
+  n'ont pas de volumes horaires CM/TD/TP (necessaires au cahier de texte) ;
+  le nom du champ ueId est trompeur (il designe un course).
+- A faire : jeton de vote (6.2), depot dans l'urne et roles de base de donnees
+  distincts (6.3), resultats et seuil (6.4).
