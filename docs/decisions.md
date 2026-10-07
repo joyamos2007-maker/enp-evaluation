@@ -196,3 +196,21 @@
   le nom du champ ueId est trompeur (il designe un course).
 - A faire : jeton de vote (6.2), depot dans l'urne et roles de base de donnees
   distincts (6.3), resultats et seuil (6.4).
+  
+  ## 2026-10-06 - Jeton de vote
+- Decision : POST /evaluations/{ueId}/jeton (ueId = ref.course.id) verifie
+  l'inscription, la campagne ouverte et sa periode, et enregistre la
+  participation dans le registre en UNE requete atomique (contrainte d'unicite).
+  Il remet un jeton signe (HS256, secret BALLOT_TOKEN_SECRET distinct des autres)
+  de 60 minutes dont le contenu est typ, cid, ue, jti et exp : aucune identite
+  et aucune heure d'emission. Reponse sans mise en cache.
+- Raison : l'etudiant est identifie au moment de l'emission, jamais au depot ;
+  une seule requete evite le double vote en cas de demandes simultanees.
+- Limites connues : un etudiant qui perd son jeton (onglet ferme) ne peut plus
+  voter pour cette UE, car sa participation est deja enregistree ; une
+  reinitialisation manuelle par la Scolarite n'est pas prevue, car elle
+  permettrait un double vote si le bulletin a deja ete depose ; le jeton peut
+  etre transmis a un tiers ; les jetons deja utilises ne sont pas encore
+  suivis (anti-rejeu : etape 6.3) ; le serveur web ne devra journaliser ni les
+  adresses ni les corps des requetes sur /ballots.
+- A faire : depot dans l'urne et roles de base de donnees distincts (6.3).
