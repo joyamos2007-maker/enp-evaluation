@@ -234,3 +234,30 @@
   adresses ni les corps des requetes sur /ballots.
 - A faire : lecture des resultats et moderation par un acces dedie a l'urne via des
   vues sans identite (6.4 et 6.5) ; configuration du serveur web au deploiement.
+  
+  ## 2026-10-07 - Resultats et lecture de l'urne
+- Decision : troisieme role results_app, en lecture seule sur l'urne (ni registre,
+  ni identites, ni referentiels). Les droits d'acces et les referentiels sont
+  verifies par app_main ; les chiffres sont lus par results_app. Seuil de 5 bulletins
+  applique avant tout calcul. Moyennes calculees sur toutes les notes (sans avis
+  exclu), moyenne de section sur toutes les notes de la section. Commentaires :
+  uniquement les valides, dans un ordre aleatoire. Resultats lisibles seulement
+  pour une campagne close ET preparee. La preparation (fonction SQL
+  evaluation.preparer_resultats, SECURITY DEFINER) a lieu a la premiere consultation,
+  au moins 2 minutes apres la cloture : elle melange physiquement les lignes de la
+  campagne (ordre de depot et numeros de transaction effaces) et purge les jetons
+  expires. L'application refuse de demarrer si les trois roles ont trop de droits.
+- Raison : l'enseignant doit pouvoir lire ses resultats sans que personne puisse
+  relier un bulletin a un etudiant ; le delai evite qu'un depot en cours echappe au
+  melange.
+- Limites connues : le chef de departement n'a pas de route (aucune table ne le
+  rattache a un departement) ; le super-utilisateur peut tout lire et la fonction
+  de preparation s'execute avec ses droits ; les lignes effacees restent dans les
+  fichiers jusqu'au nettoyage (VACUUM FULL optionnel) ; un seuil de 5 n'empeche pas
+  l'inference quand tous les repondants ont donne la meme note ; le texte libre
+  peut identifier son auteur ; les campagnes n'apparaissent dans la liste qu'apres
+  le delai de 2 minutes ; la consultation n'est pas encore journalisee dans une
+  table d'audit (seulement dans les logs) ; commentaires non visibles tant que la
+  moderation (6.5) n'est pas faite.
+- A faire : moderation des commentaires (6.5) ; table de rattachement du chef de
+  departement ; journal d'audit des consultations ; envisager un seuil plus eleve.
