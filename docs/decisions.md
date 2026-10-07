@@ -214,3 +214,23 @@
   suivis (anti-rejeu : etape 6.3) ; le serveur web ne devra journaliser ni les
   adresses ni les corps des requetes sur /ballots.
 - A faire : depot dans l'urne et roles de base de donnees distincts (6.3).
+
+## 2026-10-07 - Depot dans l'urne et roles de base de donnees
+- Decision : POST /ballots est publique et n'accepte que le jeton de vote ; le
+  controleur ne recoit que le corps (ni IP, ni en-tetes). Le depot est une seule
+  transaction : verification de la campagne et des criteres, consommation du jeton
+  (table used_tokens, anti-rejeu), ecriture du bulletin, des reponses et des
+  commentaires. Trois roles : ballot_app (depose, ne lit ni le registre ni les
+  identites), app_main (tout sauf l'urne), et enp (super-utilisateur, reserve a
+  l'administration et jamais utilise par l'application). L'application refuse de
+  demarrer si l'un des deux roles a trop de droits.
+- Raison : l'anonymat doit etre verifiable dans la base, pas seulement dans le code.
+- Limites connues : le super-utilisateur peut tout croiser (son acces doit etre
+  restreint et trace) ; l'ordre physique des lignes et les numeros de transaction
+  pourraient aider a rapprocher registre et urne (a attenuer par un reordonnancement
+  de la table des bulletins a la cloture, etape 6.4) ; un depot simultane a la
+  cloture peut etre accepte ou refuse ; le jeton peut etre confie a un tiers ;
+  la table used_tokens n'est pas purgee ; le serveur web ne devra journaliser ni les
+  adresses ni les corps des requetes sur /ballots.
+- A faire : lecture des resultats et moderation par un acces dedie a l'urne via des
+  vues sans identite (6.4 et 6.5) ; configuration du serveur web au deploiement.
