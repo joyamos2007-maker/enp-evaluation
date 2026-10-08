@@ -261,3 +261,28 @@
   moderation (6.5) n'est pas faite.
 - A faire : moderation des commentaires (6.5) ; table de rattachement du chef de
   departement ; journal d'audit des consultations ; envisager un seuil plus eleve.
+  
+## 2026-10-08 - Moderation, restitution et journal d'audit
+- Decision : la moderation passe par la fonction SQL evaluation.moderer_commentaire
+  (SECURITY DEFINER) qui ne modifie que la colonne statut, jamais le texte, et ecrit
+  la trace dans le meme appel. Moderation reservee a la Scolarite, possible apres la
+  cloture ET la preparation de l'urne, y compris apres la restitution. Les
+  commentaires d'une UE sous le seuil de 5 bulletins ne sont ni proposes ni
+  moderables. Identifiant public d'un commentaire opaque (uuid.type), ordre aleatoire,
+  sans date ni auteur. Journal d'audit (schema audit) : ajout seul pour l'application,
+  jamais le texte des commentaires. Restitution (article 77) : une par campagne,
+  definitive, publiee en une seule requete (statut, textes, trace) ; les etudiants la
+  lisent selon leurs inscriptions, sans toucher au registre ni a l'urne.
+- Raison : personne, pas meme la Scolarite, ne doit pouvoir reecrire un commentaire ;
+  toute decision doit laisser une trace fiable ; la restitution est une obligation du
+  reglement.
+- Limites connues : l'application peut ajouter de fausses lignes au journal (elle ne
+  peut ni les modifier ni les supprimer, mais le super-utilisateur le peut) ; un
+  commentaire valide puis masque reste vu par l'enseignant jusqu'au masquage ; la
+  Scolarite voit tous les commentaires des UE au-dessus du seuil avant moderation ; le
+  masquage d'un texte a la main est le seul filtre contre les propos identifiants ; la
+  restitution est du texte libre non verifie contre les resultats reels ; la date de
+  publication est visible des etudiants ; aucune route de consultation du journal.
+- A faire : route de consultation du journal (admin) ; table de rattachement du chef
+  de departement ; imports CSV ; route des departements et tableau de bord de la
+  Scolarite.  

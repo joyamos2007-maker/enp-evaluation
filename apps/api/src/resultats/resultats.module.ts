@@ -6,5 +6,6 @@ import { ResultsDatabaseService } from './results-database.service';
 @Module({
   controllers: [ResultatsController],
   providers: [ResultatsService, ResultsDatabaseService],
+  exports: [ResultsDatabaseService],
 })
 export class ResultatsModule {}

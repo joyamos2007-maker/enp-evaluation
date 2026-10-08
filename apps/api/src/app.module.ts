@@ -8,6 +8,7 @@ import { EvaluationModule } from './evaluation/evaluation.module';
 import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { ResultatsModule } from './resultats/resultats.module';
+import { ModerationModule } from './moderation/moderation.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ResultatsModule } from './resultats/resultats.module';
     AuthModule,
     EvaluationModule,
 	ResultatsModule,
+	ModerationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

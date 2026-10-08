@@ -8,9 +8,11 @@ import { CampagnesService } from './campagnes.service';
 import { EvaluationsController } from './evaluations.controller';
 import { EvaluationsService } from './evaluations.service';
 import { JetonsService } from './jetons.service';
+import { RestitutionController } from './restitution.controller';
+import { RestitutionService } from './restitution.service';
 
 @Module({
-  controllers: [CampagnesController, EvaluationsController, BallotsController],
+  controllers: [CampagnesController, EvaluationsController, BallotsController, RestitutionController],
   providers: [
     CampagnesService,
     EvaluationsService,
@@ -18,6 +20,7 @@ import { JetonsService } from './jetons.service';
     BallotTokenService,
     BallotDatabaseService,
     BallotsService,
+    RestitutionService,
   ],
 })
 export class EvaluationModule {}
