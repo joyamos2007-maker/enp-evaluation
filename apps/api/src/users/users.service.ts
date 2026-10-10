@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { DUREE_VERROUILLAGE_MINUTES, MAX_ECHECS } from './users.constants';
 
+
 export interface Utilisateur {
   id: number;
   matricule: string | null;

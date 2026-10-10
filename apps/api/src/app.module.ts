@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { ResultatsModule } from './resultats/resultats.module';
 import { ModerationModule } from './moderation/moderation.module';
+import {ImportsModule} from './imports/imports.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ModerationModule } from './moderation/moderation.module';
     EvaluationModule,
 	ResultatsModule,
 	ModerationModule,
+	ImportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

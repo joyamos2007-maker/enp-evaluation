@@ -18,6 +18,7 @@ const health_module_1 = require("./health/health.module");
 const users_module_1 = require("./users/users.module");
 const resultats_module_1 = require("./resultats/resultats.module");
 const moderation_module_1 = require("./moderation/moderation.module");
+const imports_module_1 = require("./imports/imports.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -32,6 +33,7 @@ exports.AppModule = AppModule = __decorate([
             evaluation_module_1.EvaluationModule,
             resultats_module_1.ResultatsModule,
             moderation_module_1.ModerationModule,
+            imports_module_1.ImportsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Module, Global } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool, QueryResultRow } from 'pg';
 
@@ -27,6 +27,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const url = config.get<string>('DATABASE_URL');
     if (!url) {
       this.logger.error('DATABASE_URL est vide : le fichier .env est introuvable ou mal rempli');
+    }
+    for (const autre of ['DATABASE_URL_BALLOT', 'DATABASE_URL_RESULTS']) {
+      if (url && url === config.get<string>(autre)) {
+        throw new Error('DATABASE_URL doit etre differente de ' + autre + ' (roles distincts)');
+      }
     }
     this.pool = new Pool({ connectionString: url });
     this.pool.on('error', (err) => {
@@ -73,3 +78,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await this.pool.end();
   }
 }
+
+// ============================================================================
+// DÉCLARATION DU MODULE NESTJS
+// ============================================================================
+@Global() // Rends DatabaseService accessible partout sans re-import obligatoire
+@Module({
+  providers: [DatabaseService],
+  exports: [DatabaseService], // Exporte DatabaseService pour UsersService, ImportsService, etc.
+})
+export class DatabaseModule {}

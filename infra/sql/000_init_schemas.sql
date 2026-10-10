@@ -1,0 +1,14 @@
+-- infra/sql/000_init_schemas.sql
+
+BEGIN;
+
+-- Création des schémas de l'architecture ENP
+CREATE SCHEMA IF NOT EXISTS identity;
+CREATE SCHEMA IF NOT EXISTS academic;
+CREATE SCHEMA IF NOT EXISTS evaluation;
+CREATE SCHEMA IF NOT EXISTS ballot;
+CREATE SCHEMA IF NOT EXISTS logbook;
+CREATE SCHEMA IF NOT EXISTS audit;
+CREATE SCHEMA IF NOT EXISTS system;
+
+COMMIT;

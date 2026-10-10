@@ -10,14 +10,23 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import type { ReponseHttp, RequeteAuthentifiee } from './auth.types';
 import { lireCookie } from './cookies';
+import { LoginDto } from './dto/login.dto';
 import { Public } from './public.decorator';
 
 export const NOM_COOKIE_SESSION = 'refresh_token';
 const CHEMIN_COOKIE = '/api/v1/auth';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -28,8 +37,15 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(200)
-  async login(@Body() corps: unknown, @Res({ passthrough: true }) reponse: ReponseHttp) {
-    const { identifiant, motDePasse } = (corps ?? {}) as Record<string, unknown>;
+  @ApiOperation({ summary: 'Connexion utilisateur et génération du token JWT' })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({ status: 200, description: 'Connexion réussie.' })
+  @ApiResponse({ status: 400, description: 'Identifiant ou mot de passe invalide.' })
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) reponse: ReponseHttp,
+  ) {
+    const { identifiant, motDePasse } = dto ?? {};
     if (
       typeof identifiant !== 'string' ||
       typeof motDePasse !== 'string' ||
@@ -38,9 +54,14 @@ export class AuthController {
       motDePasse.length < 1 ||
       motDePasse.length > 200
     ) {
-      throw new BadRequestException('Les champs identifiant et motDePasse sont obligatoires');
+      throw new BadRequestException(
+        'Les champs identifiant et motDePasse sont obligatoires',
+      );
     }
-    const { refresh, ...corpsReponse } = await this.auth.connecter(identifiant.trim(), motDePasse);
+    const { refresh, ...corpsReponse } = await this.auth.connecter(
+      identifiant.trim(),
+      motDePasse,
+    );
     this.poserCookie(reponse, refresh.jeton, refresh.expireLe);
     return corpsReponse;
   }
@@ -48,6 +69,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Rafraîchir le jeton d’accès via cookie de session' })
   async rafraichir(
     @Req() requete: RequeteAuthentifiee,
     @Res({ passthrough: true }) reponse: ReponseHttp,
@@ -63,6 +85,7 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Déconnexion et suppression du cookie' })
   async deconnecter(
     @Req() requete: RequeteAuthentifiee,
     @Res({ passthrough: true }) reponse: ReponseHttp,
@@ -74,6 +97,8 @@ export class AuthController {
   }
 
   @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer le profil de l’utilisateur connecté' })
   moi(@Req() requete: RequeteAuthentifiee) {
     return requete.utilisateur;
   }
@@ -82,7 +107,11 @@ export class AuthController {
     return this.config.get<string>('NODE_ENV') === 'production';
   }
 
-  private poserCookie(reponse: ReponseHttp, jeton: string, expireLe: Date): void {
+  private poserCookie(
+    reponse: ReponseHttp,
+    jeton: string,
+    expireLe: Date,
+  ): void {
     reponse.cookie(NOM_COOKIE_SESSION, jeton, {
       httpOnly: true,
       secure: this.enProduction(),
