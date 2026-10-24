@@ -54,7 +54,6 @@ export class EvaluationsService {
          ON c.department_id = p.department_id
         AND c.annee_universitaire = co.annee_universitaire
         AND c.semestre = co.semestre
-       LEFT JOIN ref.enrollment e ON e.course_id = co.id AND e.student_id = $1
        JOIN ref.enrollment e ON e.course_id = co.id AND e.student_id = $1
        LEFT JOIN evaluation.participation_ledger l
          ON l.campaign_id = c.id AND l.course_id = co.id AND l.student_id = $1
@@ -99,7 +98,11 @@ export class EvaluationsService {
         section = { code: l.section_code, titre: l.titre, criteres: [] };
         sections.push(section);
       }
-      section.criteres.push({ id: l.critere_id, code: l.critere_code, libelle: l.libelle });
+      section.criteres.push({
+        id: l.critere_id,
+        code: l.critere_code,
+        libelle: l.libelle,
+      });
     }
 
     const commentaires = await this.db.query<{ type: string; libelle: string }>(
