@@ -1,14 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsEnum, IsNotEmpty, IsString } from 'class-validator';
 
 export enum RoleEnum {
-  ETUDIANT = 'ETUDIANT',
-  DELEGUE = 'DELEGUE',
-  ENSEIGNANT = 'ENSEIGNANT',
-  CHEF_DEPT = 'CHEF_DEPT',
-  SCOLARITE = 'SCOLARITE',
-  DIRECTION_ETUDES = 'DIRECTION_ETUDES',
-  ADMIN_TECH = 'ADMIN_TECH',
+  ETUDIANT = 'etudiant',
+  DELEGUE = 'delegue',
+  ENSEIGNANT = 'enseignant',
+  CHEF_DEPARTEMENT = 'chef_departement',
+  SCOLARITE = 'scolarite',
+  DIRECTION_ETUDES = 'direction_etudes',
+  ADMIN = 'admin',
 }
 
 export class ImportUserRowDto {
@@ -35,13 +35,4 @@ export class ImportUserRowDto {
   @IsEnum(RoleEnum)
   role: RoleEnum;
 
-  @ApiPropertyOptional({ example: 'ENP-CL', description: 'Code du campus (ex: ENP-CL pour Lomé, ENP-CK pour Kara)' })
-  @IsOptional()
-  @IsString()
-  campusCode?: string;
-
-  @ApiPropertyOptional({ example: 'GC', description: 'Code du département' })
-  @IsOptional()
-  @IsString()
-  departmentCode?: string;
 }

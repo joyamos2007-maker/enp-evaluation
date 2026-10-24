@@ -31,10 +31,20 @@ describe('JetonsService', () => {
     await service.emettre(42, 7, 3);
     const sql = db.query.mock.calls[0][0] as string;
     expect(sql).toContain('ref.enrollment');
+    expect(sql).not.toContain('ref.class_delegate');
+    expect(sql).toContain('e.course_id = co.id AND e.student_id = $1');
     expect(sql).toContain('ON CONFLICT DO NOTHING');
     expect(sql).toContain("c.statut = 'ouverte'");
     expect(sql).toContain('c.debut <= NOW()');
     expect(sql).toContain('c.fin > NOW()');
+  });
+
+  it('ne permet pas à un délégué non inscrit d’obtenir un jeton', async () => {
+    db.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await expect(service.emettre(43, 7, 3)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(db.query.mock.calls[0][0]).toContain('ref.enrollment');
+    expect(db.query.mock.calls[0][0]).not.toContain('ref.class_delegate');
+    expect(db.query.mock.calls[0][1]).toEqual([43, 7, 3]);
   });
 
   it('refuse (409) un etudiant qui a deja participe', async () => {

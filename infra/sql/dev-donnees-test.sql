@@ -7,6 +7,7 @@ CREATE TEMP TABLE tmp_comptes (
 );
 
 INSERT INTO tmp_comptes VALUES
+  ('TEST-0001', 'kodjo.adjei@exemple.test',    'ADJEI',     'Kodjo',  'etudiant'),
   ('TEST-0002', 'ama.koffi@exemple.test',     'KOFFI',     'Ama',    'etudiant'),
   ('TEST-0002', 'ama.koffi@exemple.test',     'KOFFI',     'Ama',    'delegue'),
   ('TEST-0003', 'kossi.mensah@exemple.test',  'MENSAH',    'Kossi',  'etudiant'),
@@ -23,18 +24,18 @@ WHERE NOT EXISTS (
   SELECT 1 FROM identity.users u WHERE u.matricule = t.matricule
 );
 
-INSERT INTO identity.user_roles (user_id, role)
-SELECT u.id, t.role
-FROM tmp_comptes t
-JOIN identity.users u ON u.matricule = t.matricule
-WHERE NOT EXISTS (
-  SELECT 1 FROM identity.user_roles r
-  WHERE r.user_id = u.id AND r.role = t.role
-);
-
 -- 2. Structure
 INSERT INTO ref.campus (nom) VALUES ('Campus de Lome')
 ON CONFLICT DO NOTHING;
+
+INSERT INTO identity.user_roles (user_id, role, campus_id)
+SELECT u.id, t.role, c.id
+FROM tmp_comptes t
+JOIN identity.users u ON u.matricule = t.matricule
+CROSS JOIN ref.campus c
+WHERE c.nom = 'Campus de Lome'
+ON CONFLICT (user_id, role) DO UPDATE
+  SET campus_id = EXCLUDED.campus_id;
 
 INSERT INTO ref.department (campus_id, nom)
 SELECT c.id, 'Genie Informatique' FROM ref.campus c WHERE c.nom = 'Campus de Lome'

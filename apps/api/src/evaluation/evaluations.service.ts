@@ -47,18 +47,18 @@ export class EvaluationsService {
     const rows = await this.db.query<LigneAFaire>(
       `SELECT co.id AS ue_id, ue.code, ue.intitule, c.id AS campagne_id, c.fin AS fin_campagne,
               CASE WHEN l.student_id IS NULL THEN 'a_faire' ELSE 'terminee' END AS etat
-       FROM ref.enrollment e
-       JOIN ref.course co ON co.id = e.course_id
+       FROM ref.course co
        JOIN ref.ue ue ON ue.id = co.ue_id
        JOIN ref.program p ON p.id = co.program_id
        JOIN evaluation.campaigns c
          ON c.department_id = p.department_id
         AND c.annee_universitaire = co.annee_universitaire
         AND c.semestre = co.semestre
+       LEFT JOIN ref.enrollment e ON e.course_id = co.id AND e.student_id = $1
+       JOIN ref.enrollment e ON e.course_id = co.id AND e.student_id = $1
        LEFT JOIN evaluation.participation_ledger l
-         ON l.campaign_id = c.id AND l.course_id = co.id AND l.student_id = e.student_id
-       WHERE e.student_id = $1
-         AND c.statut = 'ouverte' AND c.debut <= NOW() AND c.fin > NOW()
+         ON l.campaign_id = c.id AND l.course_id = co.id AND l.student_id = $1
+       WHERE c.statut = 'ouverte' AND c.debut <= NOW() AND c.fin > NOW()
        ORDER BY ue.code`,
       [userId],
     );

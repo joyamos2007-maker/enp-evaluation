@@ -10,6 +10,7 @@ export interface SessionEmise {
 
 export interface SessionRenouvelee extends SessionEmise {
   userId: number;
+  activeRole: string | null;
 }
 
 function empreinte(jeton: string): string {
@@ -25,17 +26,17 @@ export class SessionService {
   constructor(private readonly db: DatabaseService) {}
 
   // Ouvre une nouvelle session (nouvelle famille de jetons)
-  async creer(userId: number): Promise<SessionEmise> {
+  async creer(userId: number, activeRole: string | null): Promise<SessionEmise> {
     const jeton = nouveauJeton();
     const rows = await this.db.query<{ inactif_apres: Date }>(
       `INSERT INTO identity.refresh_tokens
-         (user_id, famille_id, jeton_hash, inactif_apres, expire_le)
+         (user_id, famille_id, jeton_hash, inactif_apres, expire_le, active_role)
        VALUES ($1, $2, $3,
                LEAST(NOW() + make_interval(mins => $4::int),
                      NOW() + make_interval(hours => $5::int)),
-               NOW() + make_interval(hours => $5::int))
+               NOW() + make_interval(hours => $5::int), $6)
        RETURNING inactif_apres`,
-      [userId, randomUUID(), empreinte(jeton), DUREE_INACTIVITE_MINUTES, DUREE_SESSION_HEURES],
+      [userId, randomUUID(), empreinte(jeton), DUREE_INACTIVITE_MINUTES, DUREE_SESSION_HEURES, activeRole],
     );
     return { jeton, expireLe: rows[0].inactif_apres };
   }
@@ -44,7 +45,7 @@ export class SessionService {
   async renouveler(jetonBrut: string): Promise<SessionRenouvelee> {
     const ancienne = empreinte(jetonBrut);
     const nouveau = nouveauJeton();
-    const rows = await this.db.query<{ user_id: number; inactif_apres: Date }>(
+    const rows = await this.db.query<{ user_id: number; inactif_apres: Date; active_role: string | null }>(
       `WITH ancien AS (
          UPDATE identity.refresh_tokens
          SET remplace_le = NOW()
@@ -53,15 +54,15 @@ export class SessionService {
            AND revoque_le IS NULL
            AND inactif_apres > NOW()
            AND expire_le > NOW()
-         RETURNING user_id, famille_id, expire_le
+         RETURNING user_id, famille_id, expire_le, active_role
        )
        INSERT INTO identity.refresh_tokens
-         (user_id, famille_id, jeton_hash, inactif_apres, expire_le)
+         (user_id, famille_id, jeton_hash, inactif_apres, expire_le, active_role)
        SELECT user_id, famille_id, $2::text,
               LEAST(NOW() + make_interval(mins => $3::int), expire_le),
-              expire_le
+              expire_le, active_role
        FROM ancien
-       RETURNING user_id, inactif_apres`,
+       RETURNING user_id, inactif_apres, active_role`,
       [ancienne, empreinte(nouveau), DUREE_INACTIVITE_MINUTES],
     );
 
@@ -69,7 +70,25 @@ export class SessionService {
       await this.traiterEchec(ancienne);
       throw new UnauthorizedException('Session expiree, reconnectez-vous');
     }
-    return { userId: rows[0].user_id, jeton: nouveau, expireLe: rows[0].inactif_apres };
+    return {
+      userId: rows[0].user_id,
+      jeton: nouveau,
+      expireLe: rows[0].inactif_apres,
+      activeRole: rows[0].active_role,
+    };
+  }
+
+  async changerProfil(jetonBrut: string, userId: number, activeRole: string): Promise<boolean> {
+    const rows = await this.db.query<{ id: number }>(
+      `UPDATE identity.refresh_tokens
+       SET active_role = $3
+       WHERE jeton_hash = $1 AND user_id = $2
+         AND remplace_le IS NULL AND revoque_le IS NULL
+         AND inactif_apres > NOW() AND expire_le > NOW()
+       RETURNING id`,
+      [empreinte(jetonBrut), userId, activeRole],
+    );
+    return rows.length > 0;
   }
 
   async revoquer(jetonBrut: string): Promise<void> {

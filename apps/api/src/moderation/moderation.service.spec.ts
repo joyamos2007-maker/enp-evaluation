@@ -95,44 +95,71 @@ describe('ModerationService', () => {
     const ref = { ballotId: BALLOT, type: 'points_forts' as const };
 
     it('applique la decision via la fonction SQL puis relit le commentaire', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'ok' }]).mockResolvedValueOnce([ue]);
-      urne.lire.mockResolvedValueOnce([ligne({ statut: 'masque' })]);
+      db.query
+        .mockResolvedValueOnce([{ statut: 'close' }])
+        .mockResolvedValueOnce([{ etat: 'prete' }])
+        .mockResolvedValueOnce([{ etat: 'ok' }])
+        .mockResolvedValueOnce([ue]);
+      urne.lire
+        .mockResolvedValueOnce([{ campaign_id: 1 }])
+        .mockResolvedValueOnce([ligne({ statut: 'masque' })]);
       const res = await service.decider(ref, 'masque', 2);
-      expect(db.query.mock.calls[0][1]).toEqual([BALLOT, 'points_forts', 'masque', 2, 5]);
+      expect(db.query.mock.calls[2][1]).toEqual([BALLOT, 'points_forts', 'masque', 2, 5]);
       expect(res).toMatchObject({ id: BALLOT + '.points_forts', statut: 'masque' });
     });
 
     it('ne transmet jamais de texte a la fonction de moderation', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'ok' }]).mockResolvedValueOnce([ue]);
-      urne.lire.mockResolvedValueOnce([ligne()]);
+      db.query
+        .mockResolvedValueOnce([{ statut: 'close' }])
+        .mockResolvedValueOnce([{ etat: 'prete' }])
+        .mockResolvedValueOnce([{ etat: 'ok' }])
+        .mockResolvedValueOnce([ue]);
+      urne.lire
+        .mockResolvedValueOnce([{ campaign_id: 1 }])
+        .mockResolvedValueOnce([ligne()]);
       await service.decider(ref, 'valide', 2);
-      expect(JSON.stringify(db.query.mock.calls[0])).not.toContain('Cours clair');
+      expect(JSON.stringify(db.query.mock.calls[2])).not.toContain('Cours clair');
     });
 
     it('accepte une decision identique a l etat actuel', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'inchange' }]).mockResolvedValueOnce([ue]);
-      urne.lire.mockResolvedValueOnce([ligne({ statut: 'valide' })]);
+      db.query
+        .mockResolvedValueOnce([{ statut: 'close' }])
+        .mockResolvedValueOnce([{ etat: 'prete' }])
+        .mockResolvedValueOnce([{ etat: 'inchange' }])
+        .mockResolvedValueOnce([ue]);
+      urne.lire
+        .mockResolvedValueOnce([{ campaign_id: 1 }])
+        .mockResolvedValueOnce([ligne({ statut: 'valide' })]);
       await expect(service.decider(ref, 'valide', 2)).resolves.toMatchObject({ statut: 'valide' });
     });
 
     it('retourne 404 pour un commentaire introuvable', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'introuvable' }]);
+      urne.lire.mockResolvedValueOnce([]);
       await expect(service.decider(ref, 'valide', 2)).rejects.toBeInstanceOf(NotFoundException);
-      expect(urne.lire).not.toHaveBeenCalled();
+      expect(db.query).not.toHaveBeenCalled();
     });
 
     it('retourne 409 quand la campagne n est pas moderable', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'non_modifiable' }]);
+      urne.lire.mockResolvedValueOnce([{ campaign_id: 1 }]);
+      db.query.mockResolvedValueOnce([{ statut: 'ouverte' }]);
       await expect(service.decider(ref, 'valide', 2)).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('retourne 400 pour un statut invalide', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'statut_invalide' }]);
+      urne.lire.mockResolvedValueOnce([{ campaign_id: 1 }]);
+      db.query
+        .mockResolvedValueOnce([{ statut: 'close' }])
+        .mockResolvedValueOnce([{ etat: 'prete' }])
+        .mockResolvedValueOnce([{ etat: 'statut_invalide' }]);
       await expect(service.decider(ref, 'valide', 2)).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('retourne 409 pour un etat inattendu', async () => {
-      db.query.mockResolvedValueOnce([{ etat: 'bizarre' }]);
+      urne.lire.mockResolvedValueOnce([{ campaign_id: 1 }]);
+      db.query
+        .mockResolvedValueOnce([{ statut: 'close' }])
+        .mockResolvedValueOnce([{ etat: 'prete' }])
+        .mockResolvedValueOnce([{ etat: 'bizarre' }]);
       await expect(service.decider(ref, 'valide', 2)).rejects.toBeInstanceOf(ConflictException);
     });
   });

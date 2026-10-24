@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS identity.user_roles (
   user_id INT NOT NULL REFERENCES identity.users(id) ON DELETE CASCADE,
   role    VARCHAR(30) NOT NULL
           CHECK (role IN ('etudiant', 'delegue', 'enseignant',
-                          'chef_departement', 'scolarite', 'admin')),
+                          'chef_departement', 'scolarite',
+                          'direction_etudes', 'admin')),
   PRIMARY KEY (user_id, role)
 );

@@ -6,13 +6,20 @@ describe('EvaluationsController', () => {
   const jetons = { emettre: jest.fn() };
   const controller = new EvaluationsController(evaluations as never, jetons as never);
   const etudiant = { headers: {}, utilisateur: { id: 42, roles: ['etudiant'] } };
+  const delegue = { headers: {}, utilisateur: { id: 43, roles: ['delegue'] } };
 
   beforeEach(() => jest.resetAllMocks());
 
   it('utilise l identifiant de l utilisateur connecte', () => {
     evaluations.aFaire.mockResolvedValue([]);
-    controller.aFaire(etudiant);
-    expect(evaluations.aFaire).toHaveBeenCalledWith(42);
+    void controller.aFaire(etudiant);
+    expect(evaluations.aFaire).toHaveBeenCalledWith(42, false);
+  });
+
+  it('transmet le rôle de délégué au calcul des évaluations disponibles', () => {
+    evaluations.aFaire.mockResolvedValue([]);
+    void controller.aFaire(delegue);
+    expect(evaluations.aFaire).toHaveBeenCalledWith(43, true);
   });
 
   it('refuse quand aucun utilisateur n est identifie', () => {
@@ -29,20 +36,26 @@ describe('EvaluationsController', () => {
 
   it('transmet un campagneId valide', () => {
     evaluations.questionnaire.mockResolvedValue({});
-    controller.questionnaire('7');
+    void controller.questionnaire('7');
     expect(evaluations.questionnaire).toHaveBeenCalledWith(7);
   });
 
   it('emet un jeton pour l utilisateur connecte', async () => {
     jetons.emettre.mockResolvedValue({ jeton: 'j', expireDans: 3600 });
     await controller.jeton('7', { campagneId: 3 }, etudiant);
-    expect(jetons.emettre).toHaveBeenCalledWith(42, 7, 3);
+    expect(jetons.emettre).toHaveBeenCalledWith(42, 7, 3, false);
+  });
+
+  it('permet au délégué d’obtenir un jeton pour les cours de sa classe', async () => {
+    jetons.emettre.mockResolvedValue({ jeton: 'j', expireDans: 3600 });
+    await controller.jeton('7', { campagneId: 3 }, delegue);
+    expect(jetons.emettre).toHaveBeenCalledWith(43, 7, 3, true);
   });
 
   it('ignore tout identifiant d etudiant fourni dans le corps', async () => {
     jetons.emettre.mockResolvedValue({});
     await controller.jeton('7', { campagneId: 3, studentId: 999, userId: 999 }, etudiant);
-    expect(jetons.emettre).toHaveBeenCalledWith(42, 7, 3);
+    expect(jetons.emettre).toHaveBeenCalledWith(42, 7, 3, false);
   });
 
   it('refuse l emission sans utilisateur identifie', async () => {

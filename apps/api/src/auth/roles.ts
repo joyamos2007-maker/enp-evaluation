@@ -4,6 +4,7 @@ export const ROLES = [
   'enseignant',
   'chef_departement',
   'scolarite',
+  'direction_etudes',
   'admin',
 ] as const;
 

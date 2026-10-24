@@ -8,19 +8,24 @@ import { PasswordService } from './password.service';
 import { RolesGuard } from './roles.guard';
 import { SessionService } from './session.service';
 import { TokenService } from './token.service';
+import { EmailService } from './email.service';
+import { IdentityService } from './identity.service';
+import { ActivationCodesController } from './activation-codes.controller';
 
 @Module({
   imports: [UsersModule],
-  controllers: [AuthController],
+  controllers: [AuthController, ActivationCodesController],
   providers: [
     PasswordService,
     TokenService,
     SessionService,
+    EmailService,
+    IdentityService,
     AuthService,
     // Portiers globaux, dans cet ordre : d'abord le jeton, ensuite les roles
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [PasswordService, TokenService],
+  exports: [PasswordService, TokenService, IdentityService, EmailService],
 })
 export class AuthModule {}

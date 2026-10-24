@@ -1,6 +1,7 @@
 export interface UtilisateurAuthentifie {
   id: number;
   roles: string[];
+  activeRole: string;
 }
 
 export interface RequeteAuthentifiee {

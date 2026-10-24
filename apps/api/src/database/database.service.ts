@@ -1,6 +1,11 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Module, Global } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Pool, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResultRow } from 'pg';
+
+export type DatabaseQuery = <T extends QueryResultRow>(
+  text: string,
+  params?: unknown[],
+) => Promise<T[]>;
 
 export interface InfosRoleApp {
   superuser: boolean;
@@ -60,6 +65,28 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   async query<T extends QueryResultRow>(text: string, params: unknown[] = []): Promise<T[]> {
     const res = await this.pool.query<T>(text, params);
     return res.rows;
+  }
+
+  async transaction<T>(work: (query: DatabaseQuery) => Promise<T>): Promise<T> {
+    const client: PoolClient = await this.pool.connect();
+    const query: DatabaseQuery = async <R extends QueryResultRow>(
+      text: string,
+      params: unknown[] = [],
+    ) => {
+      const result = await client.query<R>(text, params);
+      return result.rows;
+    };
+    try {
+      await client.query('BEGIN');
+      const result = await work(query);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async ping(): Promise<boolean> {

@@ -15,6 +15,17 @@ export interface Utilisateur {
   verrouille_jusqua: Date | null;
 }
 
+export interface CompteAdmin {
+  id: number;
+  matricule: string | null;
+  email: string | null;
+  nom: string;
+  prenom: string;
+  actif: boolean;
+  motDePasseConfigure: boolean;
+  roles: string[];
+}
+
 const COLONNES = `id, matricule, email, nom, prenom, mot_de_passe_hash, actif,
                   tentatives_echouees, verrouille_jusqua`;
 
@@ -47,6 +58,27 @@ export class UsersService {
       [userId],
     );
     return rows.map((r) => r.role);
+  }
+
+  async listerComptes(campusId: number | null = null): Promise<CompteAdmin[]> {
+    return this.db.query<CompteAdmin>(
+      `SELECT u.id, u.matricule, u.email, u.nom, u.prenom, u.actif,
+              (u.mot_de_passe_hash IS NOT NULL) AS "motDePasseConfigure",
+              COALESCE(array_agg(r.role ORDER BY r.role)
+                FILTER (WHERE r.role IS NOT NULL), ARRAY[]::varchar[]) AS roles
+       FROM identity.users u
+       LEFT JOIN identity.user_roles r ON r.user_id = u.id
+       WHERE ($1::int IS NULL OR EXISTS (
+         SELECT 1 FROM identity.user_roles perimetre
+         WHERE perimetre.user_id = u.id
+           AND (perimetre.campus_id = $1 OR perimetre.department_id IN (
+             SELECT d.id FROM ref.department d WHERE d.campus_id = $1
+           ))
+       ))
+       GROUP BY u.id
+       ORDER BY u.nom, u.prenom, u.id`,
+      [campusId],
+    );
   }
 
   // Une seule requete atomique : le compteur monte, et au seuil le compte

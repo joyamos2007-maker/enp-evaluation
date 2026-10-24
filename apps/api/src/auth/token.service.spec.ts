@@ -29,8 +29,12 @@ describe('TokenService', () => {
   });
 
   it('signe puis relit un jeton', () => {
-    const jeton = service.signerAcces({ sub: '7', roles: ['etudiant'] });
-    expect(service.verifierAcces(jeton)).toEqual({ sub: '7', roles: ['etudiant'] });
+    const jeton = service.signerAcces({ sub: '7', roles: ['etudiant'], activeRole: 'etudiant' });
+    expect(service.verifierAcces(jeton)).toEqual({
+      sub: '7',
+      roles: ['etudiant'],
+      activeRole: 'etudiant',
+    });
   });
 
   it('signe puis relit un refresh token', () => {
@@ -43,12 +47,12 @@ describe('TokenService', () => {
   });
 
   it('refuse un jeton modifie', () => {
-    const jeton = service.signerAcces({ sub: '7', roles: ['etudiant'] });
+    const jeton = service.signerAcces({ sub: '7', roles: ['etudiant'], activeRole: 'etudiant' });
     expect(service.verifierAcces(jeton + 'x')).toBeNull();
   });
 
   it('refuse un jeton signe avec un autre secret', () => {
-    const faux = jwt.sign({ sub: '7', roles: ['admin'] }, 'b'.repeat(40));
+    const faux = jwt.sign({ sub: '7', roles: ['admin'], activeRole: 'admin' }, 'b'.repeat(40));
     expect(service.verifierAcces(faux)).toBeNull();
   });
 

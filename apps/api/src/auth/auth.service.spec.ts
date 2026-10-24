@@ -12,11 +12,13 @@ describe('AuthService', () => {
   const passwords = { verify: jest.fn(), hash: jest.fn() };
   const tokens = { signerAcces: jest.fn() };
   const sessions = { creer: jest.fn(), renouveler: jest.fn(), revoquer: jest.fn() };
+  const identity = { creerChallengeMfa: jest.fn(), totpDisponible: jest.fn(), verifierChallengeMfa: jest.fn() };
   const service = new AuthService(
     users as never,
     passwords as never,
     tokens as never,
     sessions as never,
+    identity as never,
   );
 
   const expireLe = new Date('2030-01-01T00:00:00Z');
@@ -45,9 +47,19 @@ describe('AuthService', () => {
     passwords.verify.mockResolvedValue(true);
     const res = await service.connecter('TEST-0001', 'bon');
     expect(res.accessToken).toBe('jeton-signe');
-    expect(res.utilisateur).toEqual({ id: 1, nom: 'TEST', prenom: 'Etudiant', roles: ['etudiant'] });
+    expect(res.utilisateur).toEqual({
+      id: 1,
+      nom: 'TEST',
+      prenom: 'Etudiant',
+      roles: ['etudiant'],
+      activeRole: 'etudiant',
+    });
     expect(res.refresh).toEqual({ jeton: 'refresh-1', expireLe });
-    expect(tokens.signerAcces).toHaveBeenCalledWith({ sub: '1', roles: ['etudiant'] });
+    expect(tokens.signerAcces).toHaveBeenCalledWith({
+      sub: '1',
+      roles: ['etudiant'],
+      activeRole: 'etudiant',
+    });
     expect(users.reinitialiserEchecs).not.toHaveBeenCalled();
   });
 
@@ -113,7 +125,7 @@ describe('AuthService', () => {
   });
 
   it('rafraichit la session : nouveau jeton d acces et nouveau jeton de session', async () => {
-    sessions.renouveler.mockResolvedValue({ userId: 1, jeton: 'refresh-2', expireLe });
+    sessions.renouveler.mockResolvedValue({ userId: 1, jeton: 'refresh-2', expireLe, activeRole: 'etudiant' });
     users.trouverParId.mockResolvedValue(utilisateur);
     const res = await service.rafraichir('refresh-1');
     expect(sessions.renouveler).toHaveBeenCalledWith('refresh-1');

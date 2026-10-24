@@ -26,6 +26,8 @@ interface LigneFiche {
   code: string;
   intitule: string;
   campagne_id: number;
+  department_id: number;
+  campus_id: number;
   statut: string;
   inscrits: number;
   enseigne: boolean;
@@ -101,27 +103,37 @@ export class ResultatsService {
     utilisateur: { id: number; roles: string[] },
     courseId: number,
     campagneId: number,
+    campusId: number | null = null,
+    departmentId: number | null = null,
   ): Promise<ResultatUe> {
     const lignes = await this.db.query<LigneFiche>(
-      `SELECT co.id AS ue_id, ue.code, ue.intitule, c.id AS campagne_id, c.statut,
+      `      SELECT co.id AS ue_id, ue.code, ue.intitule, c.id AS campagne_id,
+             p.department_id, c.statut,
               (SELECT COUNT(*)::int FROM ref.enrollment e WHERE e.course_id = co.id) AS inscrits,
               EXISTS (SELECT 1 FROM ref.course_teacher ct
                       WHERE ct.course_id = co.id AND ct.teacher_id = $3) AS enseigne
        FROM ref.course co
        JOIN ref.ue ue ON ue.id = co.ue_id
        JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        JOIN evaluation.campaigns c
          ON c.department_id = p.department_id
         AND c.annee_universitaire = co.annee_universitaire
         AND c.semestre = co.semestre
-       WHERE co.id = $1 AND c.id = $2`,
-      [courseId, campagneId, utilisateur.id],
+       WHERE co.id = $1 AND c.id = $2
+         AND ($4::int IS NULL OR d.campus_id = $4)
+         AND ($5::int IS NULL OR p.department_id = $5)`,
+      [courseId, campagneId, utilisateur.id, campusId, departmentId],
     );
     const l = lignes[0];
     if (!l) throw new NotFoundException('UE ou campagne introuvable');
 
     const accesComplet = utilisateur.roles.some((r) => ROLES_COMPLETS.includes(r));
-    if (!accesComplet && !l.enseigne) {
+    const dirigeDepartement =
+      utilisateur.roles.includes('chef_departement') &&
+      departmentId !== null &&
+      l.department_id === departmentId;
+    if (!accesComplet && !dirigeDepartement && !l.enseigne) {
       throw new ForbiddenException('Acces refuse : cette UE n est pas la votre');
     }
     if (l.statut !== 'close' && l.statut !== 'restituee') {

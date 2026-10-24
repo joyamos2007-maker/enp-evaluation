@@ -54,8 +54,12 @@ export class ModerationService {
     private readonly urne: ResultsDatabaseService,
   ) {}
 
-  async lister(campagneId: number, statut?: StatutModeration): Promise<CommentaireAModererDto[]> {
-    await this.verifierCampagne(campagneId);
+  async lister(
+    campagneId: number,
+    statut?: StatutModeration,
+    campusId: number | null = null,
+  ): Promise<CommentaireAModererDto[]> {
+    await this.verifierCampagne(campagneId, campusId);
     const lignes = await this.urne.lire<LigneCommentaire>(
       `SELECT cm.ballot_id, cm.type, cm.texte, cm.statut, b.course_id
        FROM ballot.ballot_comments cm
@@ -77,7 +81,19 @@ export class ModerationService {
     ref: RefCommentaire,
     decision: DecisionModeration,
     userId: number,
+    campusId: number | null = null,
   ): Promise<CommentaireAModererDto> {
+    const references = await this.urne.lire<{ campaign_id: number }>(
+      `SELECT b.campaign_id
+       FROM ballot.ballot_comments cm
+       JOIN ballot.ballots b ON b.id = cm.ballot_id
+       WHERE cm.ballot_id = $1::uuid AND cm.type = $2::text`,
+      [ref.ballotId, ref.type],
+    );
+    const campaignId = references[0]?.campaign_id;
+    if (campaignId === undefined) throw new NotFoundException('Commentaire introuvable');
+    await this.verifierCampagne(campaignId, campusId);
+
     const rows = await this.db.query<{ etat: string }>(
       'SELECT evaluation.moderer_commentaire($1::uuid, $2::text, $3::text, $4::int, $5::int) AS etat',
       [ref.ballotId, ref.type, decision, userId, SEUIL_ANONYMAT],
@@ -105,10 +121,13 @@ export class ModerationService {
     return dto;
   }
 
-  private async verifierCampagne(campagneId: number): Promise<void> {
+  private async verifierCampagne(campagneId: number, campusId: number | null): Promise<void> {
     const campagnes = await this.db.query<{ statut: string }>(
-      'SELECT statut FROM evaluation.campaigns WHERE id = $1',
-      [campagneId],
+      `SELECT c.statut
+       FROM evaluation.campaigns c
+       JOIN ref.department d ON d.id = c.department_id
+       WHERE c.id = $1 AND ($2::int IS NULL OR d.campus_id = $2)`,
+      [campagneId, campusId],
     );
     if (!campagnes[0]) throw new NotFoundException('Campagne introuvable');
     if (campagnes[0].statut !== 'close' && campagnes[0].statut !== 'restituee') {

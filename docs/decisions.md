@@ -285,4 +285,153 @@
   publication est visible des etudiants ; aucune route de consultation du journal.
 - A faire : route de consultation du journal (admin) ; table de rattachement du chef
   de departement ; imports CSV ; route des departements et tableau de bord de la
-  Scolarite.  
+  Scolarite.
+
+## 2026-10-23 — Actualisation après parcours du dépôt
+
+Cette entrée décrit l'état constaté dans le code, les scripts SQL et la documentation
+du dépôt à cette date. Elle complète les décisions historiques ci-dessus ; un élément
+présent dans le code n'est pas nécessairement une validation formelle de son périmètre
+par l'ENP.
+
+### Architecture et accès aux données
+
+- Le backend reste un monolithe NestJS en CommonJS, avec des modules séparés par
+  domaine. L'accès PostgreSQL utilise `pg` et des requêtes SQL paramétrées, sans ORM.
+- Les schémas SQL sont la source du modèle persistant : `identity`, `ref`, `evaluation`,
+  `ballot`, `academic`, `audit` et `system` (ce dernier est créé mais peu utilisé).
+  Les scripts de schéma et d'évolution sont exécutés manuellement ; aucun outil de
+  migration automatique n'est configuré.
+- Trois connexions applicatives sont prévues : base principale (`app_main`), écriture
+  dans l'urne (`ballot_app`) et lecture des résultats (`results_app`). Le code vérifie
+  que les URL de connexion sont distinctes et refuse certains droits excessifs au
+  démarrage. Cela établit une séparation de comptes et de privilèges ; les fichiers
+  Compose fournis ne démontrent pas une séparation en trois serveurs ou bases
+  physiques. La séparation physique reste à préciser avant la production.
+- L'API applique globalement l'authentification et le contrôle des rôles ; les routes
+  sans authentification doivent être explicitement marquées publiques. Les rôles
+  applicatifs et les périmètres campus/département sont relus en base.
+- CORS est configuré à partir de `ALLOWED_ORIGINS` ou `APP_URL`. La configuration
+  HTTPS, les certificats et le reverse proxy relèvent du déploiement, pas du démarrage
+  local de l'API.
+
+### Authentification et sessions effectivement codées
+
+- Les mots de passe sont hachés avec Argon2id (`@node-rs/argon2`). La connexion accepte
+  un matricule ou un e-mail ; l'erreur d'identifiants est générique. Cinq échecs sur
+  un compte le verrouillent 15 minutes.
+- Le jeton d'accès HS256 dure 15 minutes. Le jeton de renouvellement est aléatoire,
+  HttpOnly, SameSite=Strict, limité au chemin `/api/v1/auth` et Secure en production.
+  Seule son empreinte SHA-256 est conservée ; le renouvellement fait une rotation,
+  révoque la famille si un jeton remplacé est réutilisé, expire après 30 minutes
+  d'inactivité et au plus tard après 8 heures.
+- Le frontend garde le jeton d'accès en mémoire et mutualise les renouvellements
+  concurrents. Le brouillon d'évaluation, qui comprend le jeton de vote et les
+  réponses, est conservé dans `sessionStorage`, puis effacé après envoi réussi ou
+  déconnexion.
+- À confirmer/compléter : purge périodique des sessions expirées, révocation lors d'un
+  changement de mot de passe, limitation des tentatives par adresse au niveau du
+  déploiement et parcours backend d'activation/réinitialisation du mot de passe.
+  L'écran d'activation du frontend ne suffit pas à établir que ces parcours sont
+  disponibles côté API.
+- La protection par défaut et le renouvellement au chargement sont maintenant
+  implémentés ; ils remplacent les points « à faire » correspondants des entrées
+  historiques. Aucune MFA n'est implémentée.
+
+### Évaluation anonyme et résultats
+
+- L'unité évaluée reste une offre de cours (`ref.course`) — une UE pour une formation,
+  une année et un semestre — et non la seule ligne du catalogue `ref.ue`. Le registre
+  lie étudiant, campagne et cours ; l'urne conserve les bulletins sous UUID sans
+  identifiant étudiant. Les droits SQL et les connexions d'écriture/lecture à l'urne
+  sont séparés.
+- Le jeton de vote signé HS256 dure 60 minutes, utilise un secret distinct et ne
+  contient pas d'identité ni d'heure d'émission. L'émission enregistre la
+  participation atomiquement ; le dépôt consomme le `jti` anti-rejeu et écrit le
+  bulletin, les réponses et les commentaires dans une transaction. Le contrôleur de
+  dépôt n'utilise pas l'identité applicative.
+- Une campagne est unique par département, année universitaire et semestre. Son
+  questionnaire est fixé à sa création ; son ouverture et sa clôture sont des actions
+  explicites. Les réponses « Sans avis » sont exclues des moyennes et les moyennes de
+  section sont calculées sur les notes des critères, pas en moyennant les moyennes de
+  critères.
+- Le seuil codé reste de 5 bulletins. Les résultats et commentaires sont inaccessibles
+  avant la clôture et la préparation de l'urne ; cette préparation attend 120 secondes,
+  mélange les lignes de bulletins/réponses/commentaires et supprime les jetons expirés.
+  La préparation est déclenchée à la première consultation pertinente.
+- La Scolarité peut modérer le statut d'un commentaire après clôture et préparation ;
+  les commentaires sous le seuil ne sont pas proposés. La fonction SQL de modération
+  ne modifie pas le texte. Le journal d'audit reçoit une trace, mais l'API ne fournit
+  pas encore de route générale de consultation du journal.
+- La restitution est enregistrée une seule fois par campagne, avec résultats et suites,
+  puis consultable par les étudiants inscrits concernés. Sa publication et sa trace
+  sont écrites par une même requête SQL.
+- Limites qui restent à arbitrer ou vérifier : le seuil de 5 n'empêche pas toutes les
+  inférences ; les textes libres peuvent identifier leur auteur ; l'accès direct du
+  propriétaire/superutilisateur de la base n'est pas empêché par la séparation des
+  rôles applicatifs ; l'effet du mélange physique et l'absence d'horodatage corrélable
+  doivent être validés dans l'environnement réel.
+
+### Périmètre académique et multi-campus constaté
+
+- Le projet comporte maintenant des espaces pour la Scolarité, les Chefs de
+  département et la Direction des Études. La Scolarité est limitée à un campus ; le
+  Chef de département est limité au département rattaché ; la Direction consulte des
+  statistiques multisites et des contrôles académiques. Les référentiels et les
+  comptes peuvent être alimentés par l'administration et l'import CSV.
+- Le cahier de texte dispose de séances, de statuts et d'un visa enseignant ; les
+  heures prévues et réalisées sont suivies par type de séance. Dans le schéma présent,
+  le délégué est rattaché au programme et à l'année, et les séances visées ne sont
+  plus modifiables. L'historique de versions après visa décrit dans le cahier des
+  charges n'est pas matérialisé par une table de révisions.
+- Le code et la migration `012` ajoutent aussi des colonnes d'évaluation, des notes,
+  des présences et la consultation des notes/présences étudiantes ; la migration `013`
+  ajoute la délibération des examens, qui bloque ensuite la modification des notes et
+  permet leur affichage à l'étudiant. Ce périmètre dépasse le MVP initial du journal :
+  son statut (MVP, extension ou prototype) reste à faire valider.
+- L'import CSV implémenté porte sur les comptes. Les DTO de cours et d'inscriptions
+  ne suffisent pas à établir que ces deux imports sont exposés et terminés dans l'API.
+- Des jeux de données de démonstration multi-campus, d'évaluation, de notes et de
+  présences sont fournis pour le développement ; ils sont fictifs et ne doivent pas
+  être appliqués en production.
+
+### Frontend, exploitation et décisions encore ouvertes
+
+- Le frontend est une application React 18 / TypeScript / Vite, avec des parcours
+  correspondant aux rôles et un client pouvant utiliser soit l'API, soit les données
+  simulées. Le fichier `apps/web/.env.example` active actuellement le mode simulé ;
+  le désactiver explicitement et vérifier la configuration avant toute recette ou
+  mise en production.
+- Le dépôt contient des fichiers Docker et Nginx pour le développement et une
+  proposition de déploiement, mais l'environnement de production n'est pas validé
+  avec l'ENP. Les sauvegardes/restaurations, la supervision, le DNS/TLS, les comptes
+  institutionnels, la recette réelle et l'accès d'administration restent à confirmer.
+- Au relevé initial, les exports PDF/Word/Excel, les notifications e-mail/SMS et
+  la MFA restaient absents ou non établis. Les développements consignés ci-dessous
+  implémentent les exports du cahier, les rappels e-mail/intégrés et la MFA ;
+  les SMS et comparaisons historiques restent à arbitrer avec l'ENP.
+- À valider avec l'ENP : périmètre MVP final, traitement des données et durées de
+  conservation, responsable du déploiement/hébergement, règles d'activation des
+  comptes, données académiques officielles, et validation des fonctionnalités
+  académiques ajoutées.
+
+### 2026-10-08 - Rappels, exports et compléments du cahier de texte
+
+- La migration `016_notifications_exports_cahier_audit.sql` ajoute l'historique
+  immuable des séances, les pièces jointes en base et une boîte d'envoi durable.
+  Une séance future peut être planifiée ; l'application génère un rappel intégré
+  et un e-mail aux étudiants inscrits dans les 24 heures précédant son début.
+- Les campagnes ouvertes génèrent un rappel dans les 48 heures de leur clôture
+  aux seuls inscrits n'ayant pas de ligne correspondante dans le registre de
+  participation. Ce contrôle n'accède ni aux bulletins ni à leurs réponses.
+- Le cahier de texte est consultable en lecture seule par les étudiants inscrits
+  pour les séances visées et planifiées. Les enseignants et délégués conservent
+  leurs périmètres de cours ; les pièces jointes acceptées sont PDF, PNG ou JPEG
+  (10 Mo maximum). L'export PDF, Excel et Word reprend ce périmètre autorisé.
+- Le service d'audit partagé trace les imports appliqués, les affectations,
+  mandats, archives et mutations du cahier. Les détails consignés n'incluent pas
+  les bulletins, réponses de vote, jetons ni adresses IP.
+- Configuration opérationnelle restante : SMTP est requis pour la livraison des
+  e-mails ; les notifications intégrées restent disponibles sans SMTP. La
+  migration doit être appliquée par le propriétaire PostgreSQL et les scénarios
+  SQL, rappels et pièces jointes doivent être validés en environnement de recette.

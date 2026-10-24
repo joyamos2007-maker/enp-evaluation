@@ -15,7 +15,7 @@ describe('RestitutionService', () => {
     const res = await service.publier(3, 2, entree);
     expect(res).toMatchObject({ id: 3, statut: 'restituee' });
     expect(db.query).toHaveBeenCalledTimes(1);
-    expect(db.query.mock.calls[0][1]).toEqual([3, entree.resultats, entree.suites, 2]);
+    expect(db.query.mock.calls[0][1]).toEqual([3, entree.resultats, entree.suites, 2, null]);
     const sql = db.query.mock.calls[0][0] as string;
     expect(sql).toContain("statut = 'close'");
     expect(sql).toContain('evaluation.restitutions');

@@ -3,11 +3,13 @@ import {
   HttpStatus,
   Injectable,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { type Utilisateur, UsersService } from '../users/users.service';
 import { PasswordService } from './password.service';
 import { type SessionEmise, SessionService } from './session.service';
 import { DUREE_JETON_SECONDES, TokenService } from './token.service';
+import { IdentityService } from './identity.service';
 
 const MESSAGE_ECHEC = 'Identifiant ou mot de passe incorrect';
 const MESSAGE_SESSION = 'Session expiree, reconnectez-vous';
@@ -21,6 +23,7 @@ export class AuthService {
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
     private readonly sessions: SessionService,
+    private readonly identity: IdentityService,
   ) {}
 
   async connecter(identifiant: string, motDePasse: string) {
@@ -52,8 +55,23 @@ export class AuthService {
       await this.users.reinitialiserEchecs(utilisateur.id);
     }
 
-    const refresh = await this.sessions.creer(utilisateur.id);
-    return this.reponseAvec(utilisateur, refresh);
+    const roles = await this.users.rolesDe(utilisateur.id);
+    if (roles.some((role) => ['admin', 'scolarite', 'direction_etudes', 'chef_departement'].includes(role))) {
+      if (!utilisateur.email) {
+        throw new ForbiddenException('Une adresse e-mail institutionnelle doit etre configuree pour le MFA');
+      }
+      const mfa = await this.identity.creerChallengeMfa(
+        utilisateur.id,
+        utilisateur.email,
+        await this.identity.totpDisponible(utilisateur.id),
+      );
+      return mfa;
+    }
+
+    const roleActif = roles[0];
+    if (!roleActif) throw new UnauthorizedException(MESSAGE_ECHEC);
+    const refresh = await this.sessions.creer(utilisateur.id, roleActif);
+    return this.reponseAvec(utilisateur, refresh, roleActif);
   }
 
   async rafraichir(jetonBrut: string) {
@@ -65,7 +83,57 @@ export class AuthService {
       await this.sessions.revoquer(session.jeton);
       throw new UnauthorizedException(MESSAGE_SESSION);
     }
-    return this.reponseAvec(utilisateur, { jeton: session.jeton, expireLe: session.expireLe });
+    const roles = await this.users.rolesDe(utilisateur.id);
+    const roleActif = session.activeRole && roles.includes(session.activeRole)
+      ? session.activeRole
+      : roles[0];
+    if (!roleActif) {
+      await this.sessions.revoquer(session.jeton);
+      throw new UnauthorizedException(MESSAGE_SESSION);
+    }
+    return this.reponseAvec(
+      utilisateur,
+      { jeton: session.jeton, expireLe: session.expireLe },
+      roleActif,
+    );
+  }
+
+  async verifierMfa(challengeId: string, method: string, code: string) {
+    const userId = await this.identity.verifierChallengeMfa(challengeId, method, code);
+    const utilisateur = await this.users.trouverParId(userId);
+    if (!utilisateur || !utilisateur.actif || !utilisateur.mot_de_passe_hash) {
+      throw new UnauthorizedException(MESSAGE_ECHEC);
+    }
+    const roles = await this.users.rolesDe(userId);
+    const roleActif = roles[0];
+    if (!roleActif) throw new UnauthorizedException(MESSAGE_ECHEC);
+    const refresh = await this.sessions.creer(userId, roleActif);
+    return this.reponseAvec(utilisateur, refresh, roleActif);
+  }
+
+  async selectionnerProfil(userId: number, role: string, refreshToken: string) {
+    const roles = await this.users.rolesDe(userId);
+    if (!roles.includes(role)) throw new ForbiddenException('Profil non attribue a ce compte');
+    if (!(await this.sessions.changerProfil(refreshToken, userId, role))) {
+      throw new UnauthorizedException(MESSAGE_SESSION);
+    }
+    const utilisateur = await this.users.trouverParId(userId);
+    if (!utilisateur || !utilisateur.actif) throw new UnauthorizedException(MESSAGE_SESSION);
+    return {
+      accessToken: this.tokens.signerAcces({
+        sub: String(userId),
+        roles,
+        activeRole: role,
+      }),
+      expiresIn: DUREE_JETON_SECONDES,
+      utilisateur: {
+        id: utilisateur.id,
+        nom: utilisateur.nom,
+        prenom: utilisateur.prenom,
+        roles,
+        activeRole: role,
+      },
+    };
   }
 
   async deconnecter(jetonBrut: string): Promise<void> {
@@ -75,16 +143,22 @@ export class AuthService {
   private async reponseAvec(
     utilisateur: Pick<Utilisateur, 'id' | 'nom' | 'prenom'>,
     refresh: SessionEmise,
+    activeRole: string,
   ) {
     const roles = await this.users.rolesDe(utilisateur.id);
     return {
-      accessToken: this.tokens.signerAcces({ sub: String(utilisateur.id), roles }),
+      accessToken: this.tokens.signerAcces({
+        sub: String(utilisateur.id),
+        roles,
+        activeRole,
+      }),
       expiresIn: DUREE_JETON_SECONDES,
       utilisateur: {
         id: utilisateur.id,
         nom: utilisateur.nom,
         prenom: utilisateur.prenom,
         roles,
+        activeRole,
       },
       refresh,
     };

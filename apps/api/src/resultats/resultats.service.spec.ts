@@ -13,6 +13,7 @@ describe('ResultatsService', () => {
     code: 'INF501',
     intitule: 'Bases de donnees',
     campagne_id: 3,
+    department_id: 12,
     statut: 'close',
     inscrits: 5,
     enseigne: true,
@@ -107,6 +108,16 @@ describe('ResultatsService', () => {
         .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire.mockResolvedValueOnce([{ n: 2 }]);
       await expect(service.fiche(sco, 1, 3)).resolves.toMatchObject({ detailDisponible: false });
+    });
+
+    it('permet au Chef de département de consulter une UE de son seul département', async () => {
+      const chef = { id: 45, roles: ['chef_departement'] };
+      db.query.mockResolvedValueOnce([meta({ enseigne: false })]).mockResolvedValueOnce([{ etat: 'prete' }]);
+      urne.lire.mockResolvedValueOnce([{ n: 4 }]);
+      await expect(service.fiche(chef, 1, 3, null, 12)).resolves.toMatchObject({
+        detailDisponible: false,
+      });
+      expect(db.query.mock.calls[0][1]).toEqual([1, 3, 45, null, 12]);
     });
 
     it('lit l urne seulement pour une campagne close et preparee, et seulement les commentaires valides', async () => {

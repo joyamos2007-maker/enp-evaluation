@@ -3,10 +3,14 @@ import { ResultatsController } from './resultats.controller';
 
 describe('ResultatsController', () => {
   const resultats = { mesUes: jest.fn(), fiche: jest.fn() };
-  const controller = new ResultatsController(resultats as never);
+  const campusScope = { forScolarite: jest.fn(), forChefDepartement: jest.fn() };
+  const controller = new ResultatsController(resultats as never, campusScope as never);
   const ens = { headers: {}, utilisateur: { id: 30, roles: ['enseignant'] } };
 
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => {
+    jest.resetAllMocks();
+    campusScope.forChefDepartement.mockResolvedValue(12);
+  });
 
   it('liste les UE de l utilisateur connecte', () => {
     resultats.mesUes.mockResolvedValue([]);
@@ -40,7 +44,21 @@ describe('ResultatsController', () => {
   it('transmet l utilisateur, l UE et la campagne', async () => {
     resultats.fiche.mockResolvedValue({ ueId: 1 });
     const res = await controller.fiche('1', '3', ens);
-    expect(resultats.fiche).toHaveBeenCalledWith({ id: 30, roles: ['enseignant'] }, 1, 3);
+    expect(resultats.fiche).toHaveBeenCalledWith({ id: 30, roles: ['enseignant'] }, 1, 3, null, null);
     expect(res).toEqual({ ueId: 1 });
+  });
+
+  it('limite le Chef de département à son périmètre', async () => {
+    const chef = { headers: {}, utilisateur: { id: 45, roles: ['chef_departement'] } };
+    resultats.fiche.mockResolvedValue({ ueId: 1 });
+    await controller.fiche('1', '3', chef);
+    expect(campusScope.forChefDepartement).toHaveBeenCalledWith(45, ['chef_departement']);
+    expect(resultats.fiche).toHaveBeenCalledWith(
+      { id: 45, roles: ['chef_departement'] },
+      1,
+      3,
+      null,
+      12,
+    );
   });
 });

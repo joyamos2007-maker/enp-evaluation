@@ -35,7 +35,11 @@ export class AuthGuard implements CanActivate {
     if (!contenu) {
       throw new UnauthorizedException('Jeton invalide ou expire');
     }
-    requete.utilisateur = { id: Number(contenu.sub), roles: contenu.roles };
+    requete.utilisateur = {
+      id: Number(contenu.sub),
+      roles: contenu.roles,
+      activeRole: contenu.activeRole,
+    };
     return true;
   }
 }

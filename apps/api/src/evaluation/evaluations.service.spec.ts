@@ -25,6 +25,17 @@ describe('EvaluationsService', () => {
     await expect(service.aFaire(42)).resolves.toEqual([]);
   });
 
+  it('ne liste pas les cours du délégué auxquels il n’est pas inscrit', async () => {
+    db.query.mockResolvedValue([
+      { ue_id: 3, code: 'INF501', intitule: 'Bases de donnees', etat: 'a_faire', campagne_id: 2, fin_campagne: new Date('2030-01-01T00:00:00Z') },
+    ]);
+    const res = await service.aFaire(43);
+    expect(db.query.mock.calls[0][1]).toEqual([43]);
+    expect(db.query.mock.calls[0][0]).toContain('JOIN ref.enrollment e ON e.course_id = co.id AND e.student_id = $1');
+    expect(db.query.mock.calls[0][0]).not.toContain('ref.class_delegate');
+    expect(res).toHaveLength(1);
+  });
+
   it('refuse un questionnaire pour une campagne fermee ou inexistante', async () => {
     db.query.mockResolvedValueOnce([]);
     await expect(service.questionnaire(9)).rejects.toBeInstanceOf(NotFoundException);

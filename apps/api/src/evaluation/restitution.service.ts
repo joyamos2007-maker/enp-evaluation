@@ -34,11 +34,20 @@ export class RestitutionService {
 
   // Une seule requete : changement de statut, enregistrement des textes et trace
   // d'audit sont inseparables. Deux publications simultanees : une seule reussit.
-  async publier(campagneId: number, userId: number, entree: RestitutionEntree): Promise<CampagneDto> {
+  async publier(
+    campagneId: number,
+    userId: number,
+    entree: RestitutionEntree,
+    campusId: number | null = null,
+  ): Promise<CampagneDto> {
     const rows = await this.db.query<{ id: number }>(
       `WITH maj AS (
          UPDATE evaluation.campaigns SET statut = 'restituee'
          WHERE id = $1::int AND statut = 'close'
+           AND ($5::int IS NULL OR EXISTS (
+             SELECT 1 FROM ref.department d
+             WHERE d.id = evaluation.campaigns.department_id AND d.campus_id = $5
+           ))
          RETURNING id),
        publication AS (
          INSERT INTO evaluation.restitutions (campaign_id, resultats, suites, publie_par)
@@ -49,10 +58,10 @@ export class RestitutionService {
          SELECT $4::int, 'restitution', id, 'close -> restituee' FROM maj
          RETURNING id)
        SELECT id FROM maj`,
-      [campagneId, entree.resultats, entree.suites, userId],
+      [campagneId, entree.resultats, entree.suites, userId, campusId],
     );
-    if (rows.length === 0) await this.expliquerRefus(campagneId);
-    return this.campagnes.trouver(campagneId);
+    if (rows.length === 0) await this.expliquerRefus(campagneId, campusId);
+    return this.campagnes.trouver(campagneId, campusId);
   }
 
   // Restitutions des campagnes qui concernent l'etudiant (selon ses inscriptions).
@@ -86,8 +95,8 @@ export class RestitutionService {
     }));
   }
 
-  private async expliquerRefus(campagneId: number): Promise<never> {
-    const campagne = await this.campagnes.trouver(campagneId); // 404 si absente
+  private async expliquerRefus(campagneId: number, campusId: number | null): Promise<never> {
+    const campagne = await this.campagnes.trouver(campagneId, campusId); // 404 si absente ou hors périmètre
     if (campagne.statut === 'restituee') {
       throw new ConflictException('Cette campagne a deja ete restituee');
     }

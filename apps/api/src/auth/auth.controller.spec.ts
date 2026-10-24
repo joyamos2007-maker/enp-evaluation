@@ -4,14 +4,15 @@ import { AuthController } from './auth.controller';
 describe('AuthController', () => {
   const auth = { connecter: jest.fn(), rafraichir: jest.fn(), deconnecter: jest.fn() };
   const config = { get: jest.fn() };
-  const controller = new AuthController(auth as never, config as never);
+  const identity = {};
+  const controller = new AuthController(auth as never, config as never, identity as never);
   const reponse = { cookie: jest.fn(), clearCookie: jest.fn() };
 
   const expireLe = new Date('2030-01-01T00:00:00Z');
   const resultat = {
     accessToken: 'acces',
     expiresIn: 900,
-    utilisateur: { id: 1, nom: 'T', prenom: 'E', roles: ['etudiant'] },
+    utilisateur: { id: 1, nom: 'T', prenom: 'E', roles: ['etudiant'], activeRole: 'etudiant' },
     refresh: { jeton: 'refresh-secret', expireLe },
   };
 

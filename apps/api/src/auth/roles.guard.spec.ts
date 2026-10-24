@@ -22,19 +22,19 @@ describe('RolesGuard', () => {
 
   it('laisse passer un utilisateur qui a le role exige', () => {
     reflector.getAllAndOverride.mockReturnValue(['scolarite']);
-    const requete = { utilisateur: { id: 2, roles: ['scolarite'] } };
+    const requete = { utilisateur: { id: 2, roles: ['scolarite'], activeRole: 'scolarite' } };
     expect(garde.canActivate(contexte(requete))).toBe(true);
   });
 
   it('laisse passer quand un seul des roles exiges suffit', () => {
     reflector.getAllAndOverride.mockReturnValue(['scolarite', 'admin']);
-    const requete = { utilisateur: { id: 3, roles: ['admin'] } };
+    const requete = { utilisateur: { id: 3, roles: ['admin'], activeRole: 'admin' } };
     expect(garde.canActivate(contexte(requete))).toBe(true);
   });
 
   it('refuse (403) un utilisateur sans le role exige', () => {
     reflector.getAllAndOverride.mockReturnValue(['scolarite']);
-    const requete = { utilisateur: { id: 1, roles: ['etudiant'] } };
+    const requete = { utilisateur: { id: 1, roles: ['etudiant'], activeRole: 'etudiant' } };
     expect(() => garde.canActivate(contexte(requete))).toThrow(ForbiddenException);
   });
 
@@ -45,7 +45,7 @@ describe('RolesGuard', () => {
 
   it('refuse un utilisateur qui n a aucun role', () => {
     reflector.getAllAndOverride.mockReturnValue(['etudiant']);
-    const requete = { utilisateur: { id: 9, roles: [] } };
+    const requete = { utilisateur: { id: 9, roles: [], activeRole: 'admin' } };
     expect(() => garde.canActivate(contexte(requete))).toThrow(ForbiddenException);
   });
 });

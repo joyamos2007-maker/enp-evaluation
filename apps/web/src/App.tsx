@@ -1,122 +1,316 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/auth/AuthContext";
+import { RequireAuth } from "@/auth/RequireAuth";
+import { RequireRole } from "@/auth/RequireRole";
+import { AppLayout } from "@/components/AppLayout";
+import { Connexion } from "@/pages/Connexion";
+import { Activation } from "@/pages/Activation";
+import { Accueil } from "@/pages/Accueil";
+import { Administration } from "@/pages/Administration";
+import { DirectionStatistiques } from "@/pages/DirectionStatistiques";
+import { AccesRefuse } from "@/pages/AccesRefuse";
+import { PageIntrouvable } from "@/pages/PageIntrouvable";
+import { ListeEvaluations } from "@/pages/ListeEvaluations";
+import { EvaluationUE } from "@/pages/EvaluationUE";
+import { MesResultats } from "@/pages/MesResultats";
+import { FicheResultatUE } from "@/pages/FicheResultatUE";
+import { CahierTexte } from "@/pages/CahierTexte";
+import { FormSeance } from "@/pages/FormSeance";
+import { DetailSeance } from "@/pages/DetailSeance";
+import { Visas } from "@/pages/Visas";
+import { Participation } from "@/pages/Participation";
+import { SynthesePage } from "@/pages/SynthesePage";
+import { TableauDeBordScolaritePage as ScolariteTableauDeBord } from "@/pages/ScolariteTableauDeBord";
+import { ScolariteCampagnes } from "@/pages/ScolariteCampagnes";
+import { ScolariteComptes } from "@/pages/ScolariteComptes";
+import { ScolariteImports } from "@/pages/ScolariteImports";
+import { ScolariteModeration } from "@/pages/ScolariteModeration";
+import { ScolariteRestitution } from "@/pages/ScolariteRestitution";
+import { ScolariteDeliberations } from "@/pages/ScolariteDeliberations";
+import { RestitutionEtudiant } from "@/pages/RestitutionEtudiant";
+import { EnseignantNotes } from "@/pages/EnseignantNotes";
+import { EnseignantPresences } from "@/pages/EnseignantPresences";
+import { EtudiantNotes } from "@/pages/EtudiantNotes";
+import { EtudiantPresences } from "@/pages/EtudiantPresences";
+import { SecuriteCompte } from "@/pages/SecuriteCompte";
+import { ArchivesAnnuelles } from "@/pages/ArchivesAnnuelles";
+import { Notifications } from "@/pages/Notifications";
+import { JournalAudit } from "@/pages/JournalAudit";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Routes publiques */}
+          <Route path="/connexion" element={<Connexion />} />
+          <Route path="/activation" element={<Activation />} />
 
-      <div className="ticks"></div>
+          {/* Routes protégées — authentification requise */}
+          <Route
+            element={
+              <RequireAuth>
+                <AppLayout />
+              </RequireAuth>
+            }
+          >
+            <Route path="/" element={<Accueil />} />
+            <Route path="/securite" element={<SecuriteCompte />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route
+              path="/journal-audit"
+              element={
+                <RequireRole role="admin">
+                  <JournalAudit />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/archives-annuelles"
+              element={
+                <RequireRole role="admin">
+                  <ArchivesAnnuelles />
+                </RequireRole>
+              }
+            />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+            {/* Étudiant & Délégué */}
+            <Route
+              path="/mes-notes"
+              element={
+                <RequireRole roles={["etudiant", "delegue"]}>
+                  <EtudiantNotes />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/mes-presences"
+              element={
+                <RequireRole roles={["etudiant", "delegue"]}>
+                  <EtudiantPresences />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/evaluations"
+              element={
+                <RequireRole roles={["etudiant", "delegue"]}>
+                  <ListeEvaluations />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/evaluations/:ueId"
+              element={
+                <RequireRole roles={["etudiant", "delegue"]}>
+                  <EvaluationUE />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/mes-evaluations"
+              element={<Navigate to="/evaluations" replace />}
+            />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            {/* Étudiant & Délégué — Restitution */}
+            <Route
+              path="/restitution"
+              element={
+                <RequireRole roles={["etudiant", "delegue"]}>
+                  <RestitutionEtudiant />
+                </RequireRole>
+              }
+            />
+
+            {/* Délégué pour la saisie, enseignant pour la consultation et le visa */}
+            <Route
+              path="/cahier-texte"
+              element={
+                <RequireRole roles={["delegue", "enseignant", "etudiant"]}>
+                  <CahierTexte />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/cahier-texte/nouvelle"
+              element={
+                <RequireRole role="delegue">
+                  <FormSeance />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/cahier-texte/:id"
+              element={
+                <RequireRole roles={["delegue", "enseignant", "etudiant"]}>
+                  <DetailSeance />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/cahier-texte/:id/modifier"
+              element={
+                <RequireRole role="delegue">
+                  <FormSeance />
+                </RequireRole>
+              }
+            />
+
+            {/* Enseignant */}
+            <Route
+              path="/enseignant/notes"
+              element={
+                <RequireRole role="enseignant">
+                  <EnseignantNotes />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/enseignant/presences"
+              element={
+                <RequireRole role="enseignant">
+                  <EnseignantPresences />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/resultats"
+              element={
+                <RequireRole role="enseignant">
+                  <MesResultats />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/resultats/:ueId"
+              element={
+                <RequireRole role="enseignant">
+                  <FicheResultatUE />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/mes-resultats"
+              element={<Navigate to="/resultats" replace />}
+            />
+            <Route
+              path="/visas"
+              element={
+                <RequireRole role="enseignant">
+                  <Visas />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/seances-a-viser"
+              element={<Navigate to="/visas" replace />}
+            />
+
+            {/* Chef de département */}
+            <Route
+              path="/participation"
+              element={
+                <RequireRole role="chef_departement">
+                  <Participation />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/synthese"
+              element={
+                <RequireRole role="chef_departement">
+                  <SynthesePage />
+                </RequireRole>
+              }
+            />
+
+            {/* Scolarité & Admin */}
+            <Route
+              path="/scolarite"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteTableauDeBord />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/scolarite/campagnes"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteCampagnes />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/scolarite/comptes"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteComptes />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/scolarite/imports"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteImports />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/scolarite/moderation"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteModeration />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/scolarite/deliberations"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteDeliberations />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/scolarite/restitution"
+              element={
+                <RequireRole roles={["scolarite", "admin"]}>
+                  <ScolariteRestitution />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/campagnes"
+              element={<Navigate to="/scolarite/campagnes" replace />}
+            />
+
+            {/* Admin */}
+            <Route
+              path="/direction/statistiques"
+              element={
+                <RequireRole role="direction_etudes">
+                  <DirectionStatistiques />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/administration"
+              element={
+                <RequireRole roles={["admin", "direction_etudes"]}>
+                  <Administration />
+                </RequireRole>
+              }
+            />
+          </Route>
+
+          {/* Pages d'erreur */}
+          <Route path="/acces-refuse" element={<AccesRefuse />} />
+          <Route path="/404" element={<PageIntrouvable />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
 }
-
-export default App

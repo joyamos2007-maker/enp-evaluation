@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Acces } from '../auth/acces.decorator';
 import type { RequeteAuthentifiee } from '../auth/auth.types';
+import { CampusScopeService } from '../database/campus-scope.service';
 import { lireId } from './campagnes.validation';
 import { RestitutionService } from './restitution.service';
 import { validerRestitution } from './restitution.validation';
@@ -21,7 +22,10 @@ import { validerRestitution } from './restitution.validation';
 export class RestitutionController {
   private readonly logger = new Logger(RestitutionController.name);
 
-  constructor(private readonly restitution: RestitutionService) {}
+  constructor(
+    private readonly restitution: RestitutionService,
+    private readonly campusScope: CampusScopeService,
+  ) {}
 
   @Post('campagnes/:id/restitution')
   @HttpCode(200)
@@ -39,7 +43,8 @@ export class RestitutionController {
     if (campagneId === null) throw new BadRequestException('Identifiant de campagne invalide');
     const entree = validerRestitution(corps);
 
-    const campagne = await this.restitution.publier(campagneId, utilisateur.id, entree);
+    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campagne = await this.restitution.publier(campagneId, utilisateur.id, entree, campusId);
     this.logger.log('Restitution publiee : utilisateur ' + utilisateur.id + ', campagne ' + campagneId);
     return campagne;
   }

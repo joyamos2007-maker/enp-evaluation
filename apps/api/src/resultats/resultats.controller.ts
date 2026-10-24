@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Acces } from '../auth/acces.decorator';
 import type { RequeteAuthentifiee } from '../auth/auth.types';
+import { CampusScopeService } from '../database/campus-scope.service';
 import { lireId } from '../evaluation/campagnes.validation';
 import { ResultatsService } from './resultats.service';
 
@@ -18,7 +19,10 @@ import { ResultatsService } from './resultats.service';
 export class ResultatsController {
   private readonly logger = new Logger(ResultatsController.name);
 
-  constructor(private readonly resultats: ResultatsService) {}
+  constructor(
+    private readonly resultats: ResultatsService,
+    private readonly campusScope: CampusScopeService,
+  ) {}
 
   @Get('mes-ues')
   @Header('Cache-Control', 'no-store')
@@ -29,11 +33,10 @@ export class ResultatsController {
     return this.resultats.mesUes(utilisateur.id);
   }
 
-  // ueId designe un ref.course. Le chef de departement n'a pas encore de route :
-  // aucune table ne le rattache a un departement (phase 4).
+  // ueId designe un ref.course.
   @Get('ues/:ueId')
   @Header('Cache-Control', 'no-store')
-  @Acces('enseignant', 'scolarite', 'admin')
+  @Acces('enseignant', 'chef_departement', 'scolarite', 'admin')
   async fiche(
     @Param('ueId') ueIdBrut: string,
     @Query('campagneId') campagneIdBrut: string | undefined,
@@ -48,7 +51,19 @@ export class ResultatsController {
       throw new BadRequestException('ueId (dans l URL) et campagneId (parametre) : entiers positifs obligatoires');
     }
 
-    const fiche = await this.resultats.fiche(utilisateur, courseId, campagneId);
+    const campusId = utilisateur.roles.includes('scolarite')
+      ? await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles)
+      : null;
+    const departmentId = utilisateur.roles.includes('chef_departement')
+      ? await this.campusScope.forChefDepartement(utilisateur.id, utilisateur.roles)
+      : null;
+    const fiche = await this.resultats.fiche(
+      utilisateur,
+      courseId,
+      campagneId,
+      campusId,
+      departmentId,
+    );
     // Journal : qui consulte quoi, jamais les resultats eux-memes
     this.logger.log(
       'Consultation des resultats : utilisateur ' + utilisateur.id + ', UE ' + courseId + ', campagne ' + campagneId,

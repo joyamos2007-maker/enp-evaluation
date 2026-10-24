@@ -10,7 +10,7 @@ describe('SessionService', () => {
 
   it('ne stocke que l empreinte du jeton', async () => {
     db.query.mockResolvedValue([{ inactif_apres: date }]);
-    const res = await service.creer(5);
+    const res = await service.creer(5, 'etudiant');
     const params = db.query.mock.calls[0][1] as unknown[];
     expect(res.jeton.length).toBeGreaterThan(40);
     expect(params).not.toContain(res.jeton);
@@ -19,9 +19,10 @@ describe('SessionService', () => {
   });
 
   it('renouvelle un jeton valide et en emet un nouveau', async () => {
-    db.query.mockResolvedValue([{ user_id: 5, inactif_apres: date }]);
+    db.query.mockResolvedValue([{ user_id: 5, inactif_apres: date, active_role: 'etudiant' }]);
     const res = await service.renouveler('ancien-jeton');
     expect(res.userId).toBe(5);
+    expect(res.activeRole).toBe('etudiant');
     expect(res.jeton).not.toBe('ancien-jeton');
     expect(db.query).toHaveBeenCalledTimes(1);
   });

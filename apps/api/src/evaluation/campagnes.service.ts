@@ -64,7 +64,7 @@ function codePg(err: unknown): string | undefined {
 export class CampagnesService {
   constructor(private readonly db: DatabaseService) {}
 
-  async creer(entree: CampagneEntree): Promise<CampagneDto> {
+  async creer(entree: CampagneEntree, campusId: number | null = null): Promise<CampagneDto> {
     const versions = await this.db.query<{ id: number }>(
       'SELECT id FROM evaluation.questionnaire_versions WHERE actif LIMIT 1',
     );
@@ -100,27 +100,34 @@ export class CampagnesService {
       if (code === '23503') throw new BadRequestException('Departement introuvable');
       throw err;
     }
-    return this.trouver(id);
+    return this.trouver(id, campusId);
   }
 
-  async lister(): Promise<CampagneDto[]> {
-    const rows = await this.db.query<CampagneLigne>(SELECT_CAMPAGNE + ' ORDER BY c.id DESC');
+  async lister(campusId: number | null = null): Promise<CampagneDto[]> {
+    const rows = await this.db.query<CampagneLigne>(
+      SELECT_CAMPAGNE + ' WHERE ($1::int IS NULL OR d.campus_id = $1) ORDER BY c.id DESC',
+      [campusId],
+    );
     return rows.map(versDto);
   }
 
-  async trouver(id: number): Promise<CampagneDto> {
-    const campagne = await this.trouverOuNull(id);
+  async trouver(id: number, campusId: number | null = null): Promise<CampagneDto> {
+    const campagne = await this.trouverOuNull(id, campusId);
     if (!campagne) throw new NotFoundException('Campagne introuvable');
     return campagne;
   }
 
   // Une seule requete : le passage en "ouverte" n'a lieu que si toutes les
   // conditions sont remplies au meme instant
-  async ouvrir(id: number): Promise<CampagneDto> {
+  async ouvrir(id: number, campusId: number | null = null): Promise<CampagneDto> {
     const rows = await this.db.query<{ id: number }>(
       `UPDATE evaluation.campaigns c
        SET statut = 'ouverte', ouverte_le = NOW()
        WHERE c.id = $1 AND c.statut = 'brouillon' AND c.fin > NOW()
+         AND ($2::int IS NULL OR EXISTS (
+           SELECT 1 FROM ref.department d
+           WHERE d.id = c.department_id AND d.campus_id = $2
+         ))
          AND EXISTS (
            SELECT 1 FROM ref.course co
            JOIN ref.program p ON p.id = co.program_id
@@ -132,35 +139,42 @@ export class CampagnesService {
            JOIN evaluation.sections s ON s.id = cr.section_id
            WHERE s.version_id = c.version_id)
        RETURNING c.id`,
-      [id],
+      [id, campusId],
     );
-    if (rows.length === 0) await this.expliquerRefusOuverture(id);
-    return this.trouver(id);
+    if (rows.length === 0) await this.expliquerRefusOuverture(id, campusId);
+    return this.trouver(id, campusId);
   }
 
-  async cloturer(id: number): Promise<CampagneDto> {
+  async cloturer(id: number, campusId: number | null = null): Promise<CampagneDto> {
     const rows = await this.db.query<{ id: number }>(
       `UPDATE evaluation.campaigns
        SET statut = 'close', close_le = NOW()
        WHERE id = $1 AND statut = 'ouverte'
+         AND ($2::int IS NULL OR EXISTS (
+           SELECT 1 FROM ref.department d
+           WHERE d.id = evaluation.campaigns.department_id AND d.campus_id = $2
+         ))
        RETURNING id`,
-      [id],
+      [id, campusId],
     );
     if (rows.length === 0) {
-      const campagne = await this.trouverOuNull(id);
+      const campagne = await this.trouverOuNull(id, campusId);
       if (!campagne) throw new NotFoundException('Campagne introuvable');
       throw new ConflictException('Seule une campagne ouverte peut etre cloturee');
     }
-    return this.trouver(id);
+    return this.trouver(id, campusId);
   }
 
-  private async trouverOuNull(id: number): Promise<CampagneDto | null> {
-    const rows = await this.db.query<CampagneLigne>(SELECT_CAMPAGNE + ' WHERE c.id = $1', [id]);
+  private async trouverOuNull(id: number, campusId: number | null = null): Promise<CampagneDto | null> {
+    const rows = await this.db.query<CampagneLigne>(
+      SELECT_CAMPAGNE + ' WHERE c.id = $1 AND ($2::int IS NULL OR d.campus_id = $2)',
+      [id, campusId],
+    );
     return rows[0] ? versDto(rows[0]) : null;
   }
 
-  private async expliquerRefusOuverture(id: number): Promise<never> {
-    const campagne = await this.trouverOuNull(id);
+  private async expliquerRefusOuverture(id: number, campusId: number | null): Promise<never> {
+    const campagne = await this.trouverOuNull(id, campusId);
     if (!campagne) throw new NotFoundException('Campagne introuvable');
     if (campagne.statut !== 'brouillon') {
       throw new ConflictException('Seule une campagne en brouillon peut etre ouverte');

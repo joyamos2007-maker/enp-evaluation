@@ -5,24 +5,28 @@ const BALLOT = '3d2ffb41-1f7c-464c-bccf-0d9ca21a3958';
 
 describe('ModerationController', () => {
   const moderation = { lister: jest.fn(), decider: jest.fn() };
-  const controller = new ModerationController(moderation as never);
+  const campusScope = { forScolarite: jest.fn() };
+  const controller = new ModerationController(moderation as never, campusScope as never);
   const sco = { headers: {}, utilisateur: { id: 2, roles: ['scolarite'] } };
 
-  beforeEach(() => jest.resetAllMocks());
-
-  it('liste les commentaires d une campagne avec un filtre facultatif', () => {
-    moderation.lister.mockResolvedValue([]);
-    controller.lister('3', 'valide');
-    controller.lister('3', undefined);
-    expect(moderation.lister).toHaveBeenNthCalledWith(1, 3, 'valide');
-    expect(moderation.lister).toHaveBeenNthCalledWith(2, 3, undefined);
+  beforeEach(() => {
+    jest.resetAllMocks();
+    campusScope.forScolarite.mockResolvedValue(9);
   });
 
-  it('refuse un campagneId absent ou invalide, et un statut inconnu', () => {
+  it('liste les commentaires d une campagne avec un filtre facultatif', async () => {
+    moderation.lister.mockResolvedValue([]);
+    await controller.lister('3', 'valide', sco);
+    await controller.lister('3', undefined, sco);
+    expect(moderation.lister).toHaveBeenNthCalledWith(1, 3, 'valide', 9);
+    expect(moderation.lister).toHaveBeenNthCalledWith(2, 3, undefined, 9);
+  });
+
+  it('refuse un campagneId absent ou invalide, et un statut inconnu', async () => {
     for (const mauvais of [undefined, '', 'abc', '0']) {
-      expect(() => controller.lister(mauvais, undefined)).toThrow(BadRequestException);
+      await expect(controller.lister(mauvais, undefined, sco)).rejects.toBeInstanceOf(BadRequestException);
     }
-    expect(() => controller.lister('3', 'zzz')).toThrow(BadRequestException);
+    await expect(controller.lister('3', 'zzz', sco)).rejects.toBeInstanceOf(BadRequestException);
     expect(moderation.lister).not.toHaveBeenCalled();
   });
 
@@ -33,6 +37,7 @@ describe('ModerationController', () => {
       { ballotId: BALLOT, type: 'points_forts' },
       'masque',
       2,
+      9,
     );
   });
 
