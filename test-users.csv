@@ -1,0 +1,4 @@
+matricule,email,nom,prenom,role,campusCode,departmentCode
+TEST-2026-001,student1@enp.tg,KOUDASSE,Joy,ETUDIANT,ENP-CL,GC
+TEST-2026-002,chef.gc@enp.tg,ATTIPOU,Kodjo,CHEF_DEPT,ENP-CL,GC
+TEST-2026-003,scolarite@enp.tg,SCOLARITE,Lome,SCOLARITE,ENP-CL,

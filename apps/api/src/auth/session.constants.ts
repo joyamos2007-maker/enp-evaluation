@@ -1,0 +1,2 @@
+export const DUREE_INACTIVITE_MINUTES = 30;
+export const DUREE_SESSION_HEURES = 8;
