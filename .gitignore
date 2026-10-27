@@ -6,3 +6,4 @@ coverage/
 infra/backups/
 # Cache de compilation TypeScript
 *.tsbuildinfo
+*.zip
