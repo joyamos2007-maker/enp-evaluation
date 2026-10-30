@@ -1,13 +1,16 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { BarChart3, AlertCircle, ArrowRight } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { BarChart3, AlertCircle, ArrowRight, ShieldCheck, Search, Users, CheckCircle2 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { ResultatUeResume } from '@/api/types';
+import { PageHeader, Table, Button, Badge, ProgressBar, Input, Alert, EmptyState } from '@/components/ui';
 
 export function MesResultats() {
+  const navigate = useNavigate();
   const [resultats, setResultats] = useState<ResultatUeResume[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [recherche, setRecherche] = useState('');
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -17,7 +20,7 @@ export function MesResultats() {
       setResultats(data);
     } catch (err) {
       if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau : impossible de charger vos résultats.');
+      else setErreur('Impossible de charger vos fiches de résultats d’évaluation.');
     } finally {
       setChargement(false);
     }
@@ -27,122 +30,173 @@ export function MesResultats() {
     void charger();
   }, [charger]);
 
-  if (chargement) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes résultats</h1>
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin" aria-hidden="true" />
-          <span>Chargement…</span>
-        </div>
-      </div>
+  const resultatsFiltres = useMemo(() => {
+    return resultats.filter(
+      (r) =>
+        !recherche ||
+        r.code.toLowerCase().includes(recherche.toLowerCase()) ||
+        r.intitule.toLowerCase().includes(recherche.toLowerCase()) ||
+        r.libelleCampagne.toLowerCase().includes(recherche.toLowerCase()),
     );
-  }
-
-  if (erreur) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes résultats</h1>
-        <div className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux" role="alert">
-          <AlertCircle size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <div>
-            <p>{erreur}</p>
-            <button type="button" onClick={() => void charger()} className="mt-2 inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]">Réessayer</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [resultats, recherche]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes résultats</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">Résultats de vos évaluations par UE et par campagne.</p>
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Résultats d'Évaluation des Enseignements"
+        description="Fiches de synthèse officielles et bilans pédagogiques de vos unités d'enseignement"
+        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Résultats des évaluations' }]}
+      />
+
+      {/* Mention réglementaire officielle permanente */}
+      <Alert variant="institutional" title="Cadre réglementaire de consultation">
+        <p className="leading-relaxed">
+          « Les résultats d'évaluation sont à visée exclusive d'amélioration pédagogique ; ils ne peuvent constituer, à eux seuls, un élément d'appréciation individuelle. »
+          Conformément au règlement des études de l'ENP, les distributions détaillées ne sont déverrouillées que pour les enseignements atteignant le seuil de 5 répondants.
+        </p>
+      </Alert>
+
+      {/* Barre de recherche */}
+      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex-1 w-full sm:max-w-sm">
+          <Input
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            placeholder="Rechercher par code UE ou intitulé..."
+            startIcon={<Search className="w-4 h-4" />}
+          />
+        </div>
+        <span className="text-xs text-enp-gray-medium">
+          {resultatsFiltres.length} unité(s) d'enseignement répertoriée(s)
+        </span>
       </div>
 
-      {/* Desktop: tableau */}
-      <div className="hidden lg:block overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-enp-primary text-white">
-              <th scope="col" className="text-left px-3 py-3 font-semibold rounded-tl-xl">Code</th>
-              <th scope="col" className="text-left px-3 py-3 font-semibold">Intitulé</th>
-              <th scope="col" className="text-left px-3 py-3 font-semibold">Campagne</th>
-              <th scope="col" className="text-left px-3 py-3 font-semibold">Participation</th>
-              <th scope="col" className="px-3 py-3 font-semibold rounded-tr-xl">Détail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {resultats.map((r, i) => {
+      {chargement ? (
+        <div className="py-12 text-center text-enp-gray-medium text-sm">
+          Chargement des fiches de résultats…
+        </div>
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur">{erreur}</Alert>
+      ) : resultatsFiltres.length === 0 ? (
+        <EmptyState
+          title="Aucun résultat d'évaluation disponible"
+          description="Les résultats d'évaluation seront consultables dès la clôture des campagnes par la Scolarité et le dépouillement officiel de l'urne."
+        />
+      ) : (
+        <>
+          {/* Cartes tactiles pour mobiles (< 640px) */}
+          <div className="space-y-3 block sm:hidden">
+            {resultatsFiltres.map((r) => {
               const pct = r.inscrits > 0 ? Math.round((r.repondants / r.inscrits) * 100) : 0;
               return (
-                <tr key={r.ueId} className={i % 2 === 0 ? 'bg-enp-sky' : 'bg-white'}>
-                  <td className="px-3 py-3">
-                    <Link to={`/resultats/${r.ueId}?campagne=${r.campagneId}`} className="text-enp-primary font-medium hover:underline">{r.code}</Link>
-                  </td>
-                  <td className="px-3 py-3 text-enp-ink">{r.intitule}</td>
-                  <td className="px-3 py-3 text-enp-ink-soft">{r.libelleCampagne}</td>
-                  <td className="px-3 py-3">
-                    <BarreParticipation repondants={r.repondants} inscrits={r.inscrits} pct={pct} />
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {r.detailDisponible ? (
-                      <Link to={`/resultats/${r.ueId}?campagne=${r.campagneId}`} className="inline-flex items-center gap-1 text-enp-primary hover:underline text-sm">
-                        Voir <ArrowRight size={15} aria-hidden="true" />
-                      </Link>
-                    ) : (
-                      <span className="inline-block bg-enp-primary-light text-enp-ink-soft text-xs px-2 py-1 rounded">Détail non disponible (&lt; 5 répondants)</span>
-                    )}
-                  </td>
-                </tr>
+                <div
+                  key={`${r.ueId}-${r.campagneId}`}
+                  onClick={() => navigate(`/resultats/${r.ueId}?campagne=${r.campagneId}`)}
+                  className="bg-white border border-enp-border p-4 space-y-3 cursor-pointer hover:border-enp-blue-primary/60 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {r.code}
+                    </span>
+                    <Badge variant={r.detailDisponible ? 'success' : 'warning'}>
+                      {r.detailDisponible ? 'Quorum atteint' : 'Seuil anonymat (<5)'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-enp-black">{r.intitule}</h3>
+                    <p className="text-xs text-enp-gray-medium">{r.libelleCampagne}</p>
+                  </div>
+                  <div className="space-y-1 pt-1 border-t border-enp-border/60">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-enp-gray-medium">{r.repondants} / {r.inscrits} répondants</span>
+                      <span className="font-bold text-enp-blue-deep">{pct}%</span>
+                    </div>
+                    <ProgressBar value={pct} showPercent={false} size="sm" variant={r.detailDisponible ? 'success' : 'warning'} />
+                  </div>
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <span className="font-medium text-enp-gray-medium">Moyenne synthétique :</span>
+                    <span className="font-bold text-sm text-enp-blue-deep">
+                      {r.detailDisponible && r.moyenneGlobale !== null ? `${r.moyenneGlobale.toFixed(2)} / 5.0` : 'Masquée (< 5)'}
+                    </span>
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </div>
 
-      {/* Mobile: cartes */}
-      <div className="lg:hidden space-y-3">
-        {resultats.map((r) => {
-          const pct = r.inscrits > 0 ? Math.round((r.repondants / r.inscrits) * 100) : 0;
-          return (
-            <div key={r.ueId} className="bg-white border border-enp-border rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="inline-flex items-center justify-center bg-enp-primary text-white text-xs font-semibold px-2 py-0.5 rounded">{r.code}</span>
-                <span className="text-xs text-enp-ink-soft">{r.libelleCampagne}</span>
-              </div>
-              <p className="text-enp-ink font-medium leading-snug mb-3">{r.intitule}</p>
-              <BarreParticipation repondants={r.repondants} inscrits={r.inscrits} pct={pct} />
-              <div className="mt-3">
-                {r.detailDisponible ? (
-                  <Link to={`/resultats/${r.ueId}?campagne=${r.campagneId}`} className="inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px] w-full justify-center">
-                    <BarChart3 size={18} aria-hidden="true" /> Voir le détail
-                  </Link>
-                ) : (
-                  <span className="inline-block bg-enp-primary-light text-enp-ink-soft text-xs px-3 py-2 rounded w-full text-center">
-                    Détail non disponible (moins de 5 répondants)
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function BarreParticipation({ repondants, inscrits, pct }: { repondants: number; inscrits: number; pct: number }) {
-  return (
-    <div className="w-full">
-      <div className="flex items-baseline justify-between mb-1">
-        <span className="text-sm text-enp-ink font-medium">{repondants} répondants sur {inscrits} inscrits</span>
-        <span className="text-xs text-enp-ink-soft">{pct}%</span>
-      </div>
-      <div className="h-2 w-full rounded-full bg-enp-sky overflow-hidden" aria-hidden="true">
-        <div className="h-full bg-enp-primary transition-all duration-500" style={{ width: `${pct}%` }} />
-      </div>
+          {/* Tableau standard desktop (>= 640px) */}
+          <div className="hidden sm:block">
+            <Table<ResultatUeResume>
+              columns={[
+                {
+                  key: 'code',
+                  header: 'Code UE',
+                  render: (r) => (
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {r.code}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'intitule',
+                  header: 'Intitulé de l’enseignement',
+                  render: (r) => (
+                    <div>
+                      <p className="font-bold text-enp-black">{r.intitule}</p>
+                      <p className="text-xs text-enp-gray-medium">{r.libelleCampagne}</p>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'participation',
+                  header: 'Participation effective',
+                  render: (r) => {
+                    const pct = r.inscrits > 0 ? Math.round((r.repondants / r.inscrits) * 100) : 0;
+                    return (
+                      <div className="w-40 space-y-1">
+                        <div className="flex justify-between text-xs font-medium">
+                          <span>{r.repondants} / {r.inscrits} inscrits</span>
+                          <span className="font-bold text-enp-blue-deep">{pct}%</span>
+                        </div>
+                        <ProgressBar
+                          value={pct}
+                          showPercent={false}
+                          size="sm"
+                          variant={r.repondants >= 5 ? 'success' : 'warning'}
+                        />
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: 'statut',
+                  header: 'Seuil d’anonymat',
+                  render: (r) => (
+                    <Badge variant={r.detailDisponible ? 'success' : 'warning'}>
+                      {r.detailDisponible ? 'Seuil atteint (≥ 5)' : 'Moins de 5 répondants'}
+                    </Badge>
+                  ),
+                },
+                {
+                  key: 'action',
+                  header: 'Rapport complet',
+                  align: 'right',
+                  render: (r) => (
+                    <Link to={`/resultats/${r.ueId}?campagne=${r.campagneId}`}>
+                      <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                        Consulter
+                      </Button>
+                    </Link>
+                  ),
+                },
+              ]}
+              data={resultatsFiltres}
+              keyExtractor={(r) => `${r.ueId}-${r.campagneId}`}
+              onRowClick={(r) => navigate(`/resultats/${r.ueId}?campagne=${r.campagneId}`)}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

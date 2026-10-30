@@ -1,61 +1,75 @@
-import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
-import { Plus, AlertCircle, Clock, Calendar } from "lucide-react";
-import { api, ApiError } from "@/api";
-import type { Avancement, Seance, UeCahier } from "@/api/types";
-import { useAuth } from "@/auth/AuthContext";
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  BookOpen,
+  Plus,
+  Calendar as CalendarIcon,
+  Clock,
+  Filter,
+  Download,
+  List,
+  Table as TableIcon,
+  ChevronLeft,
+  ChevronRight,
+  Stamp,
+  AlertCircle,
+  FileCheck2,
+  Paperclip,
+  Search,
+  CheckCircle2,
+} from 'lucide-react';
+import { api, ApiError } from '@/api';
+import type { Avancement, Seance, UeCahier, TypeSeance, StatutSeance, StatutVisa } from '@/api/types';
+import { useAuth } from '@/auth/AuthContext';
+import {
+  PageHeader,
+  Button,
+  Table,
+  Badge,
+  ProgressBar,
+  Input,
+  Select,
+  Alert,
+  EmptyState,
+} from '@/components/ui';
 
-const LIBELLES_VISA: Record<string, { libelle: string; classe: string }> = {
-  en_attente: { libelle: "En attente", classe: "bg-enp-sky text-enp-ink" },
-  vise: { libelle: "Visée", classe: "bg-enp-primary text-white" },
-  conteste: {
-    libelle: "Contestée",
-    classe: "bg-enp-primary-light text-enp-ink-soft",
-  },
+type ModeAffichage = 'chronologique' | 'tableau' | 'calendrier';
+
+const LIBELLES_VISA: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
+  en_attente: { label: 'En attente de visa', variant: 'warning' },
+  vise: { label: 'Visée par l’enseignant', variant: 'success' },
+  conteste: { label: 'Contestée', variant: 'danger' },
 };
 
 const LIBELLES_STATUT: Record<string, string> = {
-  tenue: "Tenue",
-  reportee: "Reportée",
-  annulee: "Annulée",
-  enseignant_absent: "Enseignant absent",
-  planifiee: "Planifiée",
+  tenue: 'Séance tenue',
+  reportee: 'Reportée',
+  annulee: 'Annulée',
+  enseignant_absent: 'Enseignant absent',
+  planifiee: 'Planifiée',
 };
-
-const LIBELLES_TYPE: Record<string, string> = {
-  CM: "CM",
-  TD: "TD",
-  TP: "TP",
-  AUTRE: "Autre",
-};
-
-function formaterDate(iso: string): string {
-  try {
-    const d = new Date(iso + "T00:00:00");
-    return d.toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 export function CahierTexte() {
-  const { aRole } = useAuth();
-  const peutGerer = aRole("delegue");
-  const peutVoirAvancement = aRole("delegue") || aRole("enseignant");
+  const { aRole, utilisateur } = useAuth();
+  const navigate = useNavigate();
+
+  const peutSaisir = aRole('delegue');
+  const peutViser = aRole('enseignant');
+
   const [ues, setUes] = useState<UeCahier[]>([]);
   const [seances, setSeances] = useState<Seance[]>([]);
-  const [avancements, setAvancements] = useState<Map<number, Avancement>>(
-    new Map(),
-  );
-  const [filtreUe, setFiltreUe] = useState<number | "all">("all");
-  const [filtreVisa, setFiltreVisa] = useState<string>("all");
+  const [avancements, setAvancements] = useState<Map<number, Avancement>>(new Map());
+
+  // Vues & Filtres
+  const [mode, setMode] = useState<ModeAffichage>('chronologique');
+  const [recherche, setRecherche] = useState('');
+  const [filtreUe, setFiltreUe] = useState<string>('all');
+  const [filtreType, setFiltreType] = useState<string>('all');
+  const [filtreVisa, setFiltreVisa] = useState<string>('all');
+
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [erreurExport, setErreurExport] = useState<string | null>(null);
+  const [exportEnCours, setExportEnCours] = useState(false);
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -67,369 +81,462 @@ export function CahierTexte() {
       ]);
       setUes(uesData);
       setSeances(seancesData);
+
+      // Charger les avancements horaires pour les UE
       const avMap = new Map<number, Avancement>();
-      if (peutVoirAvancement) {
-        const avancees = await Promise.all(
-          uesData.map((u) => api.avancementUe(u.ueId)),
-        );
+      try {
+        const avancees = await Promise.all(uesData.map((u) => api.avancementUe(u.ueId)));
         avancees.forEach((av) => avMap.set(av.ueId, av));
+      } catch {
+        // En cas de droits limités sur avancement, on ignore
       }
       setAvancements(avMap);
     } catch (err) {
-      if (err instanceof ApiError) setErreur(err.messages.join(" "));
-      else
-        setErreur("Erreur réseau : impossible de charger le cahier de texte.");
+      if (err instanceof ApiError) setErreur(err.messages.join(' '));
+      else setErreur('Impossible de charger les données du cahier de texte.');
     } finally {
       setChargement(false);
     }
-  }, [peutVoirAvancement]);
+  }, []);
 
   useEffect(() => {
     void charger();
   }, [charger]);
 
-  const seancesFiltrees = seances
-    .filter((s) => filtreUe === "all" || s.ueId === filtreUe)
-    .filter((s) => filtreVisa === "all" || s.visa.statut === filtreVisa);
+  // Séances filtrées
+  const seancesFiltrees = useMemo(() => {
+    return seances.filter((s) => {
+      const matchUe = filtreUe === 'all' || String(s.ueId) === filtreUe;
+      const matchType = filtreType === 'all' || s.type === filtreType;
+      const matchVisa = filtreVisa === 'all' || s.visa.statut === filtreVisa;
+      const matchSearch =
+        !recherche ||
+        (s.intitule && s.intitule.toLowerCase().includes(recherche.toLowerCase())) ||
+        s.ueCode.toLowerCase().includes(recherche.toLowerCase()) ||
+        (s.contenu && s.contenu.toLowerCase().includes(recherche.toLowerCase()));
 
-  async function telechargerExport(format: "pdf" | "xlsx" | "docx") {
+      return matchUe && matchType && matchVisa && matchSearch;
+    });
+  }, [seances, filtreUe, filtreType, filtreVisa, recherche]);
+
+  async function telechargerExport(format: 'pdf' | 'xlsx' | 'docx') {
+    setExportEnCours(true);
     try {
-      const blob = await api.exporterCahier(
-        format,
-        filtreUe === "all" ? undefined : filtreUe,
-      );
+      const ueId = filtreUe === 'all' ? undefined : Number(filtreUe);
+      const blob = await api.exporterCahier(format, ueId);
       const url = URL.createObjectURL(blob);
-      const lien = document.createElement("a");
-      lien.href = url;
-      lien.download = `cahier-texte.${format}`;
-      lien.click();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cahier-de-texte-enp.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       URL.revokeObjectURL(url);
-    } catch (err) {
-      setErreurExport(
-        err instanceof ApiError
-          ? err.messages.join(" ")
-          : "Export indisponible.",
-      );
+    } catch {
+      alert("Erreur lors de la génération de l'export.");
+    } finally {
+      setExportEnCours(false);
     }
   }
 
-  if (chargement) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-          Cahier de texte
-        </h1>
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div
-            className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin"
-            aria-hidden="true"
-          />
-          <span>Chargement…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (erreur) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-          Cahier de texte
-        </h1>
-        <div
-          className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
-          role="alert"
-        >
-          <AlertCircle
-            size={20}
-            className="shrink-0 mt-0.5"
-            aria-hidden="true"
-          />
-          <div>
-            <p>{erreur}</p>
-            <button
-              type="button"
-              onClick={() => void charger()}
-              className="mt-2 inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]"
-            >
-              Réessayer
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  function formaterDateFr(dateIso: string) {
+    try {
+      const d = new Date(dateIso + 'T00:00:00');
+      return d.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return dateIso;
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-          Cahier de texte
-        </h1>
-        {peutGerer && (
-          <Link
-            to="/cahier-texte/nouvelle"
-            className="hidden sm:inline-flex items-center gap-2 bg-enp-primary text-white font-semibold px-4 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]"
-          >
-            <Plus size={20} aria-hidden="true" /> Nouvelle séance
-          </Link>
-        )}
-      </div>
-
-      <div
-        className="flex flex-wrap items-center gap-2"
-        aria-label="Exporter le cahier de texte"
-      >
-        <span className="text-sm text-enp-ink-soft">Exporter :</span>
-        {(["pdf", "xlsx", "docx"] as const).map((format) => (
-          <button
-            key={format}
-            type="button"
-            onClick={() => void telechargerExport(format)}
-            className="rounded-md border border-enp-border bg-white px-3 py-2 text-sm font-medium text-enp-primary hover:bg-enp-sky"
-          >
-            {format.toUpperCase()}
-          </button>
-        ))}
-      </div>
-      {erreurExport && (
-        <p role="alert" className="text-sm text-enp-bordeaux">
-          {erreurExport}
-        </p>
-      )}
-
-      {/* Bandeau d'avancement */}
-      {peutVoirAvancement && (
-        <div className="space-y-3">
-          {ues.map((u) => {
-            const av = avancements.get(u.ueId);
-            if (!av) return null;
-            const totalPrev =
-              av.heuresPrevues.cm + av.heuresPrevues.td + av.heuresPrevues.tp;
-            const totalEff =
-              av.heuresEffectuees.cm +
-              av.heuresEffectuees.td +
-              av.heuresEffectuees.tp;
-            const pct =
-              totalPrev > 0
-                ? Math.min(100, Math.round((totalEff / totalPrev) * 100))
-                : 0;
-            return (
-              <div
-                key={u.ueId}
-                className="bg-enp-sky border border-enp-border rounded-lg p-4"
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Cahier de Texte Numérique Officiel"
+        description="Traçabilité des cours magistraux, travaux dirigés et pratiques • Visas des enseignants"
+        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Cahier de texte' }]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {peutSaisir && (
+              <Link to="/cahier-texte/nouvelle" className="w-full sm:w-auto">
+                <Button variant="primary" size="md" className="w-full sm:w-auto justify-center" leftIcon={<Plus className="w-4 h-4" />}>
+                  Nouvelle séance
+                </Button>
+              </Link>
+            )}
+            <div className="flex items-center border border-enp-border bg-white w-full sm:w-auto justify-center">
+              <button
+                type="button"
+                disabled={exportEnCours}
+                onClick={() => void telechargerExport('pdf')}
+                className="px-2.5 py-1.5 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors"
+                title="Exporter au format PDF officiel"
               >
-                <div className="flex items-baseline justify-between mb-2">
-                  <p className="text-enp-ink font-medium text-sm">
-                    <span className="font-semibold">{u.code}</span> —{" "}
+                PDF
+              </button>
+              <button
+                type="button"
+                disabled={exportEnCours}
+                onClick={() => void telechargerExport('xlsx')}
+                className="px-2.5 py-1.5 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors"
+                title="Exporter au format Excel"
+              >
+                Excel
+              </button>
+              <button
+                type="button"
+                disabled={exportEnCours}
+                onClick={() => void telechargerExport('docx')}
+                className="px-2.5 py-1.5 text-xs font-semibold hover:bg-enp-blue-ice transition-colors"
+                title="Exporter au format Word"
+              >
+                Word
+              </button>
+            </div>
+          </div>
+        }
+      />
+
+      {/* Cartes d'avancement horaire si disponibles */}
+      {ues.length > 0 && avancements.size > 0 && (
+        <div className="bg-white border border-enp-border p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep mb-3">
+            Avancement horaire des Unités d'Enseignement
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {ues.map((u) => {
+              const av = avancements.get(u.ueId);
+              const heuresRealisees = av
+                ? av.heuresEffectuees.cm + av.heuresEffectuees.td + av.heuresEffectuees.tp
+                : 0;
+              const volumePrevu = av
+                ? av.heuresPrevues.cm + av.heuresPrevues.td + av.heuresPrevues.tp
+                : 45;
+              const pct = volumePrevu > 0 ? Math.min(100, Math.round((heuresRealisees / volumePrevu) * 100)) : 0;
+
+              return (
+                <div key={u.ueId} className="p-3 border border-enp-border/80 bg-enp-blue-ice/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold font-mono text-enp-blue-deep">{u.code}</span>
+                    <span className="text-xs font-semibold text-enp-black">{pct}%</span>
+                  </div>
+                  <p className="text-xs text-enp-gray-medium truncate" title={u.intitule}>
                     {u.intitule}
                   </p>
-                  <p className="text-sm text-enp-ink-soft">
-                    {totalEff} h / {totalPrev} h ({pct}%)
+                  <ProgressBar
+                    value={pct}
+                    showPercent={false}
+                    size="sm"
+                    variant={pct >= 80 ? 'success' : 'primary'}
+                  />
+                  <p className="text-[11px] text-enp-gray-medium">
+                    {heuresRealisees}h réalisées sur {volumePrevu}h prévues
                   </p>
                 </div>
-                <div
-                  className="h-2 w-full rounded-full bg-white border border-enp-border overflow-hidden mb-2"
-                  aria-hidden="true"
-                >
-                  <div
-                    className="h-full bg-enp-primary transition-all duration-500"
-                    style={{ width: `${pct}%` }}
-                  />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Barre de contrôle : Recherche, Filtres & Bascule de vue */}
+      <div className="bg-white border border-enp-border p-4 space-y-3">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          <div className="w-full lg:max-w-sm lg:flex-1">
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher dans les contenus ou intitulés..."
+              startIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-full sm:w-40">
+              <Select
+                value={filtreUe}
+                onChange={(e) => setFiltreUe(e.target.value)}
+                aria-label="Filtrer par unité d'enseignement"
+              >
+                <option value="all">Toutes les UE</option>
+                {ues.map((u) => (
+                  <option key={u.ueId} value={u.ueId}>
+                    {u.code} : {u.intitule}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-32">
+              <Select
+                value={filtreType}
+                onChange={(e) => setFiltreType(e.target.value)}
+                aria-label="Filtrer par type de séance"
+              >
+                <option value="all">Tous types</option>
+                <option value="CM">CM</option>
+                <option value="TD">TD</option>
+                <option value="TP">TP</option>
+                <option value="AUTRE">Autre</option>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-36">
+              <Select
+                value={filtreVisa}
+                onChange={(e) => setFiltreVisa(e.target.value)}
+                aria-label="Filtrer par statut de visa"
+              >
+                <option value="all">Tous les visas</option>
+                <option value="en_attente">En attente</option>
+                <option value="vise">Visées</option>
+                <option value="conteste">Contestées</option>
+              </Select>
+            </div>
+
+            {/* Sélecteur de mode d'affichage */}
+            <div className="flex items-center border border-enp-border ml-auto mt-1 sm:mt-0">
+              <button
+                type="button"
+                onClick={() => setMode('chronologique')}
+                className={`p-2 transition-colors ${
+                  mode === 'chronologique'
+                    ? 'bg-enp-blue-primary text-white'
+                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
+                }`}
+                aria-label="Vue chronologique"
+                title="Vue chronologique"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('tableau')}
+                className={`p-2 border-l border-enp-border transition-colors ${
+                  mode === 'tableau'
+                    ? 'bg-enp-blue-primary text-white'
+                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
+                }`}
+                aria-label="Vue tableau"
+                title="Vue tableau structuré"
+              >
+                <TableIcon className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('calendrier')}
+                className={`p-2 border-l border-enp-border transition-colors ${
+                  mode === 'calendrier'
+                    ? 'bg-enp-blue-primary text-white'
+                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
+                }`}
+                aria-label="Vue calendrier"
+                title="Vue calendrier"
+              >
+                <CalendarIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contenu selon le mode sélectionné */}
+      {chargement ? (
+        <div className="py-12 text-center text-enp-gray-medium text-sm">
+          Chargement des séances officielles…
+        </div>
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur">{erreur}</Alert>
+      ) : seancesFiltrees.length === 0 ? (
+        <EmptyState
+          title="Aucune séance trouvée"
+          description={
+            peutSaisir
+              ? "Aucune séance ne correspond aux filtres appliqués. Cliquez sur « Nouvelle séance » pour consigner une heure de cours."
+              : "Aucune séance consignée pour ces critères."
+          }
+          actionLabel={peutSaisir ? "Nouvelle séance" : undefined}
+          onAction={peutSaisir ? () => navigate('/cahier-texte/nouvelle') : undefined}
+        />
+      ) : mode === 'tableau' ? (
+        // VUE 1 : TABLEAU STRUCTURÉ
+        <Table<Seance>
+          columns={[
+            {
+              key: 'date',
+              header: 'Date & Horaires',
+              render: (s) => (
+                <div>
+                  <span className="font-semibold text-enp-blue-deep block">
+                    {formaterDateFr(s.date)}
+                  </span>
+                  <span className="text-xs text-enp-gray-medium">
+                    {s.debut} - {s.fin}
+                  </span>
                 </div>
-                <p className="text-xs text-enp-ink-soft">
-                  CM : {av.heuresEffectuees.cm}/{av.heuresPrevues.cm} h · TD :{" "}
-                  {av.heuresEffectuees.td}/{av.heuresPrevues.td} h · TP :{" "}
-                  {av.heuresEffectuees.tp}/{av.heuresPrevues.tp} h
-                </p>
+              ),
+            },
+            {
+              key: 'ue',
+              header: 'UE',
+              render: (s) => (
+                <div>
+                  <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-1.5 py-0.5 border border-enp-blue-primary/20">
+                    {s.ueCode}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'type',
+              header: 'Type',
+              render: (s) => (
+                <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
+                  {s.type}
+                </span>
+              ),
+            },
+            {
+              key: 'intitule',
+              header: 'Intitulé & Contenu',
+              render: (s) => (
+                <div className="max-w-md">
+                  <p className="font-bold text-enp-black truncate">{s.intitule}</p>
+                  <p className="text-xs text-enp-gray-medium line-clamp-1">{s.contenu}</p>
+                </div>
+              ),
+            },
+            {
+              key: 'visa',
+              header: 'Visa enseignant',
+              render: (s) => {
+                const conf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
+                return <Badge variant={conf.variant}>{conf.label}</Badge>;
+              },
+            },
+            {
+              key: 'actions',
+              header: 'Détails',
+              align: 'right',
+              render: (s) => (
+                <Link to={`/cahier-texte/${s.id}`}>
+                  <Button variant="outline" size="sm">
+                    Consulter
+                  </Button>
+                </Link>
+              ),
+            },
+          ]}
+          data={seancesFiltrees}
+          keyExtractor={(s) => s.id}
+          onRowClick={(s) => navigate(`/cahier-texte/${s.id}`)}
+        />
+      ) : mode === 'calendrier' ? (
+        // VUE 2 : CALENDRIER HEBDOMADAIRE / MENSUEL RECTILIGNE
+        <div className="bg-white border border-enp-border p-5">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-enp-border">
+            <span className="text-sm font-bold text-enp-blue-deep">
+              Vue Calendaire des Enseignements
+            </span>
+            <span className="text-xs text-enp-gray-medium">
+              {seancesFiltrees.length} séance(s) répertoriée(s)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {seancesFiltrees.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => navigate(`/cahier-texte/${s.id}`)}
+                className="p-3.5 border border-enp-border hover:border-enp-blue-primary bg-white cursor-pointer transition-colors space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-enp-blue-deep">
+                    {formaterDateFr(s.date)}
+                  </span>
+                  <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
+                    {s.type}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-enp-black truncate">{s.intitule}</p>
+                <p className="text-xs text-enp-gray-medium line-clamp-2">{s.contenu}</p>
+                <div className="pt-2 border-t border-enp-border flex items-center justify-between text-xs">
+                  <span className="text-enp-gray-medium">{s.debut} - {s.fin}</span>
+                  <Badge variant={LIBELLES_VISA[s.visa.statut]?.variant || 'neutral'}>
+                    {LIBELLES_VISA[s.visa.statut]?.label || s.visa.statut}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        // VUE 3 : CHRONOLOGIQUE ÉLÉGANTE (PAR DÉFAUT)
+        <div className="space-y-3">
+          {seancesFiltrees.map((s) => {
+            const visaConf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
+
+            return (
+              <div
+                key={s.id}
+                className="bg-white border border-enp-border hover:border-enp-blue-primary/80 transition-colors p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+              >
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
+                      {s.ueCode}
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
+                      {s.type}
+                    </span>
+                    <Badge variant={visaConf.variant}>{visaConf.label}</Badge>
+                    <span className="text-xs text-enp-gray-medium">
+                      {LIBELLES_STATUT[s.statut] || s.statut}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-bold text-enp-black truncate">
+                    {s.intitule}
+                  </h3>
+
+                  <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed line-clamp-2">
+                    {s.contenu}
+                  </p>
+
+                  <div className="flex items-center gap-4 text-xs text-enp-gray-medium pt-1">
+                    <span className="flex items-center gap-1 font-medium text-enp-blue-deep">
+                      <CalendarIcon className="w-3.5 h-3.5" />
+                      {formaterDateFr(s.date)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {s.debut} à {s.fin}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0">
+                  <Link to={`/cahier-texte/${s.id}`}>
+                    <Button variant="outline" size="sm">
+                      Détail & Historique
+                    </Button>
+                  </Link>
+                  {peutViser && s.visa.statut === 'en_attente' && (
+                    <Link to="/visas">
+                      <Button variant="primary" size="sm" leftIcon={<Stamp className="w-4 h-4" />}>
+                        Viser
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
-      )}
-
-      {/* Filtres */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
-          <label
-            htmlFor="filtre-ue"
-            className="block text-xs font-medium text-enp-ink-soft mb-1"
-          >
-            UE
-          </label>
-          <select
-            id="filtre-ue"
-            value={filtreUe === "all" ? "all" : String(filtreUe)}
-            onChange={(e) =>
-              setFiltreUe(
-                e.target.value === "all" ? "all" : Number(e.target.value),
-              )
-            }
-            className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
-          >
-            <option value="all">Toutes les UE</option>
-            {ues.map((u) => (
-              <option key={u.ueId} value={u.ueId}>
-                {u.code} — {u.intitule}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex-1">
-          <label
-            htmlFor="filtre-visa"
-            className="block text-xs font-medium text-enp-ink-soft mb-1"
-          >
-            Visa
-          </label>
-          <select
-            id="filtre-visa"
-            value={filtreVisa}
-            onChange={(e) => setFiltreVisa(e.target.value)}
-            className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="en_attente">En attente</option>
-            <option value="vise">Visée</option>
-            <option value="conteste">Contestée</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Liste des séances — desktop tableau */}
-      <div className="hidden lg:block overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-enp-primary text-white">
-              <th
-                scope="col"
-                className="text-left px-3 py-2.5 font-semibold rounded-tl-xl"
-              >
-                Date
-              </th>
-              <th scope="col" className="text-left px-3 py-2.5 font-semibold">
-                UE
-              </th>
-              <th scope="col" className="text-left px-3 py-2.5 font-semibold">
-                Type
-              </th>
-              <th scope="col" className="text-left px-3 py-2.5 font-semibold">
-                Intitulé
-              </th>
-              <th scope="col" className="text-left px-3 py-2.5 font-semibold">
-                Statut
-              </th>
-              <th
-                scope="col"
-                className="text-center px-3 py-2.5 font-semibold rounded-tr-xl"
-              >
-                Visa
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {seancesFiltrees.map((s, i) => {
-              const v = LIBELLES_VISA[s.visa.statut];
-              return (
-                <tr
-                  key={s.id}
-                  className={i % 2 === 0 ? "bg-enp-sky/60" : "bg-white"}
-                >
-                  <td className="px-3 py-2.5 text-enp-ink whitespace-nowrap">
-                    {formaterDate(s.date)}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <Link
-                      to={`/cahier-texte/${s.id}`}
-                      className="text-enp-primary hover:underline font-medium"
-                    >
-                      {s.ueCode}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2.5 text-enp-ink-soft">
-                    {LIBELLES_TYPE[s.type]}
-                  </td>
-                  <td className="px-3 py-2.5 text-enp-ink">
-                    {s.intitule ?? "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-enp-ink-soft">
-                    {LIBELLES_STATUT[s.statut]}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <span
-                      className={`inline-block text-xs font-medium px-2 py-1 rounded ${v.classe}`}
-                    >
-                      {v.libelle}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {seancesFiltrees.length === 0 && (
-          <p className="text-center text-enp-ink-soft py-8 text-sm">
-            Aucune séance trouvée.
-          </p>
-        )}
-      </div>
-
-      {/* Liste des séances — mobile cartes */}
-      <div className="lg:hidden space-y-3">
-        {seancesFiltrees.map((s) => {
-          const v = LIBELLES_VISA[s.visa.statut];
-          return (
-            <Link
-              key={s.id}
-              to={`/cahier-texte/${s.id}`}
-              className="block bg-white border border-enp-border rounded-lg p-4 hover:border-enp-primary/40 transition-colors"
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="inline-flex items-center gap-1.5 text-sm text-enp-ink-soft">
-                  <Calendar size={14} aria-hidden="true" />{" "}
-                  {formaterDate(s.date)}
-                </span>
-                <span
-                  className={`inline-block text-xs font-medium px-2 py-1 rounded ${v.classe}`}
-                >
-                  {v.libelle}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="bg-enp-primary text-white text-xs font-semibold px-1.5 py-0.5 rounded">
-                  {s.ueCode}
-                </span>
-                <span className="text-xs text-enp-ink-soft">
-                  {LIBELLES_TYPE[s.type]}
-                  {s.groupe ? ` — ${s.groupe}` : ""}
-                </span>
-              </div>
-              <p className="text-enp-ink font-medium text-sm leading-snug">
-                {s.intitule ?? "—"}
-              </p>
-              <p className="text-xs text-enp-ink-soft mt-1 flex items-center gap-1">
-                <Clock size={12} aria-hidden="true" /> {s.debut}–{s.fin} ·{" "}
-                {LIBELLES_STATUT[s.statut]}
-              </p>
-            </Link>
-          );
-        })}
-        {seancesFiltrees.length === 0 && (
-          <p className="text-center text-enp-ink-soft py-8 text-sm">
-            Aucune séance trouvée.
-          </p>
-        )}
-      </div>
-
-      {/* Bouton flottant mobile */}
-      {peutGerer && (
-        <Link
-          to="/cahier-texte/nouvelle"
-          className="sm:hidden fixed bottom-5 right-5 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-enp-primary text-white shadow-lg hover:bg-enp-primary-dark transition-all"
-          aria-label="Nouvelle séance"
-        >
-          <Plus size={26} aria-hidden="true" />
-        </Link>
       )}
     </div>
   );

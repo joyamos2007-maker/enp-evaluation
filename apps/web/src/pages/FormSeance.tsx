@@ -1,32 +1,26 @@
-import { useEffect, useState, useCallback, type FormEvent } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, AlertCircle, Save } from "lucide-react";
-import { api, ApiError } from "@/api";
-import type {
-  SeanceEntree,
-  TypeSeance,
-  StatutSeance,
-  UeCahier,
-  Seance,
-} from "@/api/types";
-import { InfoCard } from "@/components/InfoCard";
+import { useEffect, useState, useCallback, type FormEvent } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, Save, AlertCircle, Lock, BookOpen, Clock, Calendar, CheckCircle2 } from 'lucide-react';
+import { api, ApiError } from '@/api';
+import type { SeanceEntree, TypeSeance, StatutSeance, UeCahier, Seance } from '@/api/types';
+import { PageHeader, Button, Input, Select, Textarea, Alert, FileUpload } from '@/components/ui';
 
 const TYPES: { valeur: TypeSeance; libelle: string }[] = [
-  { valeur: "CM", libelle: "CM" },
-  { valeur: "TD", libelle: "TD" },
-  { valeur: "TP", libelle: "TP" },
-  { valeur: "AUTRE", libelle: "Autre" },
+  { valeur: 'CM', libelle: 'Cours Magistral (CM)' },
+  { valeur: 'TD', libelle: 'Travaux Dirigés (TD)' },
+  { valeur: 'TP', libelle: 'Travaux Pratiques (TP)' },
+  { valeur: 'AUTRE', libelle: 'Autre enseignement' },
 ];
 
 const STATUTS: { valeur: StatutSeance; libelle: string }[] = [
-  { valeur: "tenue", libelle: "Tenue" },
-  { valeur: "reportee", libelle: "Reportée" },
-  { valeur: "annulee", libelle: "Annulée" },
-  { valeur: "enseignant_absent", libelle: "Enseignant absent" },
-  { valeur: "planifiee", libelle: "Planifiée" },
+  { valeur: 'tenue', libelle: 'Séance effectivement tenue' },
+  { valeur: 'reportee', libelle: 'Séance reportée' },
+  { valeur: 'annulee', libelle: 'Séance annulée' },
+  { valeur: 'enseignant_absent', libelle: 'Enseignant absent' },
+  { valeur: 'planifiee', libelle: 'Planifiée à venir' },
 ];
 
-function aujourdISO(): string {
+function dateAujourdhui(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -44,48 +38,56 @@ export function FormSeance() {
 
   const [form, setForm] = useState<SeanceEntree>({
     ueId: 0,
-    date: aujourdISO(),
-    debut: "08:00",
-    fin: "10:00",
-    type: "CM",
-    statut: "tenue",
+    date: dateAujourdhui(),
+    debut: '08:00',
+    fin: '10:00',
+    type: 'CM',
+    statut: 'tenue',
+    intitule: '',
+    contenu: '',
+    travailAFaire: '',
+    observations: '',
+    groupe: '',
   });
+
+  const [pieceJointe, setPieceJointe] = useState<File | null>(null);
 
   const charger = useCallback(async () => {
     setChargement(true);
+    setErreurGlobal(null);
     try {
       const uesData = await api.cahierMesUes();
       setUes(uesData);
 
       if (modeModification && id) {
         const seances = await api.cahierSeances();
-        const seance = seances.find((s) => s.id === Number(id));
-        if (!seance) {
-          setErreurGlobal("Séance introuvable.");
+        const trouv = seances.find((s) => s.id === Number(id));
+        if (!trouv) {
+          setErreurGlobal('Séance introuvable dans votre registre.');
           setChargement(false);
           return;
         }
-        setSeanceExistante(seance);
+        setSeanceExistante(trouv);
         setForm({
-          ueId: seance.ueId,
-          date: seance.date,
-          debut: seance.debut,
-          fin: seance.fin,
-          type: seance.type,
-          groupe: seance.groupe,
-          statut: seance.statut,
-          intitule: seance.intitule,
-          contenu: seance.contenu,
-          travailAFaire: seance.travailAFaire,
-          effectif: seance.effectif,
-          observations: seance.observations,
+          ueId: trouv.ueId,
+          date: trouv.date,
+          debut: trouv.debut,
+          fin: trouv.fin,
+          type: trouv.type,
+          groupe: trouv.groupe ?? '',
+          statut: trouv.statut,
+          intitule: trouv.intitule,
+          contenu: trouv.contenu,
+          travailAFaire: trouv.travailAFaire ?? '',
+          effectif: trouv.effectif,
+          observations: trouv.observations ?? '',
         });
       } else if (uesData.length > 0) {
         setForm((f) => ({ ...f, ueId: uesData[0].ueId }));
       }
     } catch (err) {
-      if (err instanceof ApiError) setErreurGlobal(err.messages.join(" "));
-      else setErreurGlobal("Erreur réseau.");
+      if (err instanceof ApiError) setErreurGlobal(err.messages.join(' '));
+      else setErreurGlobal('Erreur de communication lors du chargement des UE.');
     } finally {
       setChargement(false);
     }
@@ -95,58 +97,62 @@ export function FormSeance() {
     void charger();
   }, [charger]);
 
-  function update<K extends keyof SeanceEntree>(
-    cle: K,
-    valeur: SeanceEntree[K],
-  ) {
+  const estVerrouillee = seanceExistante?.visa.statut === 'vise';
+
+  function update<K extends keyof SeanceEntree>(cle: K, valeur: SeanceEntree[K]) {
     setForm((f) => ({ ...f, [cle]: valeur }));
     setErreurs([]);
   }
 
   function valider(): string[] {
     const errs: string[] = [];
-    if (!form.ueId) errs.push("L'UE est obligatoire.");
-    if (!form.date) errs.push("La date est obligatoire.");
-    if (form.statut === "planifiee" && form.date <= aujourdISO()) {
-      errs.push("Une séance planifiée doit avoir une date future.");
-    } else if (form.statut !== "planifiee" && form.date > aujourdISO()) {
-      errs.push("La date ne peut pas être dans le futur.");
-    }
-    if (!form.debut) errs.push("L'heure de début est obligatoire.");
-    if (!form.fin) errs.push("L'heure de fin est obligatoire.");
-    if (form.debut && form.fin && form.fin <= form.debut) {
-      errs.push("L'heure de fin doit être postérieure à l'heure de début.");
-    }
-    if (form.statut === "tenue") {
-      if (!form.intitule?.trim())
-        errs.push("L'intitulé est obligatoire pour une séance tenue.");
-      if (!form.contenu?.trim())
-        errs.push("Le contenu est obligatoire pour une séance tenue.");
-    }
+    if (!form.ueId) errs.push("Sélectionnez l'unité d'enseignement.");
+    if (!form.date) errs.push('La date de la séance est obligatoire.');
+    if (!form.debut || !form.fin) errs.push('Les heures de début et fin sont obligatoires.');
+    if (form.fin <= form.debut) errs.push("L'heure de fin doit être postérieure à l'heure de début.");
+    if (!form.intitule?.trim()) errs.push("L'intitulé de la séance est obligatoire.");
+    if (!form.contenu?.trim()) errs.push('Le contenu pédagogique traité est obligatoire.');
     return errs;
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (estVerrouillee) return;
+
     const errs = valider();
     if (errs.length > 0) {
       setErreurs(errs);
       return;
     }
+
     setEnCours(true);
-    setErreurGlobal(null);
+    setErreurs([]);
+
     try {
       if (modeModification && id) {
         await api.modifierSeance(Number(id), form);
+        if (pieceJointe) {
+          try {
+            await api.ajouterPieceSeance(Number(id), pieceJointe);
+          } catch {
+            // Ignorer si échec upload secondaire
+          }
+        }
         navigate(`/cahier-texte/${id}`, { replace: true });
       } else {
-        const seance = await api.creerSeance(form);
-        navigate(`/cahier-texte/${seance.id}`, { replace: true });
+        const nouvelle = await api.creerSeance(form);
+        if (pieceJointe && nouvelle.id) {
+          try {
+            await api.ajouterPieceSeance(nouvelle.id, pieceJointe);
+          } catch {
+            //
+          }
+        }
+        navigate('/cahier-texte', { replace: true });
       }
     } catch (err) {
-      if (err instanceof ApiError) setErreurGlobal(err.messages.join(" "));
-      else
-        setErreurGlobal("Erreur réseau : impossible d'enregistrer la séance.");
+      if (err instanceof ApiError) setErreurs(err.messages);
+      else setErreurs(["L'enregistrement de la séance a échoué."]);
     } finally {
       setEnCours(false);
     }
@@ -154,324 +160,231 @@ export function FormSeance() {
 
   if (chargement) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div
-            className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin"
-            aria-hidden="true"
-          />
-          <span>Chargement…</span>
-        </div>
+      <div className="py-12 text-center text-enp-gray-medium text-sm">
+        Chargement du formulaire officiel…
       </div>
     );
   }
 
-  const enLectureSeule = seanceExistante ? !seanceExistante.modifiable : false;
-
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       <Link
         to="/cahier-texte"
-        className="inline-flex items-center gap-2 text-enp-primary hover:underline text-sm"
+        className="inline-flex items-center gap-1.5 text-xs text-enp-blue-primary hover:text-enp-blue-deep font-medium"
       >
-        <ArrowLeft size={18} aria-hidden="true" /> Retour au cahier
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Retour au cahier de texte
       </Link>
 
-      <h1 className="text-xl font-bold text-enp-ink">
-        {modeModification ? "Modifier la séance" : "Nouvelle séance"}
-      </h1>
+      <PageHeader
+        title={modeModification ? `Modifier la séance #${id}` : 'Renseigner une nouvelle séance'}
+        description="Enregistrement officiel délégué au cahier de texte numérique de la promotion"
+      />
 
-      {enLectureSeule && (
-        <InfoCard titre="Séance visée : modification impossible">
-          <p>
-            Cette séance a été visée par l'enseignant. Les champs sont en
-            lecture seule.
-          </p>
-        </InfoCard>
+      {/* Avertissement de verrouillage si visée */}
+      {estVerrouillee && (
+        <Alert
+          variant="warning"
+          title="Séance verrouillée après visa officiel"
+          icon={<Lock className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />}
+        >
+          Cette séance a été formellement visée par l'enseignant-chercheur responsable.
+          Elle ne peut plus faire l'objet de modifications directes afin d'assurer l'intégrité de l'audit.
+        </Alert>
       )}
 
       {erreurGlobal && (
-        <div
-          className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
-          role="alert"
-        >
-          <AlertCircle
-            size={20}
-            className="shrink-0 mt-0.5"
-            aria-hidden="true"
-          />
-          <span>{erreurGlobal}</span>
-        </div>
+        <Alert variant="danger" title="Erreur">{erreurGlobal}</Alert>
       )}
 
       {erreurs.length > 0 && (
-        <div
-          className="rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-3 text-enp-bordeaux text-sm"
-          role="alert"
-        >
-          <ul className="list-disc list-inside space-y-0.5">
-            {erreurs.map((e, i) => (
-              <li key={i}>{e}</li>
+        <Alert variant="danger" title="Champs obligatoires manquants">
+          <ul className="list-disc list-inside space-y-1">
+            {erreurs.map((err, i) => (
+              <li key={i}>{err}</li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit} className="bg-white border border-enp-border p-6 space-y-5" noValidate>
+        {/* Unité d'enseignement & Type */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label
-              htmlFor="date"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Date
-            </label>
-            <input
-              id="date"
-              type="date"
+          <div className="sm:col-span-2">
+            <Select
+              label="Unité d'Enseignement (UE)"
               required
-              min={form.statut === "planifiee" ? aujourdISO() : undefined}
-              max={form.statut === "planifiee" ? undefined : aujourdISO()}
-              value={form.date}
-              onChange={(e) => update("date", e.target.value)}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="debut"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Début
-            </label>
-            <input
-              id="debut"
-              type="time"
-              required
-              value={form.debut}
-              onChange={(e) => update("debut", e.target.value)}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="fin"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Fin
-            </label>
-            <input
-              id="fin"
-              type="time"
-              required
-              value={form.fin}
-              onChange={(e) => update("fin", e.target.value)}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="ue"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              UE
-            </label>
-            <select
-              id="ue"
-              required
+              disabled={estVerrouillee || modeModification}
               value={form.ueId}
-              onChange={(e) => update("ueId", Number(e.target.value))}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
+              onChange={(e) => update('ueId', Number(e.target.value))}
             >
               {ues.map((u) => (
                 <option key={u.ueId} value={u.ueId}>
-                  {u.code} — {u.intitule}
+                  {u.code} : {u.intitule}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
+
           <div>
-            <label
-              htmlFor="type"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Type
-            </label>
-            <select
-              id="type"
+            <Select
+              label="Type d'enseignement"
+              required
+              disabled={estVerrouillee}
               value={form.type}
-              onChange={(e) => update("type", e.target.value as TypeSeance)}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
+              onChange={(e) => update('type', e.target.value as TypeSeance)}
             >
               {TYPES.map((t) => (
                 <option key={t.valeur} value={t.valeur}>
                   {t.libelle}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="groupe"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Groupe (facultatif)
-            </label>
-            <input
-              id="groupe"
-              type="text"
-              value={form.groupe ?? ""}
-              onChange={(e) => update("groupe", e.target.value || undefined)}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
+        {/* Date, Horaires & Statut */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="sm:col-span-2">
+            <Input
+              label="Date de la séance"
+              type="date"
+              required
+              disabled={estVerrouillee}
+              value={form.date}
+              onChange={(e) => update('date', e.target.value)}
+              startIcon={<Calendar className="w-4 h-4" />}
             />
           </div>
+
           <div>
-            <label
-              htmlFor="statut"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Statut
-            </label>
-            <select
-              id="statut"
+            <Input
+              label="Heure de début"
+              type="time"
+              required
+              disabled={estVerrouillee}
+              value={form.debut}
+              onChange={(e) => update('debut', e.target.value)}
+              startIcon={<Clock className="w-4 h-4" />}
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Heure de fin"
+              type="time"
+              required
+              disabled={estVerrouillee}
+              value={form.fin}
+              onChange={(e) => update('fin', e.target.value)}
+              startIcon={<Clock className="w-4 h-4" />}
+            />
+          </div>
+        </div>
+
+        {/* Statut & Groupe */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Select
+              label="Statut de la séance"
+              required
+              disabled={estVerrouillee}
               value={form.statut}
-              onChange={(e) => update("statut", e.target.value as StatutSeance)}
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
+              onChange={(e) => update('statut', e.target.value as StatutSeance)}
             >
               {STATUTS.map((s) => (
                 <option key={s.valeur} value={s.valeur}>
                   {s.libelle}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
-        </div>
 
-        <div>
-          <label
-            htmlFor="intitule"
-            className="block text-sm font-medium text-enp-ink mb-1"
-          >
-            Intitulé de la séance
-            {form.statut === "tenue" ? " (obligatoire)" : ""}
-          </label>
-          <input
-            id="intitule"
-            type="text"
-            value={form.intitule ?? ""}
-            onChange={(e) => update("intitule", e.target.value || undefined)}
-            disabled={enLectureSeule || enCours}
-            className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="contenu"
-            className="block text-sm font-medium text-enp-ink mb-1"
-          >
-            Contenu traité{form.statut === "tenue" ? " (obligatoire)" : ""}
-          </label>
-          <textarea
-            id="contenu"
-            rows={3}
-            value={form.contenu ?? ""}
-            onChange={(e) => update("contenu", e.target.value || undefined)}
-            disabled={enLectureSeule || enCours}
-            className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y disabled:bg-enp-sky"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="travail"
-            className="block text-sm font-medium text-enp-ink mb-1"
-          >
-            Travail à faire (facultatif)
-          </label>
-          <textarea
-            id="travail"
-            rows={2}
-            value={form.travailAFaire ?? ""}
-            onChange={(e) =>
-              update("travailAFaire", e.target.value || undefined)
-            }
-            disabled={enLectureSeule || enCours}
-            className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y disabled:bg-enp-sky"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label
-              htmlFor="effectif"
-              className="block text-sm font-medium text-enp-ink mb-1"
-            >
-              Effectif présent (facultatif)
-            </label>
-            <input
-              id="effectif"
-              type="number"
-              min={0}
-              value={form.effectif ?? ""}
-              onChange={(e) =>
-                update(
-                  "effectif",
-                  e.target.value ? Number(e.target.value) : undefined,
-                )
-              }
-              disabled={enLectureSeule || enCours}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px] disabled:bg-enp-sky"
+            <Input
+              label="Groupe ou promotion (optionnel)"
+              type="text"
+              disabled={estVerrouillee}
+              value={form.groupe ?? ''}
+              onChange={(e) => update('groupe', e.target.value)}
+              placeholder="Ex: Groupe 1, TP Binôme B, Promotion entière..."
             />
           </div>
         </div>
 
-        <div>
-          <label
-            htmlFor="observations"
-            className="block text-sm font-medium text-enp-ink mb-1"
-          >
-            Observations (facultatif)
-          </label>
-          <textarea
-            id="observations"
-            rows={2}
-            value={form.observations ?? ""}
-            onChange={(e) =>
-              update("observations", e.target.value || undefined)
-            }
-            disabled={enLectureSeule || enCours}
-            className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y disabled:bg-enp-sky"
-          />
-        </div>
+        {/* Intitulé & Contenu pédagogique */}
+        <Input
+          label="Intitulé ou thème du cours"
+          type="text"
+          required
+          disabled={estVerrouillee}
+          value={form.intitule}
+          onChange={(e) => update('intitule', e.target.value)}
+          placeholder="Ex : Chapitre 3 : Dimensionnement des poutres en béton armé"
+        />
 
-        {!enLectureSeule && (
-          <button
-            type="submit"
-            disabled={enCours}
-            className="inline-flex items-center gap-2 bg-enp-primary text-white font-semibold px-5 py-3 rounded-md hover:bg-enp-primary-dark transition-all disabled:opacity-60 min-h-[44px]"
-          >
-            <Save size={20} aria-hidden="true" />
-            {enCours
-              ? "Enregistrement…"
-              : modeModification
-                ? "Enregistrer les modifications"
-                : "Créer la séance"}
-          </button>
+        <Textarea
+          label="Contenu pédagogique détaillé et notions traitées"
+          required
+          disabled={estVerrouillee}
+          value={form.contenu}
+          onChange={(e) => update('contenu', e.target.value)}
+          rows={4}
+          placeholder="Détaillez les chapitres abordés, théorèmes démontrés, exercices corrigés ou manipulations de laboratoire effectuées..."
+        />
+
+        {/* Travail à faire & Références */}
+        <Textarea
+          label="Travail à faire & Préparation pour la prochaine séance"
+          disabled={estVerrouillee}
+          value={form.travailAFaire ?? ''}
+          onChange={(e) => update('travailAFaire', e.target.value)}
+          rows={2}
+          placeholder="Exercices à préparer, chapitres du polycopié à lire, compte-rendu de TP..."
+        />
+
+        <Textarea
+          label="Observations ou incidents éventuels (optionnel)"
+          disabled={estVerrouillee}
+          value={form.observations ?? ''}
+          onChange={(e) => update('observations', e.target.value)}
+          rows={2}
+          placeholder="Remarques sur le matériel de laboratoire, retard, panne de projecteur..."
+        />
+
+        {/* Pièce jointe optionnelle (support, photo tableau, énoncé TD) */}
+        {!estVerrouillee && (
+          <div className="pt-2 border-t border-enp-border">
+            <FileUpload
+              label="Pièce jointe officielle (PDF, support ou compte-rendu)"
+              accept=".pdf,.png,.jpg,.jpeg,.docx"
+              selectedFile={pieceJointe}
+              onFileSelect={(f) => setPieceJointe(f)}
+              onClear={() => setPieceJointe(null)}
+              helperText="Formats acceptés : PDF, JPG, PNG, DOCX jusqu'à 2 Mo"
+            />
+          </div>
         )}
+
+        {/* Actions de validation */}
+        <div className="pt-4 border-t border-enp-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <Link to="/cahier-texte" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto justify-center">Annuler</Button>
+          </Link>
+
+          {!estVerrouillee && (
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="w-full sm:w-auto justify-center"
+              isLoading={enCours}
+              leftIcon={<Save className="w-4 h-4" />}
+            >
+              {modeModification ? 'Enregistrer les modifications' : 'Consigner la séance'}
+            </Button>
+          )}
+        </div>
       </form>
     </div>
   );

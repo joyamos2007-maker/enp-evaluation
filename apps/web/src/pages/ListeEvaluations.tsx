@@ -1,14 +1,38 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, CalendarClock, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
+import {
+  ClipboardCheck,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  ShieldCheck,
+  Search,
+  Filter,
+  Check,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { UeAEvaluer } from '@/api/types';
-import { InfoCard } from '@/components/InfoCard';
+import {
+  PageHeader,
+  ProgressBar,
+  StatCard,
+  Alert,
+  Button,
+  Input,
+  Badge,
+  EmptyState,
+  SkeletonCard,
+} from '@/components/ui';
 
 export function ListeEvaluations() {
   const [ues, setUes] = useState<UeAEvaluer[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // Filtres
+  const [recherche, setRecherche] = useState('');
+  const [filtreEtat, setFiltreEtat] = useState<'tous' | 'a_faire' | 'terminee'>('tous');
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -18,7 +42,7 @@ export function ListeEvaluations() {
       setUes(data);
     } catch (err) {
       if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau : impossible de charger la liste des évaluations.');
+      else setErreur('Erreur de communication : impossible de charger la liste de vos UE.');
     } finally {
       setChargement(false);
     }
@@ -33,6 +57,18 @@ export function ListeEvaluations() {
   const aFaire = total - terminees;
   const pct = total > 0 ? Math.round((terminees / total) * 100) : 0;
 
+  const uesFiltrees = useMemo(() => {
+    return ues.filter((ue) => {
+      const matchRecherche =
+        !recherche ||
+        ue.code.toLowerCase().includes(recherche.toLowerCase()) ||
+        ue.intitule.toLowerCase().includes(recherche.toLowerCase());
+      const matchEtat =
+        filtreEtat === 'tous' || ue.etat === filtreEtat;
+      return matchRecherche && matchEtat;
+    });
+  }, [ues, recherche, filtreEtat]);
+
   function formaterDate(iso: string): string {
     try {
       const d = new Date(iso);
@@ -46,133 +82,193 @@ export function ListeEvaluations() {
     }
   }
 
-  if (chargement) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes évaluations</h1>
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div
-            className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin"
-            aria-hidden="true"
-          />
-          <span>Chargement des évaluations…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (erreur) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes évaluations</h1>
-        <div
-          className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
-          role="alert"
-        >
-          <AlertCircle size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <div>
-            <p>{erreur}</p>
-            <button
-              type="button"
-              onClick={() => void charger()}
-              className="mt-2 inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]"
-            >
-              Réessayer
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes évaluations</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">
-          Évaluez les enseignements de votre semestre.
-        </p>
-      </div>
+    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Évaluations des Unités d'Enseignement"
+        description="Campagne officielle d'évaluation pédagogique anonyme de l'École Nationale Polytechnique"
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Évaluations des UE' },
+        ]}
+      />
 
-      <InfoCard titre="Anonymat de vos réponses" icone={false}>
-        <p>
-          Vos réponses sont anonymes : elles ne sont reliées ni à votre nom ni
-          à votre matricule.
+      {/* Encart institutionnel certifiant l'anonymat intégral */}
+      <Alert
+        variant="institutional"
+        title="Garantie institutionnelle d'anonymat et de neutralité"
+        icon={<ShieldCheck className="w-5 h-5 text-enp-gold shrink-0 mt-0.5" />}
+      >
+        <p className="leading-relaxed">
+          Votre évaluation est <strong>strictement anonyme</strong>. Le bulletin est déposé dans l'urne numérique
+          séparée sans aucun lien avec votre identité ou votre matricule. Une seule soumission définitive est autorisée par unité d'enseignement.
+          Ces retours sont exploités par les Conseils de Département et la Direction des Études à des fins exclusives d'amélioration pédagogique.
         </p>
-      </InfoCard>
+      </Alert>
 
-      {/* Compteur et barre de progression */}
-      <div className="bg-enp-sky border border-enp-border rounded-lg p-4">
-        <div className="flex items-baseline justify-between mb-2">
-          <p className="text-enp-ink font-medium">
-            {terminees} UE évaluée{terminees > 1 ? 's' : ''} sur {total}
-          </p>
-          <p className="text-sm text-enp-ink-soft">{pct}%</p>
-        </div>
-        <div
-          className="h-2.5 w-full rounded-full bg-white border border-enp-border overflow-hidden"
-          aria-hidden="true"
-        >
-          <div
-            className="h-full bg-enp-primary transition-all duration-500"
-            style={{ width: `${pct}%` }}
+      {/* Indicateurs de progression globale */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          label="UE restantes à évaluer"
+          value={aFaire}
+          subtext={aFaire > 0 ? "Campagne active en cours" : "Toutes vos évaluations sont transmises"}
+          variant={aFaire > 0 ? 'warning' : 'success'}
+          icon={<Clock className="w-5 h-5" />}
+        />
+        <StatCard
+          label="Évaluations validées"
+          value={terminees}
+          subtext={`Sur ${total} UE inscrites à votre cursus`}
+          variant="primary"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+        />
+        <div className="bg-white border border-enp-border p-5 flex flex-col justify-center">
+          <span className="text-xs font-semibold uppercase tracking-wider text-enp-gray-medium mb-1">
+            Progression globale
+          </span>
+          <ProgressBar
+            value={pct}
+            label={`${terminees} sur ${total} complétée(s)`}
+            showPercent={true}
+            size="md"
+            variant={pct === 100 ? 'success' : 'primary'}
           />
         </div>
-        {aFaire > 0 && (
-          <p className="text-sm text-enp-ink-soft mt-2">
-            {aFaire} UE{aFaire > 1 ? 's' : ''} restante{aFaire > 1 ? 's' : ''} à évaluer.
-          </p>
-        )}
       </div>
 
-      {/* Liste des UE */}
-      <div className="space-y-3">
-        {ues.map((ue) => {
-          const termine = ue.etat === 'terminee';
-          return (
-            <div
-              key={ue.ueId}
-              className="bg-white border border-enp-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="inline-flex items-center justify-center bg-enp-primary text-white text-xs font-semibold px-2 py-0.5 rounded">
-                    {ue.code}
-                  </span>
-                  {termine && (
-                    <span className="inline-flex items-center gap-1 text-enp-primary text-xs font-medium">
-                      <CheckCircle2 size={14} aria-hidden="true" />
-                      Terminée
+      {/* Barre de filtres et recherche */}
+      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Input
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            placeholder="Rechercher par code (ex: MAT101) ou intitulé..."
+            startIcon={<Search className="w-4 h-4" />}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setFiltreEtat('tous')}
+            className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+              filtreEtat === 'tous'
+                ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
+            }`}
+          >
+            Toutes ({total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltreEtat('a_faire')}
+            className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+              filtreEtat === 'a_faire'
+                ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
+            }`}
+          >
+            À faire ({aFaire})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltreEtat('terminee')}
+            className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+              filtreEtat === 'terminee'
+                ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
+            }`}
+          >
+            Terminées ({terminees})
+          </button>
+        </div>
+      </div>
+
+      {/* Liste des unités d'enseignement */}
+      {chargement ? (
+        <div className="grid grid-cols-1 gap-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur lors du chargement">
+          <div className="space-y-3">
+            <p>{erreur}</p>
+            <Button variant="outline" size="sm" onClick={() => void charger()}>
+              Réessayer
+            </Button>
+          </div>
+        </Alert>
+      ) : uesFiltrees.length === 0 ? (
+        <EmptyState
+          title="Aucune unité d'enseignement trouvée"
+          description={
+            recherche
+              ? "Aucune UE ne correspond à vos critères de recherche."
+              : "Vous n'avez aucune unité d'enseignement à évaluer pour cette session."
+          }
+        />
+      ) : (
+        <div className="space-y-3">
+          {uesFiltrees.map((ue) => {
+            const estAFaire = ue.etat === 'a_faire';
+
+            return (
+              <div
+                key={ue.ueId}
+                className={`bg-white border transition-colors p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  estAFaire
+                    ? 'border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/20'
+                    : 'border-enp-border/60 bg-[#FAFAFA]'
+                }`}
+              >
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
+                      {ue.code}
+                    </span>
+                    <Badge variant={estAFaire ? 'warning' : 'success'}>
+                      {estAFaire ? 'À faire' : 'Évaluation enregistrée'}
+                    </Badge>
+                  </div>
+
+                  <h2 className="text-base font-bold text-enp-black break-words">
+                    {ue.intitule}
+                  </h2>
+
+                  <div className="flex items-center gap-4 text-xs text-enp-gray-medium pt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Date limite : {formaterDate(ue.finCampagne)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 pt-2 sm:pt-0 w-full sm:w-auto">
+                  {estAFaire ? (
+                    <Link to={`/evaluations/${ue.ueId}`} className="block w-full sm:w-auto">
+                      <Button
+                        variant="primary"
+                        size="md"
+                        className="w-full sm:w-auto justify-center"
+                        rightIcon={<ArrowRight className="w-4 h-4" />}
+                      >
+                        Évaluer l'UE
+                      </Button>
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-enp-green-light text-enp-green-valid text-xs font-bold border border-enp-green-valid/20 w-full sm:w-auto">
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      Participation enregistrée
                     </span>
                   )}
                 </div>
-                <p className="text-enp-ink font-medium leading-snug">
-                  {ue.intitule}
-                </p>
-                <p className="text-sm text-enp-ink-soft mt-1 flex items-center gap-1.5">
-                  <CalendarClock size={15} aria-hidden="true" />
-                  Évaluer avant le {formaterDate(ue.finCampagne)}
-                </p>
               </div>
-
-              {termine ? (
-                <span className="inline-flex items-center gap-2 bg-enp-sky text-enp-ink-soft text-sm font-medium px-4 py-2.5 rounded-md cursor-default min-h-[44px] sm:self-center">
-                  <ClipboardCheck size={18} aria-hidden="true" />
-                  Terminée
-                </span>
-              ) : (
-                <Link
-                  to={`/evaluations/${ue.ueId}?campagne=${ue.campagneId}`}
-                  className="inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-4 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px] sm:self-center"
-                >
-                  Évaluer
-                  <ArrowRight size={18} aria-hidden="true" />
-                </Link>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

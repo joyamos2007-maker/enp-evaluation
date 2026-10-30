@@ -42,13 +42,20 @@ export class BallotDatabaseService implements OnModuleInit, OnModuleDestroy {
 
   // L'application refuse de demarrer si le role de l'urne a trop de droits
   async onModuleInit(): Promise<void> {
-    const res = await this.pool.query<InfosRoleUrne>(
-      `SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS superuser,
-              has_table_privilege(current_user, 'evaluation.participation_ledger', 'SELECT') AS lit_registre,
-              has_schema_privilege(current_user, 'identity', 'USAGE') AS acces_identites,
-              has_schema_privilege(current_user, 'ref', 'USAGE') AS acces_referentiels`,
-    );
-    const probleme = verifierRoleUrne(res.rows[0]);
+    let infos: InfosRoleUrne;
+    try {
+      const res = await this.pool.query<InfosRoleUrne>(
+        `SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS superuser,
+                has_table_privilege(current_user, 'evaluation.participation_ledger', 'SELECT') AS lit_registre,
+                has_schema_privilege(current_user, 'identity', 'USAGE') AS acces_identites,
+                has_schema_privilege(current_user, 'ref', 'USAGE') AS acces_referentiels`,
+      );
+      infos = res.rows[0];
+    } catch (err) {
+      this.logger.warn('Controle du role urne impossible au demarrage : ' + (err as Error).message);
+      return;
+    }
+    const probleme = verifierRoleUrne(infos);
     if (probleme) throw new Error(probleme);
   }
 

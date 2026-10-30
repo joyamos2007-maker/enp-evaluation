@@ -262,7 +262,7 @@ function messageParDefaut(status: number): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  API publique — signatures identiques à src/api/mock.ts             */
+/*  API publique : signatures identiques à src/api/mock.ts             */
 /* ------------------------------------------------------------------ */
 
 export async function connexion(corps: CorpsConnexion): Promise<ReponseLogin> {

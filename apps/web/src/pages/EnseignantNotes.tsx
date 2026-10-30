@@ -1,7 +1,32 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { AlertCircle, ClipboardList, Download, Save } from 'lucide-react';
+import {
+  ClipboardList,
+  Download,
+  Save,
+  Plus,
+  AlertCircle,
+  CheckCircle2,
+  Lock,
+  BookOpen,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { CahierNotes, CoursDossier, TypeEvaluationAcademique } from '@/api/types';
+import {
+  PageHeader,
+  SectionHeader,
+  Button,
+  Input,
+  Select,
+  Alert,
+  Badge,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHead,
+} from '@/components/ui';
 
 export function EnseignantNotes() {
   const [cours, setCours] = useState<CoursDossier[]>([]);
@@ -17,26 +42,39 @@ export function EnseignantNotes() {
 
   useEffect(() => {
     let actif = true;
-    api.dossierCoursEnseignant()
+    api
+      .dossierCoursEnseignant()
       .then((data) => {
         if (!actif) return;
         setCours(data);
         if (data[0]) setCourseId(data[0].id);
       })
       .catch((err: unknown) => {
-        if (actif) setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger vos UE.');
+        if (actif)
+          setErreur(
+            err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger vos UE attribuées.'
+          );
       })
-      .finally(() => { if (actif) setChargement(false); });
-    return () => { actif = false; };
+      .finally(() => {
+        if (actif) setChargement(false);
+      });
+    return () => {
+      actif = false;
+    };
   }, []);
 
   const chargerCahier = useCallback(async () => {
     if (courseId === null) return;
     setErreur(null);
     try {
-      setCahier(await api.dossierCahierNotes(courseId));
+      const data = await api.dossierCahierNotes(courseId);
+      setCahier(data);
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger le tableau des notes.');
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Impossible de charger le carnet de notes de cette UE.'
+      );
     }
   }, [courseId]);
 
@@ -50,12 +88,18 @@ export function EnseignantNotes() {
     setErreur(null);
     setMessage(null);
     try {
-      await api.dossierCreerEvaluation(courseId, { libelle: libelle.trim(), type, bareme: Number(bareme) });
+      await api.dossierCreerEvaluation(courseId, {
+        libelle: libelle.trim(),
+        type,
+        bareme: Number(bareme),
+      });
       setLibelle('');
-      setMessage('La colonne d’évaluation a été créée.');
+      setMessage(`La colonne d’évaluation « ${libelle.trim()} » a été ajoutée.`);
       await chargerCahier();
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de créer la colonne.');
+      setErreur(
+        err instanceof ApiError ? err.messages.join(' ') : 'Erreur lors de la création de la colonne.'
+      );
     }
   }
 
@@ -64,9 +108,11 @@ export function EnseignantNotes() {
     const note = valeur === '' ? null : Number(valeur);
     setCahier({
       ...cahier,
-      evaluations: cahier.evaluations.map((evaluation) => evaluation.id !== evaluationId
-        ? evaluation
-        : { ...evaluation, notes: { ...evaluation.notes, [etudiantId]: note } }),
+      evaluations: cahier.evaluations.map((evaluation) =>
+        evaluation.id !== evaluationId
+          ? evaluation
+          : { ...evaluation, notes: { ...evaluation.notes, [etudiantId]: note } }
+      ),
     });
   }
 
@@ -83,11 +129,15 @@ export function EnseignantNotes() {
         cahier.etudiants.map((etudiant) => ({
           etudiantId: etudiant.id,
           note: evaluation.notes[etudiant.id] ?? null,
-        })),
+        }))
       );
-      setMessage(`Les notes de « ${evaluation.libelle} » ont été enregistrées.`);
+      setMessage(`Les notes de « ${evaluation.libelle} » ont été enregistrées avec succès.`);
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible d’enregistrer les notes.');
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Impossible d’enregistrer les notes saisies.'
+      );
     } finally {
       setEnregistrement(null);
     }
@@ -105,126 +155,302 @@ export function EnseignantNotes() {
       lien.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible d’exporter les notes.');
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Erreur lors de l’exportation du carnet de notes.'
+      );
     }
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <header>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Notes des étudiants</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">Créez autant de colonnes de devoirs et d’examens que nécessaire pour vos UE.</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Carnet de notes des étudiants"
+        subtitle="Saisie et gestion des devoirs continus, examens et bordereaux d'évaluation."
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Espace Enseignant', href: '/resultats' },
+          { label: 'Saisie des notes' },
+        ]}
+      />
 
-      {erreur && <Alerte texte={erreur} />}
-      {message && <p className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800" role="status">{message}</p>}
-      {chargement ? <p className="text-enp-ink-soft">Chargement…</p> : (
-        <>
-          {cours.length === 0 ? (
-            <p className="rounded-lg bg-white border border-enp-border p-5 text-enp-ink-soft">Aucune UE ne vous est attribuée.</p>
-          ) : (
-            <>
-              <label className="block max-w-xl text-sm font-medium text-enp-ink">
-                UE
+      {erreur && (
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
+      )}
+
+      {message && (
+        <Alert variant="success" title="Enregistrement réussi" onClose={() => setMessage(null)}>
+          {message}
+        </Alert>
+      )}
+
+      {chargement ? (
+        <div className="p-12 text-center bg-white border border-enp-border">
+          <div className="inline-block w-8 h-8 border-2 border-enp-blue-ice border-t-enp-blue-primary animate-spin mb-2" />
+          <p className="text-sm text-enp-gray-medium">Chargement de vos unités d'enseignement…</p>
+        </div>
+      ) : cours.length === 0 ? (
+        <div className="bg-white border border-enp-border p-8 text-center text-enp-gray-medium">
+          <BookOpen className="w-10 h-10 text-enp-gray-medium mx-auto mb-2 opacity-40" />
+          <p className="font-semibold text-enp-black">Aucune unité d'enseignement attribuée</p>
+          <p className="text-xs mt-1">Contactez votre Chef de Département ou la Scolarité pour vos affectations d'UE.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Sélecteur d'UE */}
+          <div className="bg-white border border-enp-border p-4 shadow-sm">
+            <label htmlFor="select-ue-notes" className="block text-xs font-semibold text-enp-black uppercase tracking-wider mb-2">
+              Unité d'enseignement à gérer ({cours.length} attribuée{cours.length > 1 ? 's' : ''})
+            </label>
+            <select
+              id="select-ue-notes"
+              value={courseId ?? ''}
+              onChange={(e) => setCourseId(Number(e.target.value))}
+              className="w-full border border-enp-border bg-white px-3 py-2.5 text-sm text-enp-black font-semibold focus:outline-none focus:border-enp-blue-primary"
+            >
+              {cours.map((ue) => (
+                <option key={ue.id} value={ue.id}>
+                  {ue.code} : {ue.intitule}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Formulaire de création d'une colonne d'évaluation */}
+          <div className="bg-white border border-enp-border p-5 shadow-sm">
+            <h3 className="text-sm font-bold text-enp-blue-deep font-serif uppercase tracking-wider mb-3">
+              Ajouter une évaluation (Devoir ou Examen)
+            </h3>
+            <form onSubmit={(e) => void creerEvaluation(e)} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+              <div className="sm:col-span-2">
+                <Input
+                  label="Intitulé de l'évaluation *"
+                  required
+                  maxLength={120}
+                  value={libelle}
+                  onChange={(e) => setLibelle(e.target.value)}
+                  placeholder="Ex: Devoir surveillé N°1, TP Synthèse, Examen terminal..."
+                />
+              </div>
+
+              <div>
+                <label htmlFor="eval-type" className="block text-xs font-semibold text-enp-black uppercase tracking-wider mb-1">
+                  Nature de l'épreuve *
+                </label>
                 <select
-                  value={courseId ?? ''}
-                  onChange={(event) => setCourseId(Number(event.target.value))}
-                  className="mt-1 block w-full rounded-md border border-enp-border bg-white px-3 py-2"
+                  id="eval-type"
+                  value={type}
+                  onChange={(e) => setType(e.target.value as TypeEvaluationAcademique)}
+                  className="w-full border border-enp-border bg-white px-3 py-2 text-sm text-enp-black focus:outline-none focus:border-enp-blue-primary"
                 >
-                  {cours.map((ue) => <option key={ue.id} value={ue.id}>{ue.code} — {ue.intitule}</option>)}
+                  <option value="devoir">Devoir continu (Publié direct)</option>
+                  <option value="examen">Examen terminal (Soumis à délibération)</option>
                 </select>
-              </label>
+              </div>
 
-              <form onSubmit={(event) => void creerEvaluation(event)} className="grid gap-3 rounded-xl border border-enp-border bg-white p-4 sm:grid-cols-[1fr_140px_130px_auto] sm:items-end">
-                <label className="text-sm font-medium text-enp-ink">
-                  Intitulé de la colonne
-                  <input required maxLength={120} value={libelle} onChange={(event) => setLibelle(event.target.value)} placeholder="Ex. Devoir 1" className="mt-1 block w-full rounded-md border border-enp-border px-3 py-2" />
-                </label>
-                <label className="text-sm font-medium text-enp-ink">
-                  Type
-                  <select value={type} onChange={(event) => setType(event.target.value as TypeEvaluationAcademique)} className="mt-1 block w-full rounded-md border border-enp-border bg-white px-3 py-2">
-                    <option value="devoir">Devoir</option>
-                    <option value="examen">Examen</option>
-                  </select>
-                </label>
-                <label className="text-sm font-medium text-enp-ink">
-                  Barème
-                  <input required type="number" min="0.01" max="100000" step="0.01" value={bareme} onChange={(event) => setBareme(event.target.value)} className="mt-1 block w-full rounded-md border border-enp-border px-3 py-2" />
-                </label>
-                <button type="submit" className="min-h-[42px] rounded-md bg-enp-primary px-4 py-2 text-sm font-semibold text-white hover:bg-enp-primary-dark">Créer la colonne</button>
-              </form>
+              <div>
+                <Input
+                  label="Barème de notation *"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  step="0.5"
+                  required
+                  value={bareme}
+                  onChange={(e) => setBareme(e.target.value)}
+                  placeholder="20"
+                />
+              </div>
 
-              {cahier && (
-                <section className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList size={20} className="text-enp-primary" aria-hidden="true" />
-                      <h2 className="text-lg font-semibold text-enp-ink">{cahier.cours.code} — {cahier.cours.intitule}</h2>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {(['pdf', 'xlsx', 'docx'] as const).map((format) => (
-                        <button key={format} type="button" onClick={() => void exporterNotes(format)} className="inline-flex min-h-[38px] items-center gap-2 rounded-md border border-enp-border bg-white px-3 py-2 text-sm font-medium text-enp-ink hover:bg-enp-sky">
-                          <Download size={15} aria-hidden="true" /> {format.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {cahier.evaluations.length === 0 ? (
-                    <p className="rounded-lg bg-white border border-enp-border p-5 text-enp-ink-soft">Aucune colonne. Créez un devoir ou un examen ci-dessus.</p>
-                  ) : cahier.evaluations.map((evaluation) => (
-                    <article key={evaluation.id} className="overflow-hidden rounded-xl border border-enp-border bg-white">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-enp-border bg-enp-sky px-4 py-3">
-                        <div>
-                          <h3 className="font-semibold text-enp-ink">{evaluation.libelle}</h3>
-                          <p className="text-xs text-enp-ink-soft">{evaluation.type === 'devoir' ? 'Devoir' : 'Examen'} · sur {evaluation.bareme}</p>
+              <div className="sm:col-span-4 flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Créer la colonne de notes
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          {/* Carnet de notes interactif */}
+          {cahier && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-enp-border p-4 shadow-sm">
+                <div>
+                  <h3 className="text-base font-bold text-enp-blue-deep font-serif">
+                    Carnet de notes : {cahier.cours.code} : {cahier.cours.intitule}
+                  </h3>
+                  <p className="text-xs text-enp-gray-medium mt-0.5">
+                    Effectif inscrit : {cahier.etudiants.length} étudiant{cahier.etudiants.length > 1 ? 's' : ''} · {cahier.evaluations.length} colonne{cahier.evaluations.length > 1 ? 's' : ''} configurée{cahier.evaluations.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-enp-gray-medium mr-1 font-semibold">Exporter :</span>
+                  {(['pdf', 'xlsx', 'docx'] as const).map((fmt) => (
+                    <Button
+                      key={fmt}
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<Download className="w-3 h-3" />}
+                      onClick={() => void exporterNotes(fmt)}
+                    >
+                      {fmt.toUpperCase()}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {cahier.evaluations.length === 0 ? (
+                <div className="bg-white border border-enp-border p-8 text-center text-enp-gray-medium">
+                  <ClipboardList className="w-10 h-10 text-enp-gray-medium mx-auto mb-2 opacity-40" />
+                  <p className="font-semibold text-enp-black">Aucune colonne d'évaluation créée</p>
+                  <p className="text-xs mt-1">Utilisez le formulaire ci-dessus pour ajouter votre premier devoir ou examen.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {cahier.evaluations.map((evalCol) => {
+                    const estExamenDelibere = evalCol.type === 'examen' && evalCol.deliberee;
+                    const enAttenteJury = evalCol.type === 'examen' && !evalCol.deliberee;
+
+                    return (
+                      <div
+                        key={evalCol.id}
+                        className="bg-white border border-enp-border shadow-sm overflow-hidden"
+                      >
+                        <div className="bg-enp-bg p-4 border-b border-enp-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-bold text-enp-blue-deep font-serif">
+                                {evalCol.libelle}
+                              </span>
+                              <Badge variant={evalCol.type === 'devoir' ? 'default' : 'institutional'}>
+                                {evalCol.type === 'devoir' ? 'Devoir continu' : 'Examen terminal'}
+                              </Badge>
+                              <span className="text-xs font-mono font-bold text-enp-gray-medium">
+                                (Barème : /{evalCol.bareme})
+                              </span>
+                            </div>
+                            <p className="text-xs text-enp-gray-medium mt-1">
+                              {enAttenteJury
+                                ? '⚠️ Épreuve d’examen : Les notes saisies seront publiées aux étudiants après délibération de la Scolarité.'
+                                : estExamenDelibere
+                                ? '🔒 Examen délibéré par le jury académique. La modification des notes est verrouillée.'
+                                : 'Les notes de devoirs sont consultables en continu par les étudiants.'}
+                            </p>
+                          </div>
+
+                          {!estExamenDelibere && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              leftIcon={<Save className="w-3.5 h-3.5" />}
+                              onClick={() => void enregistrerEvaluation(evalCol.id)}
+                              isLoading={enregistrement === evalCol.id}
+                            >
+                              Enregistrer cette colonne
+                            </Button>
+                          )}
                         </div>
-                        {evaluation.type === 'examen' && !evaluation.deliberee && (
-                          <span className="text-xs font-medium text-amber-800">
-                            Publication après délibération par la Scolarité.
-                          </span>
-                        )}
-                        {evaluation.type === 'examen' && evaluation.deliberee && (
-                          <span className="text-xs font-semibold text-emerald-800">
-                            Délibéré · modification verrouillée
-                          </span>
-                        )}
-                        {!(evaluation.type === 'examen' && evaluation.deliberee) && (
-                          <button type="button" disabled={enregistrement === evaluation.id} onClick={() => void enregistrerEvaluation(evaluation.id)} className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-enp-primary px-3 py-2 text-sm font-medium text-white hover:bg-enp-primary-dark disabled:opacity-60">
-                            <Save size={16} aria-hidden="true" /> {enregistrement === evaluation.id ? 'Enregistrement…' : 'Enregistrer les notes'}
-                          </button>
+
+                        {cahier.etudiants.length === 0 ? (
+                          <div className="p-6 text-center text-enp-gray-medium text-xs">
+                            Aucun étudiant inscrit à cette unité d'enseignement.
+                          </div>
+                        ) : (
+                          <div>
+                            {/* VUE MOBILE : Liste tactile compacte pour saisie rapide sur smartphone */}
+                            <div className="block sm:hidden divide-y divide-enp-border">
+                              {cahier.etudiants.map((etudiant) => (
+                                <div key={etudiant.id} className="p-3 flex items-center justify-between gap-3 bg-white">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-sm text-enp-black truncate">
+                                      {etudiant.prenom} {etudiant.nom}
+                                    </p>
+                                    <span className="font-mono text-xs text-enp-blue-deep bg-enp-blue-light px-1.5 py-0.2 border border-enp-blue-primary/20 inline-block mt-0.5">
+                                      {etudiant.identifiant ?? '-'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <input
+                                      type="number"
+                                      inputMode="decimal"
+                                      min="0"
+                                      max={evalCol.bareme}
+                                      step="0.25"
+                                      disabled={estExamenDelibere}
+                                      value={evalCol.notes[etudiant.id] ?? ''}
+                                      onChange={(e) =>
+                                        modifierNote(evalCol.id, etudiant.id, e.target.value)
+                                      }
+                                      placeholder="-"
+                                      className="w-20 h-11 text-center font-mono font-bold text-base border border-enp-border px-2 focus:outline-none focus:border-enp-blue-primary disabled:bg-enp-bg disabled:text-enp-gray-medium bg-white"
+                                    />
+                                    <span className="text-xs text-enp-gray-medium font-semibold">
+                                      /{evalCol.bareme}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* VUE TABLETTE / DESKTOP */}
+                            <div className="hidden sm:block overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>N° Matricule</TableHead>
+                                    <TableHead>Nom & Prénom de l'étudiant</TableHead>
+                                    <TableHead className="w-48 text-right">Note / {evalCol.bareme}</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {cahier.etudiants.map((etudiant) => (
+                                    <TableRow key={etudiant.id}>
+                                      <TableCell className="font-mono text-xs font-bold text-enp-blue-deep">
+                                        {etudiant.identifiant ?? '-'}
+                                      </TableCell>
+                                      <TableCell className="font-semibold text-enp-black text-sm">
+                                        {etudiant.prenom} {etudiant.nom}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <input
+                                          type="number"
+                                          inputMode="decimal"
+                                          min="0"
+                                          max={evalCol.bareme}
+                                          step="0.25"
+                                          disabled={estExamenDelibere}
+                                          value={evalCol.notes[etudiant.id] ?? ''}
+                                          onChange={(e) =>
+                                            modifierNote(evalCol.id, etudiant.id, e.target.value)
+                                          }
+                                          placeholder="-"
+                                          className="w-24 text-right font-mono font-bold text-sm border border-enp-border px-2 py-1.5 focus:outline-none focus:border-enp-blue-primary disabled:bg-enp-bg disabled:text-enp-gray-medium"
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      {cahier.etudiants.length === 0 ? <p className="p-4 text-sm text-enp-ink-soft">Aucun étudiant inscrit à cette UE.</p> : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead><tr className="text-left text-enp-ink-soft"><th className="px-4 py-3">Matricule</th><th className="px-4 py-3">Étudiant</th><th className="w-40 px-4 py-3">Note / {evaluation.bareme}</th></tr></thead>
-                            <tbody>{cahier.etudiants.map((etudiant) => (
-                              <tr key={etudiant.id} className="border-t border-enp-border">
-                                <td className="px-4 py-3">{etudiant.identifiant ?? '—'}</td>
-                                <td className="px-4 py-3">{etudiant.prenom} {etudiant.nom}</td>
-                                <td className="px-4 py-2"><input aria-label={`Note de ${etudiant.prenom} ${etudiant.nom}`} disabled={evaluation.type === 'examen' && evaluation.deliberee} type="number" min="0" max={evaluation.bareme} step="0.01" value={evaluation.notes[etudiant.id] ?? ''} onChange={(event) => modifierNote(evaluation.id, etudiant.id, event.target.value)} className="w-full rounded-md border border-enp-border px-3 py-2 disabled:bg-enp-sky disabled:text-enp-ink-soft" /></td>
-                              </tr>
-                            ))}</tbody>
-                          </table>
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </section>
+                    );
+                  })}
+                </div>
               )}
-            </>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </div>
-  );
-}
-
-function Alerte({ texte }: { texte: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux" role="alert">
-      <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
-      <span>{texte}</span>
     </div>
   );
 }

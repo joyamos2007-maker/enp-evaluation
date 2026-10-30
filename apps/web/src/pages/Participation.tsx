@@ -1,7 +1,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { AlertCircle, Users } from 'lucide-react';
+import { Users, TrendingUp, AlertCircle, CheckCircle2, Clock, Search, ArrowUpDown } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { Campagne, ParticipationUe } from '@/api/types';
+import {
+  PageHeader,
+  StatCard,
+  ProgressBar,
+  Select,
+  Input,
+  Table,
+  Badge,
+  Alert,
+  EmptyState,
+} from '@/components/ui';
 
 export function Participation() {
   const [campagnes, setCampagnes] = useState<Campagne[]>([]);
@@ -9,6 +20,8 @@ export function Participation() {
   const [participations, setParticipations] = useState<ParticipationUe[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [recherche, setRecherche] = useState('');
+  const [triParTaux, setTriParTaux] = useState<'croissant' | 'decroissant'>('croissant');
 
   const chargerCampagnes = useCallback(async () => {
     try {
@@ -19,7 +32,7 @@ export function Participation() {
       }
     } catch (err) {
       if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau.');
+      else setErreur('Impossible de charger les campagnes de pilotage.');
     }
   }, [campagneId]);
 
@@ -32,7 +45,7 @@ export function Participation() {
       setParticipations(data);
     } catch (err) {
       if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau.');
+      else setErreur('Impossible de récupérer les taux de participation.');
     } finally {
       setChargement(false);
     }
@@ -46,114 +59,227 @@ export function Participation() {
     if (campagneId !== null) void chargerParticipation();
   }, [campagneId, chargerParticipation]);
 
-  const trie = useMemo(() => {
-    return [...participations].sort((a, b) => {
+  const participationsFiltrees = useMemo(() => {
+    const list = participations.filter(
+      (p) =>
+        !recherche ||
+        p.code.toLowerCase().includes(recherche.toLowerCase()) ||
+        p.intitule.toLowerCase().includes(recherche.toLowerCase()),
+    );
+
+    return list.sort((a, b) => {
       const ta = a.inscrits > 0 ? a.repondants / a.inscrits : 0;
       const tb = b.inscrits > 0 ? b.repondants / b.inscrits : 0;
-      return ta - tb;
+      return triParTaux === 'croissant' ? ta - tb : tb - ta;
     });
-  }, [participations]);
+  }, [participations, recherche, triParTaux]);
 
   const totalInscrits = participations.reduce((s, p) => s + p.inscrits, 0);
   const totalRepondants = participations.reduce((s, p) => s + p.repondants, 0);
   const tauxGlobal = totalInscrits > 0 ? Math.round((totalRepondants / totalInscrits) * 100) : 0;
+  const uesSeuilAtteint = participations.filter((p) => p.repondants >= 5).length;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Participation</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">Taux de participation aux campagnes d'évaluation.</p>
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Suivi de la Participation aux Évaluations"
+        description="Tableau de bord de mobilisation des promotions • Surveillance du seuil d'anonymat (5 répondants)"
+        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Participation' }]}
+      />
+
+      {/* Cartes d'indicateurs globaux */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Taux de participation global"
+          value={`${tauxGlobal}%`}
+          subtext={`${totalRepondants} votants sur ${totalInscrits} inscrits`}
+          variant="primary"
+          icon={<TrendingUp className="w-5 h-5" />}
+        />
+        <StatCard
+          label="UE avec seuil validé"
+          value={`${uesSeuilAtteint} / ${participations.length}`}
+          subtext="Ayant atteint le minimum de 5 suffrages"
+          variant={uesSeuilAtteint === participations.length ? 'success' : 'warning'}
+          icon={<CheckCircle2 className="w-5 h-5" />}
+        />
+        <StatCard
+          label="UE à mobiliser prioritairement"
+          value={participations.length - uesSeuilAtteint}
+          subtext="Risque de masquage des résultats détaillés"
+          variant={participations.length - uesSeuilAtteint > 0 ? 'warning' : 'success'}
+          icon={<Clock className="w-5 h-5" />}
+        />
+        <div className="bg-white border border-enp-border p-5 flex flex-col justify-center">
+          <span className="text-xs font-semibold uppercase tracking-wider text-enp-gray-medium mb-1.5">
+            Quorum départemental
+          </span>
+          <ProgressBar
+            value={tauxGlobal}
+            showPercent={true}
+            size="md"
+            variant={tauxGlobal >= 70 ? 'success' : tauxGlobal >= 50 ? 'primary' : 'warning'}
+          />
+        </div>
       </div>
 
-      {/* Sélecteur de campagne */}
-      <div>
-        <label htmlFor="campagne" className="block text-sm font-medium text-enp-ink mb-1">Campagne</label>
-        <select
-          id="campagne"
-          value={campagneId ?? ''}
-          onChange={(e) => setCampagneId(Number(e.target.value))}
-          className="w-full sm:w-auto rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
+      {/* Filtres de campagne & recherche */}
+      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="w-full sm:w-72">
+            <Select
+              label="Sélectionner la campagne"
+              value={campagneId ?? ''}
+              onChange={(e) => setCampagneId(Number(e.target.value))}
+            >
+              {campagnes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.libelle} ({c.anneeUniversitaire} • {c.semestre})
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-64 pt-5 sm:pt-0">
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Filtrer par code ou intitulé..."
+              startIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setTriParTaux((prev) => (prev === 'croissant' ? 'decroissant' : 'croissant'))}
+          className="px-3 py-2 bg-white border border-enp-border text-xs font-semibold flex items-center gap-1.5 hover:bg-enp-blue-ice transition-colors self-end sm:self-auto"
         >
-          {campagnes.map((c) => (
-            <option key={c.id} value={c.id}>{c.libelle}</option>
-          ))}
-        </select>
+          <ArrowUpDown className="w-3.5 h-3.5" />
+          <span>Taux : {triParTaux === 'croissant' ? 'Plus faibles d’abord' : 'Plus élevés d’abord'}</span>
+        </button>
       </div>
 
-      {erreur && (
-        <div className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux" role="alert">
-          <AlertCircle size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <div>
-            <p>{erreur}</p>
-            <button type="button" onClick={() => void chargerParticipation()} className="mt-2 inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]">Réessayer</button>
-          </div>
+      {chargement ? (
+        <div className="py-12 text-center text-enp-gray-medium text-sm">
+          Calcul des effectifs et des participations…
         </div>
-      )}
-
-      {chargement && !erreur && (
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin" aria-hidden="true" />
-          <span>Chargement…</span>
-        </div>
-      )}
-
-      {!chargement && !erreur && (
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur">{erreur}</Alert>
+      ) : participationsFiltrees.length === 0 ? (
+        <EmptyState
+          title="Aucune donnée de participation disponible"
+          description="Aucune unité d'enseignement enregistrée pour cette campagne."
+        />
+      ) : (
         <>
-          {/* Carte taux global */}
-          <div className="bg-enp-sky border border-enp-border rounded-lg p-4 flex items-center gap-4">
-            <div className="shrink-0 w-12 h-12 rounded-full bg-enp-primary flex items-center justify-center">
-              <Users size={24} className="text-white" aria-hidden="true" />
-            </div>
-            <div className="flex-1">
-              <p className="text-enp-ink font-medium">Taux global de participation</p>
-              <p className="text-sm text-enp-ink-soft">{totalRepondants} répondants sur {totalInscrits} inscrits</p>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-enp-ink">{tauxGlobal}%</p>
-            </div>
-            <div className="hidden sm:block w-32">
-              <div className="h-2.5 w-full rounded-full bg-white border border-enp-border overflow-hidden" aria-hidden="true">
-                <div className="h-full bg-enp-primary transition-all duration-500" style={{ width: `${tauxGlobal}%` }} />
-              </div>
-            </div>
+          {/* Cartes tactiles pour mobiles (< 640px) */}
+          <div className="space-y-3 block sm:hidden">
+            {participationsFiltrees.map((p) => {
+              const pctUe = p.inscrits > 0 ? Math.round((p.repondants / p.inscrits) * 100) : 0;
+              const seuilAtteint = p.repondants >= 5;
+              return (
+                <div
+                  key={p.ueId}
+                  className="bg-white border border-enp-border p-4 space-y-3 shadow-none"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {p.code}
+                    </span>
+                    <Badge variant={seuilAtteint ? 'success' : 'warning'}>
+                      {seuilAtteint ? 'Seuil atteint' : `${5 - p.repondants} restant(s)`}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-enp-black">{p.intitule}</h3>
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-enp-blue-deep">
+                        {p.repondants} / {p.inscrits} répondants
+                      </span>
+                      <span className="font-bold">{pctUe}%</span>
+                    </div>
+                    <ProgressBar
+                      value={pctUe}
+                      showPercent={false}
+                      size="sm"
+                      variant={seuilAtteint ? 'success' : 'warning'}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Tableau */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-enp-primary text-white">
-                  <th scope="col" className="text-left px-3 py-2.5 font-semibold rounded-tl-xl">Code</th>
-                  <th scope="col" className="text-left px-3 py-2.5 font-semibold">Intitulé</th>
-                  <th scope="col" className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Inscrits</th>
-                  <th scope="col" className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Répondants</th>
-                  <th scope="col" className="text-left px-3 py-2.5 font-semibold rounded-tr-xl">Taux</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trie.map((p, i) => {
-                  const taux = p.inscrits > 0 ? Math.round((p.repondants / p.inscrits) * 100) : 0;
-                  return (
-                    <tr key={p.ueId} className={i % 2 === 0 ? 'bg-enp-sky/60' : 'bg-white'}>
-                      <td className="px-3 py-2.5">
-                        <span className="bg-enp-primary text-white text-xs font-semibold px-2 py-0.5 rounded">{p.code}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-enp-ink">{p.intitule}</td>
-                      <td className="px-3 py-2.5 text-center text-enp-ink-soft">{p.inscrits}</td>
-                      <td className="px-3 py-2.5 text-center text-enp-ink font-medium">{p.repondants}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-20 rounded-full bg-enp-sky overflow-hidden shrink-0" aria-hidden="true">
-                            <div className="h-full bg-enp-primary transition-all duration-500" style={{ width: `${taux}%` }} />
-                          </div>
-                          <span className="text-enp-ink font-medium text-xs">{taux}%</span>
+          {/* Tableau standard pour tablettes et ordinateurs (>= 640px) */}
+          <div className="hidden sm:block">
+            <Table<ParticipationUe>
+              columns={[
+                {
+                  key: 'code',
+                  header: 'Code UE',
+                  render: (p) => (
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {p.code}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'intitule',
+                  header: 'Intitulé de l’enseignement',
+                  render: (p) => <span className="font-bold text-enp-black">{p.intitule}</span>,
+                },
+                {
+                  key: 'inscrits',
+                  header: 'Inscrits',
+                  align: 'center',
+                  render: (p) => <span className="font-semibold text-enp-black">{p.inscrits}</span>,
+                },
+                {
+                  key: 'repondants',
+                  header: 'Répondants',
+                  align: 'center',
+                  render: (p) => (
+                    <span className="font-bold text-enp-blue-primary">{p.repondants}</span>
+                  ),
+                },
+                {
+                  key: 'taux',
+                  header: 'Taux de participation',
+                  render: (p) => {
+                    const pctUe = p.inscrits > 0 ? Math.round((p.repondants / p.inscrits) * 100) : 0;
+                    return (
+                      <div className="w-40 space-y-1">
+                        <div className="flex justify-between text-xs font-medium">
+                          <span>{pctUe}%</span>
+                          <span className="text-enp-gray-medium">{p.repondants}/{p.inscrits}</span>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <ProgressBar
+                          value={pctUe}
+                          showPercent={false}
+                          size="sm"
+                          variant={p.repondants >= 5 ? 'success' : 'warning'}
+                        />
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: 'statut',
+                  header: 'Statut quorum (≥ 5)',
+                  align: 'right',
+                  render: (p) => (
+                    <Badge variant={p.repondants >= 5 ? 'success' : 'warning'}>
+                      {p.repondants >= 5 ? 'Seuil atteint' : `${5 - p.repondants} restant(s)`}
+                    </Badge>
+                  ),
+                },
+              ]}
+              data={participationsFiltrees}
+              keyExtractor={(p) => p.ueId}
+            />
           </div>
         </>
       )}

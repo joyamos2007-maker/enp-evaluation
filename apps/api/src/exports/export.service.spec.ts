@@ -5,9 +5,9 @@ describe('ExportService', () => {
   const service = new ExportService();
   const lignes = [
     {
-      ue: 'INF501 — Algorithmique',
+      ue: 'INF501  -  Algorithmique',
       date: '2026-10-13',
-      horaire: '08:00 — 10:00',
+      horaire: '08:00  -  10:00',
       type: 'CM',
       intitule: 'Graphes',
       contenu: 'Parcours en largeur',

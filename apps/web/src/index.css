@@ -3,163 +3,164 @@
 @tailwind utilities;
 
 @layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   html {
     font-size: 16px;
-    font-family: 'Inter', 'Manrope', 'Segoe UI', Roboto, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: -0.011em;
+    color: #17212B;
+    background-color: #F4F6F8;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
   }
 
   body {
     margin: 0;
-    background-color: #F8FAFC;
-    color: #0F172A;
+    background-color: #F4F6F8;
+    color: #17212B;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    position: relative;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* Règle anti-débordement universelle pour conteneurs et textes */
+  img, svg, video, canvas, audio, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
+  }
+
+  p, h1, h2, h3, h4, h5, h6, span, a, label {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Contrainte Recharts pour éviter l'expansion infinie en flex */
+  .recharts-responsive-container {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Tables : empêcher le débordement horizontal non contrôlé */
+  table {
+    max-width: 100%;
+  }
+
+  /* Pré-formatté : retour à la ligne forcé sur mobile */
+  pre, code {
+    overflow-wrap: break-word;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+
+  /* Règle d'angles droits stricts pour l'esthétique institutionnelle */
+  button, input, select, textarea, table, th, td {
+    border-radius: 0px;
   }
 }
 
-/* Cibles tactiles d'au moins 44 px pour les éléments interactifs principaux */
+/* Accessibilité et navigation clavier (WCAG 2.1 AA) */
+:focus-visible {
+  outline: 2px solid #008080 !important;
+  outline-offset: 2px !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #008080 !important;
+  outline-offset: 2px !important;
+}
+
+/* Cibles tactiles d'au moins 44px sur mobile */
 button,
-a {
+a,
+input[type="checkbox"],
+input[type="radio"] {
   touch-action: manipulation;
 }
 
-:focus-visible {
-  outline: 2px solid #7C3AED;
-  outline-offset: 2px;
-  border-radius: 4px;
+/* Respect de la préférence utilisateur de réduction des mouvements */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* Limite la largeur minimale lisible sur très petits écrans */
-#root {
-  min-width: 360px;
-}
-
-/* Scrollbar subtile pour les panneaux latéraux */
+/* Scrollbar sobre et rectiligne */
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+  background: #F4F6F8;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 3px;
+  background: #D8DEE5;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #6B7280;
 }
 
 /* ---------------------------------------------------------------- */
-/*  Feuille de style d'impression (fiches de résultats)              */
+/*  Styles d'impression officiels (fiches de résultats et rapports) */
 /* ---------------------------------------------------------------- */
 @media print {
   body {
-    background: #ffffff !important;
+    background: #FFFFFF !important;
     color: #000000 !important;
   }
 
   .no-print,
   header,
   nav,
-  aside {
+  aside,
+  footer {
     display: none !important;
   }
 
-  .print-area,
-  .print-area * {
-    color: #000000 !important;
-  }
-
-  .print-area .bg-enp-primary,
-  .print-area .bg-enp-ink,
-  .print-area .bg-enp-teal-dark {
-    background-color: #e0e0e0 !important;
-    color: #000000 !important;
-  }
-
-  .print-area .bg-enp-primary-light,
-  .print-area .bg-enp-sky {
-    background-color: #f5f5f5 !important;
-  }
-
-  .print-area .text-white {
-    color: #000000 !important;
-  }
-
-  .print-area .border-enp-primary,
-  .print-area .border-enp-ink {
-    border-color: #999999 !important;
+  .print-area {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .print-area table {
+    border-collapse: collapse;
+    width: 100%;
     page-break-inside: avoid;
+  }
+
+  .print-area th,
+  .print-area td {
+    border: 1px solid #000000 !important;
+    padding: 6px 8px !important;
+    font-size: 11pt !important;
   }
 
   .print-area tr {
     page-break-inside: avoid;
-  }
-
-  @page {
-    margin: 1.5cm;
-  }
-}
-
-/* ---------------------------------------------------------------- */
-/*  Fiches d'activation — 8 par page A4                              */
-/* ---------------------------------------------------------------- */
-@media print {
-  .print-fiches { display: block !important; }
-
-  .print-page {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    gap: 0;
-    page-break-after: always;
-    width: 100%;
-    height: 100vh;
-  }
-
-  .fiche-code {
-    border: 1px dashed #999;
-    padding: 8mm 6mm;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    gap: 2mm;
-  }
-
-  .fiche-nom {
-    font-size: 13pt;
-    font-weight: bold;
-    margin: 0;
-  }
-
-  .fiche-mat {
-    font-size: 10pt;
-    color: #555;
-    margin: 0;
-  }
-
-  .fiche-code-text {
-    font-size: 18pt;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    letter-spacing: 2pt;
-    margin: 3mm 0;
-  }
-
-  .fiche-valid {
-    font-size: 9pt;
-    color: #555;
-    margin: 0;
-  }
-
-  .fiche-cut {
-    border-top: 1px dashed #ccc;
-    width: 80%;
-    margin: 2mm auto 0;
   }
 }

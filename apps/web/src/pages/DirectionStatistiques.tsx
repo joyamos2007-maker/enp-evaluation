@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   BarChart3,
@@ -7,13 +8,38 @@ import {
   RefreshCw,
   Send,
   Users,
+  ShieldAlert,
+  Globe2,
+  FileCheck2,
+  Award,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 import { api, ApiError } from '@/api';
 import type {
   ControlesAcademiques,
   PeriodeDirection,
   StatistiquesDirection as StatistiquesDirectionType,
 } from '@/api/types';
+import {
+  PageHeader,
+  Button,
+  Select,
+  Alert,
+  StatCard,
+  ChartCard,
+  Table,
+  Badge,
+  Tabs,
+} from '@/components/ui';
 
 const DEBUT_ANNEE_ACADEMIQUE = (() => {
   const aujourdHui = new Date();
@@ -22,25 +48,22 @@ const DEBUT_ANNEE_ACADEMIQUE = (() => {
     : aujourdHui.getFullYear() - 1;
 })();
 const ANNEE_DEFAUT = `${DEBUT_ANNEE_ACADEMIQUE}-${DEBUT_ANNEE_ACADEMIQUE + 1}`;
-const SEMESTRE_DEFAUT = 5;
-
-function afficherNombre(valeur: number | null): string {
-  return valeur === null ? '—' : valeur.toLocaleString('fr-FR');
-}
-
-function afficherPourcentage(valeur: number | null): string {
-  return valeur === null ? '—' : `${valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`;
-}
-
-function messageErreur(erreur: unknown): string {
-  return erreur instanceof ApiError
-    ? erreur.messages.join(' ')
-    : 'Une erreur réseau est survenue. Réessayez.';
-}
+const SEMESTRE_DEFAUT = 1;
 
 export function DirectionStatistiques() {
+  const location = useLocation();
   const [anneeUniversitaire, setAnneeUniversitaire] = useState(ANNEE_DEFAUT);
   const [semestre, setSemestre] = useState(SEMESTRE_DEFAUT);
+  const [onglet, setOnglet] = useState(() =>
+    location.pathname.includes('/controles') ? 'controles' : 'statistiques'
+  );
+
+  useEffect(() => {
+    if (location.pathname.includes('/controles')) {
+      setOnglet('controles');
+    }
+  }, [location.pathname]);
+
   const [statistiques, setStatistiques] = useState<StatistiquesDirectionType | null>(null);
   const [controles, setControles] = useState<ControlesAcademiques | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -60,16 +83,12 @@ export function DirectionStatistiques() {
       ]);
       setStatistiques(resume);
       setControles(controle);
-    } catch (err) {
-      setErreur(messageErreur(err));
-      setStatistiques(null);
-      setControles(null);
+    } catch (cause) {
+      setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Erreur de chargement.');
     } finally {
       setChargement(false);
     }
   }, [anneeUniversitaire, semestre]);
-
-  const periode: PeriodeDirection = { anneeUniversitaire, semestre };
 
   useEffect(() => {
     void charger();
@@ -80,203 +99,275 @@ export function DirectionStatistiques() {
     setErreur(null);
     setConfirmation(null);
     try {
+      const periode: PeriodeDirection = { anneeUniversitaire, semestre };
       await api.directionPublierStatistiques(periode);
-      setConfirmation(`Les statistiques de ${anneeUniversitaire}, semestre ${semestre}, ont été publiées.`);
-    } catch (err) {
-      setErreur(messageErreur(err));
+      setConfirmation('Publication validée. Les statistiques officielles et restitutions ont été actualisées.');
+      await charger();
+    } catch (cause) {
+      setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Échec de la publication.');
     } finally {
       setPublicationEnCours(false);
     }
   }
 
-  const annees = Array.from({ length: 8 }, (_, index) => {
-    const debut = DEBUT_ANNEE_ACADEMIQUE - 5 + index;
-    return `${debut}-${debut + 1}`;
-  });
-  const kpis = statistiques
-    ? [
-        { libelle: 'Campus couverts', valeur: afficherNombre(statistiques.global.campus), icone: Building2, couleur: 'bg-enp-violet' },
-        { libelle: 'Campagnes / clôturées', valeur: `${afficherNombre(statistiques.global.campagnes)} / ${afficherNombre(statistiques.global.campagnesCloses)}`, icone: BarChart3, couleur: 'bg-enp-primary' },
-        { libelle: 'Participation', valeur: afficherPourcentage(statistiques.global.tauxParticipation), detail: `${afficherNombre(statistiques.global.participations)} / ${afficherNombre(statistiques.global.inscriptions)} inscriptions`, icone: Users, couleur: 'bg-enp-teal' },
-        { libelle: 'Moyenne des évaluations', valeur: statistiques.global.moyenneEvaluations === null ? '—' : `${statistiques.global.moyenneEvaluations.toFixed(2)} / 5`, detail: `${afficherNombre(statistiques.global.coursSynthesables)} cours publiables`, icone: CheckCircle2, couleur: 'bg-enp-bordeaux' },
-      ]
-    : [];
+  // Graphique comparatif des campus et départements
+  const donneesDepartements = (statistiques?.campus ?? []).map((c) => ({
+    departement: c.campus,
+    tauxParticipation: c.tauxParticipation !== null ? Number(c.tauxParticipation.toFixed(1)) : 0,
+    satisfactionGlobale: c.moyenneEvaluations !== null ? Number(c.moyenneEvaluations.toFixed(2)) : 0,
+  }));
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-enp-ink">Statistiques globales ENP</h1>
-          <p className="mt-1.5 text-sm text-enp-ink-soft">
-            Synthèse multisite de la participation et des résultats académiques.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void publier()}
-          disabled={!statistiques || publicationEnCours || chargement}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-enp-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-enp-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Send size={17} aria-hidden="true" />
-          {publicationEnCours ? 'Publication…' : 'Publier les statistiques'}
-        </button>
-      </header>
-
-      <section className="flex flex-col gap-3 rounded-xl border border-enp-border bg-white p-4 shadow-card sm:flex-row sm:items-end">
-        <div>
-          <label htmlFor="direction-annee" className="mb-1 block text-sm font-medium text-enp-ink">
-            Année universitaire
-          </label>
-          <select
-            id="direction-annee"
-            value={anneeUniversitaire}
-            onChange={(event) => setAnneeUniversitaire(event.target.value)}
-            className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink sm:w-auto"
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Supervision & Statistiques de la Direction des Études"
+        description="Vue consolidée multi-campus, intégrité des référentiels et publication officielle des rapports ministériels"
+        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Direction des Études' }]}
+        actions={
+          <Button
+            variant="primary"
+            size="md"
+            className="w-full sm:w-auto justify-center"
+            isLoading={publicationEnCours}
+            onClick={() => void publier()}
+            leftIcon={<Send className="w-4 h-4" />}
           >
-            {annees.map((annee) => <option key={annee} value={annee}>{annee}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="direction-semestre" className="mb-1 block text-sm font-medium text-enp-ink">
-            Semestre
-          </label>
-          <select
-            id="direction-semestre"
-            value={semestre}
-            onChange={(event) => setSemestre(Number(event.target.value))}
-            className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink sm:w-auto"
-          >
-            {Array.from({ length: 10 }, (_, index) => index + 1).map((numero) => (
-              <option key={numero} value={numero}>Semestre {numero}</option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="button"
-          onClick={() => void charger()}
-          disabled={chargement}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-enp-border px-4 py-2 text-sm font-medium text-enp-ink hover:bg-enp-sky disabled:opacity-60"
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          Actualiser
-        </button>
-      </section>
+            Publier les synthèses officielles
+          </Button>
+        }
+      />
 
-      {erreur && (
-        <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux">
-          <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <div>
-            <p>{erreur}</p>
-            <button type="button" onClick={() => void charger()} className="mt-2 text-sm font-semibold underline">
-              Réessayer
-            </button>
+      {/* Sélecteur de période académique */}
+      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-44">
+            <Select
+              label="Année académique"
+              value={anneeUniversitaire}
+              onChange={(e) => setAnneeUniversitaire(e.target.value)}
+            >
+              <option value="2025-2026">2025-2026</option>
+              <option value="2026-2027">2026-2027 (Actuelle)</option>
+              <option value="2027-2028">2027-2028</option>
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-36">
+            <Select
+              label="Semestre"
+              value={semestre}
+              onChange={(e) => setSemestre(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) => (
+                <option key={s} value={s}>
+                  Semestre {s}
+                </option>
+              ))}
+            </Select>
           </div>
         </div>
-      )}
 
-      {confirmation && (
-        <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
-          <CheckCircle2 size={19} aria-hidden="true" />
-          {confirmation}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto justify-center"
+          onClick={() => void charger()}
+          leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+        >
+          Actualiser les indicateurs
+        </Button>
+      </div>
+
+      {confirmation && <Alert variant="success" title="Publication">{confirmation}</Alert>}
+      {erreur && <Alert variant="danger" title="Alerte">{erreur}</Alert>}
+
+      {/* Onglets entre Statistiques et Contrôles académiques */}
+      <Tabs
+        tabs={[
+          { id: 'statistiques', label: 'Statistiques & Participations', count: statistiques?.campus.length },
+          { id: 'controles', label: 'Contrôles académiques & Intégrité', count: controles?.nombreAnomalies },
+        ]}
+        activeTab={onglet}
+        onChange={setOnglet}
+      />
+
+      {chargement ? (
+        <div className="py-12 text-center text-enp-gray-medium text-sm">
+          Calcul des données institutionnelles…
         </div>
-      )}
+      ) : onglet === 'statistiques' && statistiques ? (
+        <div className="space-y-6">
+          {/* Indicateurs nationaux ENP */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Participation nationale"
+              value={`${statistiques.global.tauxParticipation !== null ? statistiques.global.tauxParticipation.toFixed(1) : 0}%`}
+              subtext={`${statistiques.global.bulletins} bulletins reçus sur ${statistiques.global.inscriptions} inscrits`}
+              variant="primary"
+              icon={<Users className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Satisfaction moyenne"
+              value={`${statistiques.global.moyenneEvaluations !== null ? statistiques.global.moyenneEvaluations.toFixed(2) : '-'} / 5.0`}
+              subtext="Moyenne générale tous campus confondus"
+              variant="success"
+              icon={<Award className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Campus analysés"
+              value={statistiques.campus.length}
+              subtext="Périmètre actif ENP"
+              variant="default"
+              icon={<Building2 className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Unités d'enseignement"
+              value={statistiques.global.coursSynthesables}
+              subtext="Cours au catalogue"
+              variant="default"
+              icon={<Globe2 className="w-5 h-5" />}
+            />
+          </div>
 
-      {chargement && !erreur && (
-        <div className="flex items-center gap-3 text-enp-ink-soft" role="status">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-enp-sky border-t-enp-primary" aria-hidden="true" />
-          Chargement des statistiques de la période…
-        </div>
-      )}
+          {/* Graphique des départements */}
+          <ChartCard
+            title="Comparatif des taux de participation par campus et département"
+            subtitle="Taux effectif de mobilisation (%) pour le semestre actif"
+          >
+            <div className="h-64 w-full" aria-label="Graphique des taux par département">
+              <ResponsiveContainer width="99%" height="100%">
+                <BarChart data={donneesDepartements} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="departement" stroke="#6B7280" fontSize={11} />
+                  <YAxis domain={[0, 100]} stroke="#6B7280" fontSize={11} />
+                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #D8DEE5', fontSize: '12px' }} />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                  <Bar dataKey="tauxParticipation" name="Participation (%)" fill="#0A4275" barSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartCard>
 
-      {!chargement && statistiques && controles && !erreur && (
-        <>
-          <section aria-label="Indicateurs globaux" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {kpis.map(({ libelle, valeur, detail, icone: Icone, couleur }) => (
-              <article key={libelle} className="rounded-xl border border-enp-border bg-white p-5 shadow-card">
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${couleur}`}>
-                    <Icone size={21} className="text-white" aria-hidden="true" />
+          {/* Tableau détaillé des campus */}
+          <div className="bg-white border border-enp-border p-5 space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep border-b border-enp-border pb-2">
+              Indicateurs détaillés par campus et département
+            </h2>
+            {/* Vue mobile (< 640px) */}
+            <div className="block sm:hidden divide-y divide-enp-border">
+              {statistiques.campus.map((d: any) => (
+                <div key={d.campusId} className="py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-enp-blue-deep">{d.campus}</span>
+                    <span className="text-xs font-bold text-enp-green-valid">
+                      {d.tauxParticipation !== null ? `${d.tauxParticipation.toFixed(1)}%` : '-'}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xl font-bold tracking-tight text-enp-ink">{valeur}</p>
-                    <p className="text-xs text-enp-ink-soft">{libelle}</p>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <div className="bg-enp-bg p-2 text-center border border-enp-border">
+                      <span className="text-enp-gray-medium block text-[10px] uppercase">UE</span>
+                      <span className="font-semibold">{d.coursSynthesables}</span>
+                    </div>
+                    <div className="bg-enp-bg p-2 text-center border border-enp-border">
+                      <span className="text-enp-gray-medium block text-[10px] uppercase">Bulletins</span>
+                      <span className="font-semibold text-enp-blue-deep">{d.bulletins} / {d.inscriptions}</span>
+                    </div>
+                    <div className="bg-enp-bg p-2 text-center border border-enp-border">
+                      <span className="text-enp-gray-medium block text-[10px] uppercase">Moyenne</span>
+                      <span className="font-bold">{d.moyenneEvaluations !== null ? `${d.moyenneEvaluations.toFixed(2)}/5` : '-'}</span>
+                    </div>
                   </div>
                 </div>
-                {detail && <p className="mt-3 text-xs text-enp-ink-soft">{detail}</p>}
-              </article>
-            ))}
-          </section>
-
-          <section className="overflow-hidden rounded-xl border border-enp-border bg-white shadow-card">
-            <div className="border-b border-enp-border px-5 py-4">
-              <h2 className="font-semibold text-enp-ink">Résultats par campus</h2>
-              <p className="mt-1 text-sm text-enp-ink-soft">
-                {anneeUniversitaire} · Semestre {semestre} · le détail des notes est agrégé uniquement si le seuil d’anonymat ({statistiques.seuilAnonymat}) est atteint.
-              </p>
+              ))}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-sm">
-                <thead>
-                  <tr className="bg-enp-teal-dark text-left text-white">
-                    <th scope="col" className="px-4 py-3 font-semibold">Campus</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Campagnes</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Inscriptions</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Participations</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Taux</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Moyenne</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Cours synthétisables</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statistiques.campus.map((campus, index) => (
-                    <tr key={campus.campusId} className={index % 2 === 0 ? 'bg-slate-50/60' : 'bg-white'}>
-                      <th scope="row" className="px-4 py-3 text-left font-semibold text-enp-ink">{campus.campus}</th>
-                      <td className="px-4 py-3 text-center text-enp-ink-soft">{campus.campagnesCloses} / {campus.campagnes} clôturées</td>
-                      <td className="px-4 py-3 text-center text-enp-ink-soft">{afficherNombre(campus.inscriptions)}</td>
-                      <td className="px-4 py-3 text-center text-enp-ink-soft">{afficherNombre(campus.participations)}</td>
-                      <td className="px-4 py-3 text-center font-medium text-enp-ink">{afficherPourcentage(campus.tauxParticipation)}</td>
-                      <td className="px-4 py-3 text-center font-medium text-enp-ink">
-                        {campus.moyenneEvaluations === null ? 'Non disponible' : `${campus.moyenneEvaluations.toFixed(2)} / 5`}
-                      </td>
-                      <td className="px-4 py-3 text-center text-enp-ink-soft">{campus.coursSynthesables}</td>
-                    </tr>
+
+            {/* Tableau desktop (>= 640px) */}
+            <div className="hidden sm:block">
+              <Table
+                columns={[
+                  { key: 'campus', header: 'Campus / Département' },
+                  {
+                    key: 'coursSynthesables',
+                    header: 'UE au catalogue',
+                    align: 'center',
+                    render: (d: any) => <span>{d.coursSynthesables}</span>,
+                  },
+                  {
+                    key: 'inscriptions',
+                    header: 'Inscrits',
+                    align: 'center',
+                    render: (d: any) => <span>{d.inscriptions}</span>,
+                  },
+                  {
+                    key: 'bulletins',
+                    header: 'Bulletins reçus',
+                    align: 'center',
+                    render: (d: any) => <span className="font-bold text-enp-blue-deep">{d.bulletins}</span>,
+                  },
+                  {
+                    key: 'taux',
+                    header: 'Taux participation',
+                    align: 'center',
+                    render: (d: any) => (
+                      <span className="font-bold text-enp-green-valid">
+                        {d.tauxParticipation !== null ? `${d.tauxParticipation.toFixed(1)}%` : '-'}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'satisfaction',
+                    header: 'Moyenne d’évaluation',
+                    align: 'right',
+                    render: (d: any) => (
+                      <span className="font-bold">
+                        {d.moyenneEvaluations !== null ? `${d.moyenneEvaluations.toFixed(2)} / 5` : '-'}
+                      </span>
+                    ),
+                  },
+                ]}
+                data={statistiques.campus}
+                keyExtractor={(d: any) => d.campusId}
+              />
+            </div>
+          </div>
+        </div>
+      ) : onglet === 'controles' && controles ? (
+        <div className="space-y-6">
+          <div className="bg-white border border-enp-border p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-enp-border pb-3">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep">
+                Vérification automatique de conformité des référentiels
+              </h2>
+              <Badge variant={controles.nombreAnomalies === 0 ? 'success' : 'warning'}>
+                {controles.nombreAnomalies === 0 ? 'Conforme (0 anomalie)' : `${controles.nombreAnomalies} anomalie(s)`}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {controles.reglesVerifiees.map((regle) => (
+                <div key={regle.code} className="p-3 bg-enp-blue-ice/40 border border-enp-border text-xs">
+                  <span className="font-mono font-bold text-enp-blue-deep mr-2">[{regle.code}]</span>
+                  <span className="text-enp-black font-medium">{regle.description}</span>
+                </div>
+              ))}
+            </div>
+
+            {controles.anomalies.length > 0 && (
+              <div className="pt-4 border-t border-enp-border space-y-2">
+                <p className="text-xs font-bold text-enp-red-error uppercase">Anomalies relevées :</p>
+                <div className="space-y-2">
+                  {controles.anomalies.map((a, i) => (
+                    <div key={i} className="p-3 bg-enp-red-light border border-enp-red-error/30 text-xs text-enp-red-inst">
+                      <span className="font-bold font-mono mr-2">[{a.code}]</span>
+                      <span>{a.libelle} : {a.departement} ({a.campus}, S{a.semestre})</span>
+                    </div>
                   ))}
-                  {statistiques.campus.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-enp-ink-soft">Aucun campus enregistré.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-enp-border bg-white p-5 shadow-card">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="font-semibold text-enp-ink">Contrôles académiques</h2>
-                <p className="mt-1 text-sm text-enp-ink-soft">Vérification des règles pour les campagnes de cette période.</p>
+                </div>
               </div>
-              <span className={`rounded-full px-3 py-1 text-sm font-semibold ${controles.nombreAnomalies ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'}`}>
-                {controles.nombreAnomalies} anomalie{controles.nombreAnomalies === 1 ? '' : 's'}
-              </span>
-            </div>
-            {controles.anomalies.length > 0 ? (
-              <ul className="mt-4 divide-y divide-enp-border">
-                {controles.anomalies.map((anomalie, index) => {
-                  const regle = controles.reglesVerifiees.find((element) => element.code === anomalie.code);
-                  return (
-                    <li key={`${anomalie.campagneId}-${anomalie.code}-${index}`} className="py-3">
-                      <p className="font-medium text-enp-ink">{anomalie.libelle} — {anomalie.campus} / {anomalie.departement}</p>
-                      <p className="mt-1 text-sm text-enp-ink-soft">{regle?.description ?? anomalie.code}</p>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="mt-4 text-sm text-enp-ink-soft">Aucune anomalie détectée pour cette période.</p>
             )}
-          </section>
-        </>
-      )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -524,9 +524,9 @@ export class CahierTexteService {
       detail: format,
     });
     const lignes = seances.map((seance) => ({
-      ue: `${seance.ueCode} — ${seance.ueIntitule}`,
+      ue: `${seance.ueCode}  -  ${seance.ueIntitule}`,
       date: seance.date,
-      horaire: `${seance.debut} — ${seance.fin}`,
+      horaire: `${seance.debut}  -  ${seance.fin}`,
       type: seance.type,
       intitule: seance.intitule ?? '',
       contenu: seance.contenu ?? '',

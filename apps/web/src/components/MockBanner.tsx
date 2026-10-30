@@ -7,7 +7,7 @@ export function MockBanner() {
       className="w-full bg-enp-violet-light text-enp-violet text-center text-sm py-2 px-4 border-b border-enp-violet/15 font-medium"
       role="status"
     >
-      Prototype — données fictives
+      Prototype : données simulées
     </div>
   );
 }

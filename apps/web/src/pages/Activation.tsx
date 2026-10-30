@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff, CheckCircle2, AlertCircle, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, UserPlus, ArrowLeft, KeyRound } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import { MockBanner } from '@/components/MockBanner';
-import { InfoCard } from '@/components/InfoCard';
+import { ENPLogo } from '@/components/ENPLogo';
+import { Button, Input, Alert } from '@/components/ui';
 
 interface EtatActivation {
   identifiant: string;
@@ -33,12 +34,14 @@ export function Activation() {
 
   function valider(): string[] {
     const errs: string[] = [];
-    if (!form.identifiant.trim()) errs.push("L'identifiant est requis.");
-    if (!form.codeActivation.trim()) errs.push("Le code d'activation est requis.");
-    if (form.motDePasse.length < LONGUEUR_MIN)
+    if (!form.identifiant.trim()) errs.push("L'identifiant est obligatoire.");
+    if (!form.codeActivation.trim()) errs.push("Le code d'activation fourni par la Scolarité est obligatoire.");
+    if (form.motDePasse.length < LONGUEUR_MIN) {
       errs.push(`Le mot de passe doit comporter au moins ${LONGUEUR_MIN} caractères.`);
-    if (form.confirmation !== form.motDePasse)
-      errs.push('La confirmation ne correspond pas au mot de passe.');
+    }
+    if (form.confirmation !== form.motDePasse) {
+      errs.push('La confirmation ne correspond pas au mot de passe saisi.');
+    }
     return errs;
   }
 
@@ -61,190 +64,136 @@ export function Activation() {
     } catch (err) {
       if (err instanceof ApiError) {
         setErreurs(err.messages);
-      } else if (err instanceof TypeError) {
-        setErreurs(['Erreur réseau : impossible de joindre le serveur.']);
       } else {
-        setErreurs(['Une erreur inattendue est survenue.']);
+        setErreurs(['Le code d’activation est invalide ou a expiré. Contactez la Scolarité.']);
       }
     } finally {
       setEnCours(false);
     }
   }
 
-  if (succes) {
-    return (
-      <div className="min-h-screen flex flex-col bg-slate-50">
-        <MockBanner />
-        <div className="flex-1 flex items-center justify-center px-4 py-8">
-          <div className="w-full max-w-md animate-fade-in">
-            <div className="bg-white rounded-2xl shadow-card border border-enp-border p-6 sm:p-8 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-enp-teal-light mb-4">
-                <CheckCircle2 size={36} className="text-enp-teal" aria-hidden="true" />
-              </div>
-              <h2 className="text-lg font-semibold text-enp-ink mb-2">
-                Compte activé avec succès
-              </h2>
-              <p className="text-sm text-enp-ink-soft mb-6">
-                Votre mot de passe a été défini. Vous pouvez maintenant vous
-                connecter à la plateforme.
+  return (
+    <div className="min-h-screen flex flex-col bg-enp-bg">
+      <MockBanner />
+
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12">
+        <div className="w-full max-w-xl bg-white border border-enp-border shadow-elevated overflow-hidden">
+          {/* Header institutionnel */}
+          <div className="bg-enp-blue-deep text-white p-6 border-b border-[#00172E]">
+            <ENPLogo variant="light" size="sm" showSubtitle={true} />
+            <div className="mt-4 pt-3 border-t border-white/10">
+              <h1 className="text-xl font-bold font-serif">Activation de votre compte officiel</h1>
+              <p className="text-xs text-slate-300 mt-1">
+                Première connexion pour les étudiants, enseignants et personnels de l'ENP.
               </p>
-              <Link
-                to="/connexion"
-                className="inline-flex items-center justify-center gap-2 bg-enp-primary text-white font-semibold px-4 py-3 rounded-lg hover:bg-enp-primary-dark transition-all min-h-[44px] shadow-sm hover:shadow-card-hover"
-              >
-                Aller à la connexion
-              </Link>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  const longueurMdp = form.motDePasse.length;
-  const pct = Math.min(100, (longueurMdp / LONGUEUR_MIN) * 100);
-
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <MockBanner />
-      <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md animate-fade-in">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-              Activation de compte
-            </h1>
-            <p className="text-sm text-enp-ink-soft mt-1.5">
-              École Nationale Polytechnique
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-card border border-enp-border p-6 sm:p-8">
-            {erreurs.length > 0 && (
-              <div
-                className="mb-4 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-3 text-enp-bordeaux text-sm"
-                role="alert"
-              >
-                <div className="flex items-start gap-2 mb-1">
-                  <AlertCircle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
-                  <span className="font-medium">Veuillez corriger les erreurs suivantes :</span>
+          <div className="p-6 sm:p-8">
+            {succes ? (
+              <div className="space-y-5 text-center py-4">
+                <div className="w-14 h-14 bg-enp-green-light border border-enp-green-valid mx-auto flex items-center justify-center text-enp-green-valid">
+                  <CheckCircle2 className="w-8 h-8 stroke-[2]" />
                 </div>
-                <ul className="list-disc list-inside pl-5 space-y-0.5">
-                  {erreurs.map((e, i) => (
-                    <li key={i}>{e}</li>
-                  ))}
-                </ul>
+                <div className="space-y-2">
+                  <h2 className="text-lg font-bold text-enp-blue-deep">
+                    Compte activé avec succès
+                  </h2>
+                  <p className="text-xs sm:text-sm text-enp-gray-medium max-w-md mx-auto leading-relaxed">
+                    Votre mot de passe a été enregistré. Vous pouvez dès à présent accéder à la plateforme
+                    avec votre matricule institutionnel.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <Link to="/connexion">
+                    <Button variant="primary" size="md">
+                      Accéder à la page de connexion
+                    </Button>
+                  </Link>
+                </div>
               </div>
-            )}
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                {erreurs.length > 0 && (
+                  <Alert variant="danger" title="Vérification requise">
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {erreurs.map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </Alert>
+                )}
 
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              <div>
-                <label htmlFor="identifiant" className="block text-sm font-medium text-enp-ink mb-1">
-                  Matricule
-                </label>
-                <input
-                  id="identifiant"
+                <Input
+                  label="Identifiant ou Matricule"
                   type="text"
                   required
                   value={form.identifiant}
                   onChange={(e) => update('identifiant', e.target.value)}
-                  className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none transition-all min-h-[44px]"
-                  disabled={enCours}
+                  placeholder="Ex: 2026-001 ou nom.prenom@enp.tg"
+                  helperText="Matricule officiel figurant sur votre carte d'étudiant ou contrat."
                 />
-              </div>
 
-              <div>
-                <label htmlFor="codeActivation" className="block text-sm font-medium text-enp-ink mb-1">
-                  Code d'activation
-                </label>
-                <input
-                  id="codeActivation"
+                <Input
+                  label="Code d'activation confidentiel"
                   type="text"
                   required
                   value={form.codeActivation}
                   onChange={(e) => update('codeActivation', e.target.value)}
-                  className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none transition-all min-h-[44px]"
-                  disabled={enCours}
+                  placeholder="Code temporaire à 8 ou 12 caractères"
+                  startIcon={<KeyRound className="w-4 h-4" />}
+                  helperText="Remis par la Scolarité Centrale lors de votre inscription."
                 />
-              </div>
 
-              <div>
-                <label htmlFor="motDePasse" className="block text-sm font-medium text-enp-ink mb-1">
-                  Nouveau mot de passe
-                </label>
-                <div className="relative">
-                  <input
-                    id="motDePasse"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Nouveau mot de passe"
                     type={afficherMdp ? 'text' : 'password'}
                     required
                     value={form.motDePasse}
                     onChange={(e) => update('motDePasse', e.target.value)}
-                    className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 pr-11 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none transition-all min-h-[44px]"
-                    disabled={enCours}
-                    aria-describedby="indicateur-mdp"
+                    placeholder="Min. 12 caractères"
+                    helperText="12 caractères minimum."
                   />
-                  <button
-                    type="button"
-                    onClick={() => setAfficherMdp((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-enp-ink-soft hover:text-enp-ink hover:bg-enp-sky/60 transition-colors"
-                    aria-label={afficherMdp ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                    aria-pressed={afficherMdp}
-                    tabIndex={-1}
+                  <Input
+                    label="Confirmer le mot de passe"
+                    type={afficherMdp ? 'text' : 'password'}
+                    required
+                    value={form.confirmation}
+                    onChange={(e) => update('confirmation', e.target.value)}
+                    placeholder="Répétez le mot de passe"
+                    endIcon={
+                      <button
+                        type="button"
+                        onClick={() => setAfficherMdp((v) => !v)}
+                        className="text-enp-gray-medium hover:text-enp-black"
+                      >
+                        {afficherMdp ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
+                  />
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <Link
+                    to="/connexion"
+                    className="text-xs text-enp-blue-primary hover:text-enp-blue-deep flex items-center gap-1 font-medium"
                   >
-                    {afficherMdp ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Retour à la connexion
+                  </Link>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    isLoading={enCours}
+                    leftIcon={<UserPlus className="w-4 h-4" />}
+                  >
+                    Activer mon compte
+                  </Button>
                 </div>
-                <div id="indicateur-mdp" className="mt-2">
-                  <div className="h-1.5 w-full rounded-full bg-enp-sky overflow-hidden" aria-hidden="true">
-                    <div
-                      className="h-full bg-enp-primary transition-all duration-200"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-enp-ink-soft mt-1">
-                    {longueurMdp}/{LONGUEUR_MIN} caractères minimum
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="confirmation" className="block text-sm font-medium text-enp-ink mb-1">
-                  Confirmation
-                </label>
-                <input
-                  id="confirmation"
-                  type={afficherMdp ? 'text' : 'password'}
-                  required
-                  value={form.confirmation}
-                  onChange={(e) => update('confirmation', e.target.value)}
-                  className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none transition-all min-h-[44px]"
-                  disabled={enCours}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={enCours}
-                className="w-full inline-flex items-center justify-center gap-2 bg-enp-primary text-white font-semibold px-4 py-3 rounded-lg hover:bg-enp-primary-dark transition-all disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] shadow-sm hover:shadow-card-hover"
-              >
-                <UserPlus size={20} aria-hidden="true" />
-                {enCours ? 'Activation…' : 'Activer mon compte'}
-              </button>
-            </form>
-
-            <div className="mt-4 text-center">
-              <Link to="/connexion" className="text-sm text-enp-primary hover:underline">
-                Retour à la connexion
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <InfoCard titre="Aide">
-              <p>
-                Le code d'activation vous a été communiqué par la Scolarité.
-                Le mot de passe doit comporter au moins {LONGUEUR_MIN} caractères.
-              </p>
-            </InfoCard>
+              </form>
+            )}
           </div>
         </div>
       </div>

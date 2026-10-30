@@ -154,7 +154,7 @@ export class DossierAcademiqueService {
       etudiant.nom,
       etudiant.prenom,
       ...cahier.evaluations.map(
-        (evaluation) => evaluation.notes[etudiant.id] ?? '—',
+        (evaluation) => evaluation.notes[etudiant.id] ?? ' - ',
       ),
     ]);
     await this.audit.enregistrer({
@@ -165,7 +165,7 @@ export class DossierAcademiqueService {
     });
     return this.exports.genererTableau(
       format,
-      `${cours.code} — ${cours.intitule}`,
+      `${cours.code}  -  ${cours.intitule}`,
       headers,
       rows,
       'Notes',

@@ -2,7 +2,7 @@
 
 
 
-\## 2026-10-04 — Architecture : monolithe modulaire
+\## 2026-10-04  -  Architecture : monolithe modulaire
 
 \- Décision : un seul backend NestJS découpé en modules, une seule base PostgreSQL.
 
@@ -12,7 +12,7 @@
 
 
 
-\## 2026-10-04 — Technologies
+\## 2026-10-04  -  Technologies
 
 \- Frontend : React + TypeScript + Vite.
 
@@ -26,7 +26,7 @@
 
 
 
-\## 2026-10-04 — Pas de module de suivi externe (@nestjs/observe)
+\## 2026-10-04  -  Pas de module de suivi externe (@nestjs/observe)
 
 \- Décision : ne pas utiliser @nestjs/observe, installé automatiquement par le
 
@@ -38,7 +38,7 @@
 
 
 
-\## 2026-10-04 — Anonymat des évaluations
+\## 2026-10-04  -  Anonymat des évaluations
 
 \- Décision : deux espaces de stockage séparés, sans clé commune.
 
@@ -56,7 +56,7 @@
 
 
 
-\## 2026-10-04 — Périmètre du MVP
+\## 2026-10-04  -  Périmètre du MVP
 
 \- Inclus : comptes et imports CSV, évaluation anonyme, cahier de texte,
 
@@ -68,7 +68,7 @@
 
 
 
-\## 2026-10-04 — Hébergement
+\## 2026-10-04  -  Hébergement
 
 \- Décision : serveur et domaine ouverts au nom de l'ENP (crédits du pack
 
@@ -80,7 +80,7 @@
 
 
 
-\## 2026-10-04 — Outils d'IA
+\## 2026-10-04  -  Outils d'IA
 
 \- Figma : maquettes. Bolt.new : écrans de l'interface. Jules : tâches ciblées,
 
@@ -287,7 +287,7 @@
   de departement ; imports CSV ; route des departements et tableau de bord de la
   Scolarite.
 
-## 2026-10-23 — Actualisation après parcours du dépôt
+## 2026-10-23  -  Actualisation après parcours du dépôt
 
 Cette entrée décrit l'état constaté dans le code, les scripts SQL et la documentation
 du dépôt à cette date. Elle complète les décisions historiques ci-dessus ; un élément
@@ -340,8 +340,8 @@ par l'ENP.
 
 ### Évaluation anonyme et résultats
 
-- L'unité évaluée reste une offre de cours (`ref.course`) — une UE pour une formation,
-  une année et un semestre — et non la seule ligne du catalogue `ref.ue`. Le registre
+- L'unité évaluée reste une offre de cours (`ref.course`)  -  une UE pour une formation,
+  une année et un semestre  -  et non la seule ligne du catalogue `ref.ue`. Le registre
   lie étudiant, campagne et cours ; l'urne conserve les bulletins sous UUID sans
   identifiant étudiant. Les droits SQL et les connexions d'écriture/lecture à l'urne
   sont séparés.

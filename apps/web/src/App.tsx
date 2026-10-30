@@ -5,7 +5,11 @@ import { RequireRole } from "@/auth/RequireRole";
 import { AppLayout } from "@/components/AppLayout";
 import { Connexion } from "@/pages/Connexion";
 import { Activation } from "@/pages/Activation";
+import { MotDePasseOublie } from "@/pages/MotDePasseOublie";
+import { Reinitialisation } from "@/pages/Reinitialisation";
+import { MfaPage } from "@/pages/MfaPage";
 import { Accueil } from "@/pages/Accueil";
+import { Profil } from "@/pages/Profil";
 import { Administration } from "@/pages/Administration";
 import { DirectionStatistiques } from "@/pages/DirectionStatistiques";
 import { AccesRefuse } from "@/pages/AccesRefuse";
@@ -42,11 +46,14 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Routes publiques */}
+          {/* Routes publiques institutionnelles */}
           <Route path="/connexion" element={<Connexion />} />
           <Route path="/activation" element={<Activation />} />
+          <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
+          <Route path="/reinitialisation" element={<Reinitialisation />} />
+          <Route path="/mfa" element={<MfaPage />} />
 
-          {/* Routes protégées — authentification requise */}
+          {/* Routes protégées : authentification requise */}
           <Route
             element={
               <RequireAuth>
@@ -54,7 +61,9 @@ export default function App() {
               </RequireAuth>
             }
           >
+            {/* Routes communes */}
             <Route path="/" element={<Accueil />} />
+            <Route path="/profil" element={<Profil />} />
             <Route path="/securite" element={<SecuriteCompte />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route
@@ -112,7 +121,7 @@ export default function App() {
               element={<Navigate to="/evaluations" replace />}
             />
 
-            {/* Étudiant & Délégué — Restitution */}
+            {/* Étudiant & Délégué : Restitution officielle */}
             <Route
               path="/restitution"
               element={
@@ -122,11 +131,19 @@ export default function App() {
               }
             />
 
-            {/* Délégué pour la saisie, enseignant pour la consultation et le visa */}
+            {/* Cahier de texte : Délégué saisie, Enseignant & Chef de Département consultation et visa */}
             <Route
               path="/cahier-texte"
               element={
-                <RequireRole roles={["delegue", "enseignant", "etudiant"]}>
+                <RequireRole
+                  roles={[
+                    "delegue",
+                    "enseignant",
+                    "etudiant",
+                    "chef_departement",
+                    "admin",
+                  ]}
+                >
                   <CahierTexte />
                 </RequireRole>
               }
@@ -142,7 +159,15 @@ export default function App() {
             <Route
               path="/cahier-texte/:id"
               element={
-                <RequireRole roles={["delegue", "enseignant", "etudiant"]}>
+                <RequireRole
+                  roles={[
+                    "delegue",
+                    "enseignant",
+                    "etudiant",
+                    "chef_departement",
+                    "admin",
+                  ]}
+                >
                   <DetailSeance />
                 </RequireRole>
               }
@@ -156,11 +181,11 @@ export default function App() {
               }
             />
 
-            {/* Enseignant */}
+            {/* Enseignant & Chef de Département */}
             <Route
               path="/enseignant/notes"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole roles={["enseignant", "admin"]}>
                   <EnseignantNotes />
                 </RequireRole>
               }
@@ -168,7 +193,7 @@ export default function App() {
             <Route
               path="/enseignant/presences"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole roles={["enseignant", "admin"]}>
                   <EnseignantPresences />
                 </RequireRole>
               }
@@ -176,7 +201,14 @@ export default function App() {
             <Route
               path="/resultats"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole
+                  roles={[
+                    "enseignant",
+                    "chef_departement",
+                    "direction_etudes",
+                    "admin",
+                  ]}
+                >
                   <MesResultats />
                 </RequireRole>
               }
@@ -184,7 +216,14 @@ export default function App() {
             <Route
               path="/resultats/:ueId"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole
+                  roles={[
+                    "enseignant",
+                    "chef_departement",
+                    "direction_etudes",
+                    "admin",
+                  ]}
+                >
                   <FicheResultatUE />
                 </RequireRole>
               }
@@ -196,7 +235,7 @@ export default function App() {
             <Route
               path="/visas"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole roles={["enseignant", "chef_departement", "admin"]}>
                   <Visas />
                 </RequireRole>
               }
@@ -206,11 +245,18 @@ export default function App() {
               element={<Navigate to="/visas" replace />}
             />
 
-            {/* Chef de département */}
+            {/* Chef de département & Délégué : Participation et Synthèse */}
             <Route
               path="/participation"
               element={
-                <RequireRole role="chef_departement">
+                <RequireRole
+                  roles={[
+                    "chef_departement",
+                    "delegue",
+                    "direction_etudes",
+                    "admin",
+                  ]}
+                >
                   <Participation />
                 </RequireRole>
               }
@@ -218,13 +264,15 @@ export default function App() {
             <Route
               path="/synthese"
               element={
-                <RequireRole role="chef_departement">
+                <RequireRole
+                  roles={["chef_departement", "direction_etudes", "admin"]}
+                >
                   <SynthesePage />
                 </RequireRole>
               }
             />
 
-            {/* Scolarité & Admin */}
+            {/* Scolarité centrale & Admin */}
             <Route
               path="/scolarite"
               element={
@@ -286,11 +334,19 @@ export default function App() {
               element={<Navigate to="/scolarite/campagnes" replace />}
             />
 
-            {/* Admin */}
+            {/* Direction des Études & Administration */}
             <Route
               path="/direction/statistiques"
               element={
-                <RequireRole role="direction_etudes">
+                <RequireRole roles={["direction_etudes", "admin"]}>
+                  <DirectionStatistiques />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/direction/controles"
+              element={
+                <RequireRole roles={["direction_etudes", "admin"]}>
                   <DirectionStatistiques />
                 </RequireRole>
               }
@@ -305,7 +361,7 @@ export default function App() {
             />
           </Route>
 
-          {/* Pages d'erreur */}
+          {/* Pages d'erreur institutionnelles */}
           <Route path="/acces-refuse" element={<AccesRefuse />} />
           <Route path="/404" element={<PageIntrouvable />} />
           <Route path="*" element={<Navigate to="/404" replace />} />

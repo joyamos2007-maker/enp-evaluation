@@ -180,7 +180,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
        INSERT INTO system.notifications (user_id, event_key, title, message, link)
        SELECT student_id, 'class-session-reminder:' || session_id || ':' || student_id,
               'Rappel de séance',
-              'Séance ' || code || ' — ' || intitule || ', le ' || date_seance ||
+              'Séance ' || code || '  -  ' || intitule || ', le ' || date_seance ||
                 ' de ' || debut || ' à ' || fin || '.',
               '/cahier-texte'
        FROM destinataires
@@ -206,7 +206,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
        INSERT INTO system.email_outbox (event_key, recipient, subject, body, expires_at)
        SELECT 'class-session-reminder:' || session_id || ':' || student_id,
               email, 'Rappel : séance planifiée',
-              'Séance ' || code || ' — ' || intitule || ', le ' || date_seance ||
+              'Séance ' || code || '  -  ' || intitule || ', le ' || date_seance ||
                 ' de ' || debut || ' à ' || fin || '. Consultez votre cahier de texte.',
                 expire_le
        FROM destinataires

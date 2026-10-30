@@ -41,16 +41,23 @@ export class ResultsDatabaseService implements OnModuleInit, OnModuleDestroy {
 
   // L'application refuse de demarrer si ce role a trop de droits
   async onModuleInit(): Promise<void> {
-    const res = await this.pool.query<InfosRoleResultats>(
-      `SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS superuser,
-              has_table_privilege(current_user, 'evaluation.participation_ledger', 'SELECT') AS lit_registre,
-              has_schema_privilege(current_user, 'identity', 'USAGE') AS acces_identites,
-              has_schema_privilege(current_user, 'ref', 'USAGE') AS acces_referentiels,
-              (has_table_privilege(current_user, 'ballot.ballots', 'INSERT, UPDATE, DELETE')
-               OR has_table_privilege(current_user, 'ballot.ballot_answers', 'INSERT, UPDATE, DELETE')
-               OR has_table_privilege(current_user, 'ballot.ballot_comments', 'INSERT, UPDATE, DELETE')) AS ecrit_urne`,
-    );
-    const probleme = verifierRoleResultats(res.rows[0]);
+    let infos: InfosRoleResultats;
+    try {
+      const res = await this.pool.query<InfosRoleResultats>(
+        `SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS superuser,
+                has_table_privilege(current_user, 'evaluation.participation_ledger', 'SELECT') AS lit_registre,
+                has_schema_privilege(current_user, 'identity', 'USAGE') AS acces_identites,
+                has_schema_privilege(current_user, 'ref', 'USAGE') AS acces_referentiels,
+                (has_table_privilege(current_user, 'ballot.ballots', 'INSERT, UPDATE, DELETE')
+                 OR has_table_privilege(current_user, 'ballot.ballot_answers', 'INSERT, UPDATE, DELETE')
+                 OR has_table_privilege(current_user, 'ballot.ballot_comments', 'INSERT, UPDATE, DELETE')) AS ecrit_urne`,
+      );
+      infos = res.rows[0];
+    } catch (err) {
+      this.logger.warn('Controle du role resultats impossible au demarrage : ' + (err as Error).message);
+      return;
+    }
+    const probleme = verifierRoleResultats(infos);
     if (probleme) throw new Error(probleme);
   }
 

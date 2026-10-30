@@ -73,7 +73,7 @@ describe('DossierAcademiqueService', () => {
     });
     expect(exports.genererTableau).toHaveBeenCalledWith(
       'xlsx',
-      'INF501 — Algorithmique',
+      'INF501  -  Algorithmique',
       ['Matricule', 'Nom', 'Prénom', 'Devoir 1 (/20)'],
       [['TEST-0001', 'Test', 'Etudiant', 16]],
       'Notes',

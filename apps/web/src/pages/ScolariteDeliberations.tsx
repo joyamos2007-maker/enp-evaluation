@@ -1,7 +1,34 @@
-import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, LockKeyhole, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  LockKeyhole,
+  RefreshCw,
+  Award,
+  BookOpen,
+  Calendar,
+  Users,
+  TrendingUp,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { DetailsDeliberationExamen, ExamenADeliberer } from '@/api/types';
+import {
+  PageHeader,
+  SectionHeader,
+  Button,
+  Select,
+  Alert,
+  StatusBadge,
+  Badge,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHead,
+  StatCard,
+  ConfirmDialog,
+} from '@/components/ui';
 
 export function ScolariteDeliberations() {
   const [examens, setExamens] = useState<ExamenADeliberer[]>([]);
@@ -11,6 +38,7 @@ export function ScolariteDeliberations() {
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmDeliberer, setConfirmDeliberer] = useState(false);
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -24,27 +52,45 @@ export function ScolariteDeliberations() {
           : liste[0]?.id ?? null
       );
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger les examens.');
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Impossible de charger la liste des examens à délibérer.'
+      );
     } finally {
       setChargement(false);
     }
   }, []);
 
-  useEffect(() => { void charger(); }, [charger]);
+  useEffect(() => {
+    void charger();
+  }, [charger]);
 
   useEffect(() => {
     let actif = true;
     if (selectionId === null) {
       setDetails(null);
-      return () => { actif = false; };
+      return () => {
+        actif = false;
+      };
     }
     setDetails(null);
-    api.scolariteDetailsDeliberationExamen(selectionId)
-      .then((resultat) => { if (actif) setDetails(resultat); })
+    api
+      .scolariteDetailsDeliberationExamen(selectionId)
+      .then((resultat) => {
+        if (actif) setDetails(resultat);
+      })
       .catch((err: unknown) => {
-        if (actif) setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger les notes de cet examen.');
+        if (actif)
+          setErreur(
+            err instanceof ApiError
+              ? err.messages.join(' ')
+              : 'Impossible de charger les notes de cet examen.'
+          );
       });
-    return () => { actif = false; };
+    return () => {
+      actif = false;
+    };
   }, [selectionId]);
 
   const examenSelectionne = examens.find((examen) => examen.id === selectionId) ?? null;
@@ -56,140 +102,337 @@ export function ScolariteDeliberations() {
     setMessage(null);
     try {
       await api.scolariteDelibererExamen(examenSelectionne.id);
-      setMessage(`Les notes de « ${examenSelectionne.libelle} » ont été délibérées et sont désormais visibles par les étudiants.`);
+      setMessage(
+        `L’examen « ${examenSelectionne.libelle} » (${examenSelectionne.code}) a été officiellement délibéré. Les notes sont désormais publiées sur l'espace étudiant.`
+      );
+      setConfirmDeliberer(false);
       await charger();
       const resultat = await api.scolariteDetailsDeliberationExamen(examenSelectionne.id);
       setDetails(resultat);
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de délibérer cet examen.');
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Erreur lors de la délibération de cet examen.'
+      );
     } finally {
       setEnCours(false);
     }
   }
 
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-enp-ink">Délibération des examens</h1>
-          <p className="mt-1 text-sm text-enp-ink-soft">
-            Vérifiez les notes d’examen avant leur publication aux étudiants. Les devoirs restent visibles immédiatement.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void charger()}
-          disabled={chargement}
-          className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-enp-border bg-white px-3 py-2 text-sm font-medium text-enp-ink hover:bg-enp-sky disabled:opacity-60"
-        >
-          <RefreshCw size={16} aria-hidden="true" /> Actualiser
-        </button>
-      </header>
+  // Statistiques de la cohorte pour l'examen sélectionné
+  const stats = useMemo(() => {
+    if (!details || details.etudiants.length === 0) return null;
+    const notes = details.etudiants
+      .map((e) => e.note)
+      .filter((n): n is number => n !== null);
 
-      {erreur && <Alerte texte={erreur} />}
-      {message && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
-          {message}
-        </p>
+    if (notes.length === 0) return null;
+    const somme = notes.reduce((acc, curr) => acc + curr, 0);
+    const moyenne = somme / notes.length;
+    const min = Math.min(...notes);
+    const max = Math.max(...notes);
+    const bareme = examenSelectionne?.bareme ?? 20;
+    const reussite = notes.filter((n) => n >= bareme / 2).length;
+    const tauxReussite = Math.round((reussite / notes.length) * 100);
+
+    return {
+      moyenne: (Math.round(moyenne * 100) / 100).toFixed(2),
+      min: min.toFixed(2),
+      max: max.toFixed(2),
+      notesSaisies: notes.length,
+      tauxReussite,
+    };
+  }, [details, examenSelectionne]);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Délibération des examens académiques"
+        subtitle="Vérification des bordereaux de notes, clôture des jurys et publication officielle aux étudiants."
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Scolarité', href: '/scolarite' },
+          { label: 'Délibérations d’examen' },
+        ]}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />}
+            onClick={() => void charger()}
+            disabled={chargement}
+          >
+            Actualiser
+          </Button>
+        }
+      />
+
+      {erreur && (
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
       )}
 
-      {chargement ? <p className="text-sm text-enp-ink-soft" role="status">Chargement des examens…</p> : examens.length === 0 ? (
-        <div className="rounded-xl border border-enp-border bg-white p-8 text-center text-enp-ink-soft">
-          Aucun examen n’a encore été saisi dans votre périmètre.
+      {message && (
+        <Alert variant="success" title="Délibération enregistrée" onClose={() => setMessage(null)}>
+          {message}
+        </Alert>
+      )}
+
+      <div className="bg-enp-bg border-l-4 border-enp-blue-primary border-r border-t border-b border-enp-border p-4 text-xs text-enp-gray-medium leading-relaxed">
+        <span className="font-bold text-enp-blue-deep block mb-0.5">
+          Règle institutionnelle de publication des notes :
+        </span>
+        Les notes de contrôles continus et devoirs sont publiées au fil de l'eau par l'enseignant.
+        En revanche, les notes d'examens terminaux demeurent confidentielles jusqu'à la tenue de la
+        délibération officielle par la Scolarité centrale et le jury d'examen.
+      </div>
+
+      {chargement ? (
+        <div className="p-12 text-center bg-white border border-enp-border">
+          <div className="inline-block w-8 h-8 border-2 border-enp-blue-ice border-t-enp-blue-primary animate-spin mb-2" />
+          <p className="text-sm text-enp-gray-medium">Chargement des bordereaux d'examen…</p>
+        </div>
+      ) : examens.length === 0 ? (
+        <div className="bg-white border border-enp-border p-8 text-center text-enp-gray-medium">
+          <Award className="w-10 h-10 text-enp-gray-medium mx-auto mb-2 opacity-50" />
+          <p className="font-semibold text-enp-black">Aucun examen n’a encore été saisi</p>
+          <p className="text-xs mt-1">Les bordereaux apparaîtront ici dès que les enseignants auront créé une évaluation de type « Examen ».</p>
         </div>
       ) : (
-        <>
-          <label className="block max-w-2xl text-sm font-medium text-enp-ink">
-            Évaluation d’examen
+        <div className="space-y-6">
+          {/* Sélection de l'examen */}
+          <div className="bg-white border border-enp-border p-4 shadow-sm">
+            <label htmlFor="select-examen" className="block text-xs font-semibold text-enp-black uppercase tracking-wider mb-2">
+              Sélectionnez l'examen à instruire ({examens.length} session{examens.length > 1 ? 's' : ''})
+            </label>
             <select
+              id="select-examen"
               value={selectionId ?? ''}
-              onChange={(event) => setSelectionId(Number(event.target.value))}
-              className="mt-1 block w-full rounded-md border border-enp-border bg-white px-3 py-2"
+              onChange={(e) => setSelectionId(Number(e.target.value))}
+              className="w-full border border-enp-border bg-white px-3 py-2.5 text-sm text-enp-black font-semibold focus:outline-none focus:border-enp-blue-primary"
             >
-              {examens.map((examen) => (
-                <option key={examen.id} value={examen.id}>
-                  {examen.code} — {examen.libelle} ({examen.delibereeLe ? 'délibéré' : `${examen.notesSaisies}/${examen.effectif} notes`})
+              {examens.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.code} : {e.intitule} | {e.libelle} (Barème: {e.bareme}) | {e.delibereeLe ? '✅ Délibéré' : `⏳ ${e.notesSaisies}/${e.effectif} notes saisies`}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
           {examenSelectionne && (
-            <section className="overflow-hidden rounded-xl border border-enp-border bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-enp-border bg-enp-sky px-4 py-4">
+            <div className="bg-white border border-enp-border shadow-sm space-y-6">
+              {/* Entête de l'examen */}
+              <div className="p-5 border-b border-enp-border bg-enp-bg flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="font-semibold text-enp-ink">{examenSelectionne.code} — {examenSelectionne.intitule}</h2>
-                  <p className="mt-1 text-sm text-enp-ink-soft">
-                    {examenSelectionne.libelle} · barème {examenSelectionne.bareme} · S{examenSelectionne.semestre} · {examenSelectionne.anneeUniversitaire} · {examenSelectionne.campus}
-                  </p>
-                  <p className="mt-1 text-xs text-enp-ink-soft">
-                    {examenSelectionne.notesSaisies}/{examenSelectionne.effectif} notes saisies
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold bg-enp-blue-deep text-white px-2 py-0.5">
+                      {examenSelectionne.code}
+                    </span>
+                    <h2 className="text-lg font-bold text-enp-blue-deep font-serif">
+                      {examenSelectionne.intitule}
+                    </h2>
+                  </div>
+                  <p className="text-xs text-enp-gray-medium mt-1">
+                    Évaluation : <span className="font-semibold text-enp-black">{examenSelectionne.libelle}</span> · Barème officiel : <span className="font-semibold text-enp-black">/{examenSelectionne.bareme}</span> · Semestre S{examenSelectionne.semestre} · Année {examenSelectionne.anneeUniversitaire} · {examenSelectionne.campus}
                   </p>
                 </div>
-                {examenSelectionne.delibereeLe ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-800">
-                    <CheckCircle2 size={16} aria-hidden="true" /> Délibéré
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void deliberer()}
-                    disabled={enCours || chargement || examenSelectionne.effectif === 0 || examenSelectionne.notesSaisies !== examenSelectionne.effectif}
-                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-enp-primary px-4 py-2 text-sm font-semibold text-white hover:bg-enp-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <LockKeyhole size={16} aria-hidden="true" />
-                    {enCours ? 'Délibération…' : 'Confirmer la délibération'}
-                  </button>
-                )}
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                  {examenSelectionne.delibereeLe ? (
+                    <div className="bg-enp-green-light border border-enp-green-valid/30 text-enp-green-valid px-3 py-1.5 flex items-center justify-center gap-2 text-xs font-bold w-full sm:w-auto">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>Délibéré le {new Date(examenSelectionne.delibereeLe).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="w-full sm:w-auto justify-center"
+                      leftIcon={<LockKeyhole className="w-4 h-4" />}
+                      onClick={() => setConfirmDeliberer(true)}
+                      disabled={
+                        enCours ||
+                        examenSelectionne.effectif === 0 ||
+                        examenSelectionne.notesSaisies !== examenSelectionne.effectif
+                      }
+                    >
+                      Confirmer la délibération
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              {!examenSelectionne.delibereeLe && examenSelectionne.notesSaisies !== examenSelectionne.effectif && (
-                <p className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  La délibération sera possible lorsque toutes les notes seront saisies.
-                </p>
-              )}
+              {!examenSelectionne.delibereeLe &&
+                examenSelectionne.notesSaisies !== examenSelectionne.effectif && (
+                  <div className="mx-5 p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>
+                      Saisie incomplète : {examenSelectionne.notesSaisies} sur {examenSelectionne.effectif} notes ont été renseignées par l'enseignant. La délibération sera possible dès que l'ensemble des copies sera noté.
+                    </span>
+                  </div>
+                )}
 
-              {!details ? (
-                <p className="p-4 text-sm text-enp-ink-soft">Chargement des notes…</p>
-              ) : details.etudiants.length === 0 ? (
-                <p className="p-4 text-sm text-enp-ink-soft">Aucun étudiant n’est inscrit à cette UE.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-enp-ink-soft">
-                        <th className="px-4 py-3">Matricule</th>
-                        <th className="px-4 py-3">Étudiant</th>
-                        <th className="px-4 py-3 text-right">Note / {examenSelectionne.bareme}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {details.etudiants.map((etudiant) => (
-                        <tr key={etudiant.id} className="border-t border-enp-border">
-                          <td className="px-4 py-3">{etudiant.identifiant ?? '—'}</td>
-                          <td className="px-4 py-3">{etudiant.prenom} {etudiant.nom}</td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {etudiant.note === null ? <span className="font-normal text-amber-800">Non saisie</span> : etudiant.note}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* Indicateurs de cohorte */}
+              {stats && (
+                <div className="px-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-enp-bg border border-enp-border">
+                    <span className="text-xs text-enp-gray-medium block">Moyenne générale</span>
+                    <span className="text-xl font-bold font-mono text-enp-blue-primary">
+                      {stats.moyenne} <span className="text-xs font-normal">/{examenSelectionne.bareme}</span>
+                    </span>
+                  </div>
+                  <div className="p-3 bg-enp-bg border border-enp-border">
+                    <span className="text-xs text-enp-gray-medium block">Taux de réussite (≥ 10)</span>
+                    <span className="text-xl font-bold font-mono text-enp-green-valid">
+                      {stats.tauxReussite}%
+                    </span>
+                  </div>
+                  <div className="p-3 bg-enp-bg border border-enp-border">
+                    <span className="text-xs text-enp-gray-medium block">Note la plus basse</span>
+                    <span className="text-xl font-bold font-mono text-enp-red-dark">
+                      {stats.min} <span className="text-xs font-normal">/{examenSelectionne.bareme}</span>
+                    </span>
+                  </div>
+                  <div className="p-3 bg-enp-bg border border-enp-border">
+                    <span className="text-xs text-enp-gray-medium block">Note la plus élevée</span>
+                    <span className="text-xl font-bold font-mono text-enp-gold">
+                      {stats.max} <span className="text-xs font-normal">/{examenSelectionne.bareme}</span>
+                    </span>
+                  </div>
                 </div>
               )}
-            </section>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
 
-function Alerte({ texte }: { texte: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux" role="alert">
-      <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
-      <span>{texte}</span>
+              {/* Tableau officiel des notes individuelles */}
+              <div className="p-5 pt-0">
+                {!details ? (
+                  <div className="p-8 text-center text-enp-gray-medium text-xs">
+                    Chargement du relevé de notes…
+                  </div>
+                ) : details.etudiants.length === 0 ? (
+                  <div className="p-8 text-center text-enp-gray-medium text-xs">
+                    Aucun étudiant n'est inscrit dans cette unité d'enseignement.
+                  </div>
+                ) : (
+                  <div className="border border-enp-border overflow-hidden">
+                    <div className="p-3 bg-enp-bg border-b border-enp-border flex items-center justify-between text-xs">
+                      <span className="font-bold text-enp-blue-deep font-serif">
+                        Bordereau individuel de notes ({details.etudiants.length} étudiants)
+                      </span>
+                      <span className="font-mono text-enp-gray-medium">
+                        Barème : /{examenSelectionne.bareme} points
+                      </span>
+                    </div>
+
+                    {/* Vue en cartes tactiles pour mobiles (< 640px) */}
+                    <div className="block sm:hidden divide-y divide-enp-border">
+                      {details.etudiants.map((etudiant) => {
+                        const bareme = examenSelectionne.bareme;
+                        const note = etudiant.note;
+                        const admis = note !== null && note >= bareme / 2;
+
+                        return (
+                          <div key={etudiant.id} className="p-3.5 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="font-semibold text-sm text-enp-black block">
+                                  {etudiant.prenom} {etudiant.nom}
+                                </span>
+                                <span className="font-mono text-xs text-enp-blue-deep font-semibold">
+                                  {etudiant.identifiant ?? '-'}
+                                </span>
+                              </div>
+                              {note === null ? (
+                                <Badge variant="warning">En attente</Badge>
+                              ) : admis ? (
+                                <Badge variant="success">Admis</Badge>
+                              ) : (
+                                <Badge variant="danger">Ajourné</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between text-xs pt-1 border-t border-enp-border/60">
+                              <span className="text-enp-gray-medium">Note obtenue :</span>
+                              <span className={`font-mono font-bold text-sm ${note === null ? 'text-amber-800' : admis ? 'text-enp-blue-deep' : 'text-enp-red-dark'}`}>
+                                {note === null ? 'Non saisie' : `${note} / ${bareme}`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Tableau standard pour tablettes et ordinateurs (>= 640px) */}
+                    <div className="hidden sm:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>N° Matricule</TableHead>
+                            <TableHead>Nom & Prénom</TableHead>
+                            <TableHead className="text-right">Note obtenue</TableHead>
+                            <TableHead className="text-center">Décision provisoire</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {details.etudiants.map((etudiant) => {
+                            const bareme = examenSelectionne.bareme;
+                            const note = etudiant.note;
+                            const admis = note !== null && note >= bareme / 2;
+
+                            return (
+                              <TableRow key={etudiant.id}>
+                                <TableCell className="font-mono text-xs font-bold text-enp-blue-deep">
+                                  {etudiant.identifiant ?? '-'}
+                                </TableCell>
+                                <TableCell className="font-semibold text-enp-black">
+                                  {etudiant.prenom} {etudiant.nom}
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-bold">
+                                  {note === null ? (
+                                    <span className="text-amber-800 font-normal italic text-xs">
+                                      Non saisie
+                                    </span>
+                                  ) : (
+                                    <span className={note >= bareme / 2 ? 'text-enp-blue-deep' : 'text-enp-red-dark'}>
+                                      {note} / {bareme}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {note === null ? (
+                                    <Badge variant="warning">En attente</Badge>
+                                  ) : admis ? (
+                                    <Badge variant="success">Admis</Badge>
+                                  ) : (
+                                    <Badge variant="danger">Ajourné</Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Boîte de dialogue de confirmation de délibération */}
+      <ConfirmDialog
+        isOpen={confirmDeliberer}
+        onClose={() => setConfirmDeliberer(false)}
+        onConfirm={() => void deliberer()}
+        title="Validation de la délibération officielle"
+        description={`Confirmez-vous la clôture et la publication des notes de l'examen « ${examenSelectionne?.libelle} » (${examenSelectionne?.code}) ? Cette action verrouillera définitivement la saisie et rendra les résultats visibles par les étudiants.`}
+        confirmText="Délibérer et publier"
+        cancelText="Annuler"
+        variant="primary"
+        isLoading={enCours}
+      />
     </div>
   );
 }

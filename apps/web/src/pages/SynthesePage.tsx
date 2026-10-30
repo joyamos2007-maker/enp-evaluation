@@ -1,13 +1,34 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, Printer, Save, CheckSquare, Square } from 'lucide-react';
+import {
+  FileText,
+  Printer,
+  Save,
+  CheckCircle2,
+  AlertTriangle,
+  Award,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
-import type { Campagne, Synthese, SuitesDonnees } from '@/api/types';
-import { InfoCard } from '@/components/InfoCard';
+import type { Campagne, Synthese, SuitesDonnees, LigneSynthese } from '@/api/types';
+import {
+  PageHeader,
+  Button,
+  Select,
+  Table,
+  Badge,
+  Alert,
+  Textarea,
+  Input,
+  Checkbox,
+  EmptyState,
+} from '@/components/ui';
 
 const SEUIL_ATTENTION = 3.0;
 
 function fmtMoy(v: number | null): string {
-  return v !== null ? v.toFixed(1) : '—';
+  return v !== null ? v.toFixed(2) : '-';
 }
 
 export function SynthesePage() {
@@ -52,18 +73,9 @@ export function SynthesePage() {
       ]);
       setSynthese(data);
       setSuites(suitesChargees);
-      // Pré-remplir les champs d'analyse
-      const avecDetail = data.lignes.filter((l) => l.detailDisponible && l.satisfactionE !== null);
-      const meilleures = [...avecDetail].sort((a, b) => (b.satisfactionE ?? 0) - (a.satisfactionE ?? 0));
-      const attention = avecDetail.filter((l) => (l.satisfactionE ?? 5) < SEUIL_ATTENTION);
-      setSuites((s) => ({
-        ...s,
-        meilleuresUe: suitesChargees.meilleuresUe || meilleures.slice(0, 3).map((l) => `${l.code} (${fmtMoy(l.satisfactionE)})`).join(', '),
-        ueAttention: suitesChargees.ueAttention || attention.map((l) => `${l.code} (${fmtMoy(l.satisfactionE)})`).join(', '),
-      }));
     } catch (err) {
       if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau.');
+      else setErreur('Impossible de charger la synthèse départementale.');
     } finally {
       setChargement(false);
     }
@@ -77,12 +89,7 @@ export function SynthesePage() {
     if (campagneId !== null) void chargerSynthese();
   }, [campagneId, chargerSynthese]);
 
-  // Meilleure satisfaction
-  const meilleureUe = synthese?.lignes
-    .filter((l) => l.detailDisponible && l.satisfactionE !== null)
-    .reduce((best, l) => !best || (l.satisfactionE ?? 0) > (best.satisfactionE ?? 0) ? l : best, null as null | typeof synthese.lignes[0]) ?? null;
-
-  async function enregistrer() {
+  async function enregistrerSuites() {
     if (campagneId === null) return;
     setEnCours(true);
     setErreurSave(null);
@@ -90,226 +97,250 @@ export function SynthesePage() {
     try {
       await api.pilotageSuites(campagneId, suites);
       setSaveOk(true);
-      setTimeout(() => setSaveOk(false), 3000);
+      setTimeout(() => setSaveOk(false), 5000);
     } catch (err) {
-      if (err instanceof ApiError) setErreurSave(err.messages.join(' '));
-      else setErreurSave("Erreur réseau : impossible d'enregistrer.");
+      setErreurSave(err instanceof ApiError ? err.messages.join(' ') : 'Échec de l’enregistrement.');
     } finally {
       setEnCours(false);
     }
   }
 
   return (
-    <div className="space-y-6 print-area">
-      {/* En-tête et navigation */}
-      <div className="no-print flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Synthèse</h1>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void enregistrer()}
-            disabled={enCours}
-            className="inline-flex items-center gap-2 bg-enp-primary text-white font-semibold px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all text-sm min-h-[44px] disabled:opacity-60"
-          >
-            <Save size={16} aria-hidden="true" />
-            {enCours ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-          <button
-            type="button"
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in print-area">
+      <PageHeader
+        title="Synthèse Pédagogique & Plan d'Actions Départemental"
+        description="Consolidation des évaluations et engagements d'amélioration collégiale du Chef de Département"
+        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Synthèse départementale' }]}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto justify-center no-print"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 bg-white border border-enp-border text-enp-ink font-medium px-3 py-2 rounded-md hover:bg-enp-sky transition-colors text-sm min-h-[44px]"
+            leftIcon={<Printer className="w-4 h-4" />}
           >
-            <Printer size={16} aria-hidden="true" /> Imprimer / PDF
-          </button>
-        </div>
-      </div>
+            Imprimer le rapport
+          </Button>
+        }
+      />
 
       {/* Sélecteur de campagne */}
-      <div className="no-print">
-        <label htmlFor="campagne-synthese" className="block text-sm font-medium text-enp-ink mb-1">Campagne</label>
-        <select
-          id="campagne-synthese"
-          value={campagneId ?? ''}
-          onChange={(e) => { setCampagneId(Number(e.target.value)); setSuites({ meilleuresUe: '', ueAttention: '', actions: '', etabliPar: '', date: new Date().toISOString().slice(0, 10), visaChef: false }); }}
-          className="w-full sm:w-auto rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
-        >
-          {campagnes.map((c) => (
-            <option key={c.id} value={c.id}>{c.libelle}</option>
-          ))}
-        </select>
+      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 no-print">
+        <div className="w-full sm:w-80">
+          <Select
+            label="Campagne d'évaluation"
+            value={campagneId ?? ''}
+            onChange={(e) => setCampagneId(Number(e.target.value))}
+          >
+            {campagnes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.libelle} ({c.anneeUniversitaire} • {c.semestre})
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {synthese && (
+          <div className="text-xs text-enp-gray-medium text-right">
+            <span>Campus : <strong>{synthese.campus}</strong></span> •{' '}
+            <span>Département : <strong>{synthese.departement}</strong></span>
+          </div>
+        )}
       </div>
 
-      <InfoCard titre="Usage des résultats" icone={false}>
-        <p>Résultats à visée d'amélioration pédagogique ; ils ne peuvent constituer, à eux seuls, un élément d'appréciation individuelle.</p>
-      </InfoCard>
-
-      {erreur && (
-        <div className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux" role="alert">
-          <AlertCircle size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <span>{erreur}</span>
+      {chargement ? (
+        <div className="py-12 text-center text-enp-gray-medium text-sm">
+          Calcul des moyennes consolidées du département…
         </div>
-      )}
-
-      {chargement && !erreur && (
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin" aria-hidden="true" />
-          <span>Chargement de la synthèse…</span>
-        </div>
-      )}
-
-      {!chargement && synthese && !erreur && (
-        <>
-          {/* En-tête synthèse */}
-          <div className="bg-enp-sky border border-enp-border rounded-lg p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
-              <div><p className="text-enp-ink-soft">Campus</p><p className="text-enp-ink font-medium">{synthese.campus}</p></div>
-              <div><p className="text-enp-ink-soft">Département</p><p className="text-enp-ink font-medium">{synthese.departement}</p></div>
-              <div><p className="text-enp-ink-soft">Semestre</p><p className="text-enp-ink font-medium">{synthese.campagne.semestre}</p></div>
-              <div><p className="text-enp-ink-soft">Année universitaire</p><p className="text-enp-ink font-medium">{synthese.campagne.anneeUniversitaire}</p></div>
-              <div><p className="text-enp-ink-soft">Répondants total</p><p className="text-enp-ink font-medium">{synthese.totalRepondants}</p></div>
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur">{erreur}</Alert>
+      ) : !synthese || synthese.lignes.length === 0 ? (
+        <EmptyState
+          title="Aucune donnée de synthèse disponible"
+          description="Cette campagne ne dispose pas encore de résultats clos et mélangés."
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* Table récapitulative des moyennes de section A à E */}
+          <div className="bg-white border border-enp-border p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-enp-border">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep">
+                Moyennes départementales par section pédagogique
+              </h2>
+              <span className="text-xs text-enp-gray-medium">
+                Barème sur 5.0 • Seuil d’alerte : &lt; {SEUIL_ATTENTION.toFixed(1)}
+              </span>
             </div>
+
+            <Table<LigneSynthese>
+              columns={[
+                {
+                  key: 'code',
+                  header: 'Code UE',
+                  render: (l) => (
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {l.code}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'intitule',
+                  header: 'Intitulé',
+                  render: (l) => <span className="font-bold text-enp-black">{l.intitule}</span>,
+                },
+                {
+                  key: 'reponses',
+                  header: 'Suffrages',
+                  align: 'center',
+                  render: (l) => (
+                    <span className={`font-semibold ${l.detailDisponible ? 'text-enp-black' : 'text-enp-gray-medium'}`}>
+                      {l.nbReponses} {l.detailDisponible ? '' : '(< 5)'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'moyA',
+                  header: 'A. Organisation',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyA) : '-'}</span>,
+                },
+                {
+                  key: 'moyB',
+                  header: 'B. Pédagogie',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyB) : '-'}</span>,
+                },
+                {
+                  key: 'moyC',
+                  header: 'C. Écoute',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyC) : '-'}</span>,
+                },
+                {
+                  key: 'moyD',
+                  header: 'D. Évaluation',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyD) : '-'}</span>,
+                },
+                {
+                  key: 'satisfactionE',
+                  header: 'Satisfaction E',
+                  align: 'center',
+                  render: (l) => {
+                    if (!l.detailDisponible || l.satisfactionE === null) {
+                      return <span className="text-enp-gray-medium">-</span>;
+                    }
+                    const note = l.satisfactionE;
+                    const estFaible = note < SEUIL_ATTENTION;
+                    return (
+                      <span
+                        className={`font-bold px-2 py-0.5 ${
+                          estFaible
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-enp-green-light text-enp-green-valid border border-enp-green-valid/30'
+                        }`}
+                      >
+                        {note.toFixed(2)}
+                      </span>
+                    );
+                  },
+                },
+              ]}
+              data={synthese.lignes}
+              keyExtractor={(l) => l.ueId}
+            />
           </div>
 
-          {/* Tableau de synthèse */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm whitespace-nowrap">
-              <thead>
-                <tr className="bg-enp-primary text-white">
-                  <th scope="col" className="text-left px-2 py-2.5 font-semibold rounded-tl-xl">Code UE</th>
-                  <th scope="col" className="text-left px-2 py-2.5 font-semibold">Intitulé de l'UE</th>
-                  <th scope="col" className="text-left px-2 py-2.5 font-semibold">Enseignant</th>
-                  <th scope="col" className="text-center px-2 py-2.5 font-semibold">Nb réponses</th>
-                  <th scope="col" className="text-center px-2 py-2.5 font-semibold">Moy. A</th>
-                  <th scope="col" className="text-center px-2 py-2.5 font-semibold">Moy. B</th>
-                  <th scope="col" className="text-center px-2 py-2.5 font-semibold">Moy. C</th>
-                  <th scope="col" className="text-center px-2 py-2.5 font-semibold">Moy. D</th>
-                  <th scope="col" className="text-center px-2 py-2.5 font-semibold rounded-tr-xl">Satisfaction (E)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {synthese.lignes.map((l, i) => {
-                  const estMeilleure = meilleureUe?.ueId === l.ueId;
-                  const aSurveiller = l.detailDisponible && l.satisfactionE !== null && l.satisfactionE < SEUIL_ATTENTION;
-                  const fond = !l.detailDisponible ? 'bg-enp-primary-light' : aSurveiller ? 'bg-enp-primary-light' : i % 2 === 0 ? 'bg-enp-sky/60' : 'bg-white';
-                  return (
-                    <tr key={l.ueId} className={fond}>
-                      <td className="px-2 py-2.5">
-                        <span className="bg-enp-primary text-white text-xs font-semibold px-1.5 py-0.5 rounded">{l.code}</span>
-                      </td>
-                      <td className="px-2 py-2.5 text-enp-ink">
-                        <div className="flex items-center gap-2">
-                          <span>{l.intitule}</span>
-                          {estMeilleure && (
-                            <span className="inline-block bg-enp-primary text-white text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap">Meilleure appréciation</span>
-                          )}
-                          {aSurveiller && (
-                            <span className="inline-block bg-enp-primary-light text-enp-ink-soft text-[10px] font-medium px-1.5 py-0.5 rounded border border-enp-primary/15 whitespace-nowrap">À surveiller</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5 text-enp-ink-soft">{l.enseignant}</td>
-                      <td className="px-2 py-2.5 text-center text-enp-ink font-medium">{l.nbReponses}</td>
-                      <td className="px-2 py-2.5 text-center text-enp-ink">{fmtMoy(l.moyA)}</td>
-                      <td className="px-2 py-2.5 text-center text-enp-ink">{fmtMoy(l.moyB)}</td>
-                      <td className="px-2 py-2.5 text-center text-enp-ink">{fmtMoy(l.moyC)}</td>
-                      <td className="px-2 py-2.5 text-center text-enp-ink">{fmtMoy(l.moyD)}</td>
-                      <td className="px-2 py-2.5 text-center font-bold text-enp-ink">{fmtMoy(l.satisfactionE)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Bloc analyse et suites */}
-          <div className="bg-white border border-enp-border rounded-lg p-4 space-y-4">
-            <h2 className="text-lg font-semibold text-enp-ink">Analyse et suites données</h2>
-
-            <div>
-              <label htmlFor="meilleures-ue" className="block text-sm font-medium text-enp-ink mb-1">
-                UE ayant obtenu les meilleures appréciations
-              </label>
-              <textarea
-                id="meilleures-ue" rows={2}
-                value={suites.meilleuresUe}
-                onChange={(e) => setSuites((s) => ({ ...s, meilleuresUe: e.target.value }))}
-                className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y"
-              />
+          {/* Formulaire des suites et plan d'actions correctives */}
+          <div className="bg-white border border-enp-border p-6 space-y-5">
+            <div className="border-b border-enp-border pb-3">
+              <h2 className="text-base font-bold text-enp-blue-deep flex items-center gap-2">
+                <Award className="w-5 h-5 text-enp-gold" />
+                Plan d'Actions Correctives & Délibération Départementale
+              </h2>
+              <p className="text-xs text-enp-gray-medium mt-0.5">
+                Renseigné sous la responsabilité du Chef de Département et transmis à la Direction des Études
+              </p>
             </div>
 
-            <div>
-              <label htmlFor="ue-attention" className="block text-sm font-medium text-enp-ink mb-1">
-                UE nécessitant une attention particulière
-              </label>
-              <textarea
-                id="ue-attention" rows={2}
-                value={suites.ueAttention}
-                onChange={(e) => setSuites((s) => ({ ...s, ueAttention: e.target.value }))}
-                className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="actions" className="block text-sm font-medium text-enp-ink mb-1">
-                Actions correctives envisagées / suites données
-              </label>
-              <textarea
-                id="actions" rows={4}
-                value={suites.actions}
-                onChange={(e) => setSuites((s) => ({ ...s, actions: e.target.value }))}
-                className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="etabli-par" className="block text-sm font-medium text-enp-ink mb-1">Établi par</label>
-                <input
-                  id="etabli-par" type="text"
-                  value={suites.etabliPar}
-                  onChange={(e) => setSuites((s) => ({ ...s, etabliPar: e.target.value }))}
-                  className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
-                />
-              </div>
-              <div>
-                <label htmlFor="date-suite" className="block text-sm font-medium text-enp-ink mb-1">Date</label>
-                <input
-                  id="date-suite" type="date"
-                  value={suites.date}
-                  onChange={(e) => setSuites((s) => ({ ...s, date: e.target.value }))}
-                  className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
-                <input
-                  type="checkbox"
-                  checked={suites.visaChef}
-                  onChange={(e) => setSuites((s) => ({ ...s, visaChef: e.target.checked }))}
-                  className="sr-only"
-                />
-                {suites.visaChef ? (
-                  <CheckSquare size={22} className="text-enp-ink" aria-hidden="true" />
-                ) : (
-                  <Square size={22} className="text-enp-border" aria-hidden="true" />
-                )}
-                <span className="text-sm font-medium text-enp-ink">Visa du Chef de Département</span>
-              </label>
-            </div>
+            {saveOk && (
+              <Alert variant="success" title="Enregistré">
+                Le plan d'actions départemental a été sauvegardé avec succès.
+              </Alert>
+            )}
 
             {erreurSave && (
-              <div className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-3 text-enp-bordeaux text-sm" role="alert">
-                <AlertCircle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{erreurSave}</span>
+              <Alert variant="danger" title="Erreur">
+                {erreurSave}
+              </Alert>
+            )}
+
+            <div className="space-y-4">
+              <Textarea
+                label="Enseignements exemplaires & Bonnes pratiques à valoriser"
+                value={suites.meilleuresUe}
+                onChange={(e) => setSuites((s) => ({ ...s, meilleuresUe: e.target.value }))}
+                rows={3}
+                placeholder="Ex : Remarquable animation des TP en Mécanique des Sols, excellente structuration des polycopiés..."
+              />
+
+              <Textarea
+                label="Points de vigilance & Enseignements nécessitant un appui"
+                value={suites.ueAttention}
+                onChange={(e) => setSuites((s) => ({ ...s, ueAttention: e.target.value }))}
+                rows={3}
+                placeholder="Ex : Rythme trop soutenu en Mathématiques appliquées, manque de matériel en laboratoire d'Hydraulique..."
+              />
+
+              <Textarea
+                label="Décisions & Actions correctives engagées par le Département"
+                value={suites.actions}
+                onChange={(e) => setSuites((s) => ({ ...s, actions: e.target.value }))}
+                rows={4}
+                placeholder="Ex : Réunion de concertation avec l'équipe pédagogique le 15 novembre, révision de l'échéancier des devoirs, dédoublement des groupes de TP..."
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <Input
+                  label="Établi et visé par"
+                  value={suites.etabliPar}
+                  onChange={(e) => setSuites((s) => ({ ...s, etabliPar: e.target.value }))}
+                  placeholder="Nom et titre du Chef de Département"
+                />
+
+                <Input
+                  label="Date de validation officielle"
+                  type="date"
+                  value={suites.date}
+                  onChange={(e) => setSuites((s) => ({ ...s, date: e.target.value }))}
+                />
               </div>
-            )}
-            {saveOk && (
-              <p className="text-sm text-enp-primary font-medium">Modifications enregistrées.</p>
-            )}
+
+              <div className="pt-3 border-t border-enp-border">
+                <Checkbox
+                  label="Visa officiel du Chef de Département"
+                  description="En cochant cette case, j'atteste avoir pris connaissance des évaluations et validé les engagements départementaux."
+                  checked={suites.visaChef}
+                  onChange={(e) =>
+                    setSuites((s) => ({ ...s, visaChef: (e.target as HTMLInputElement).checked }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-enp-border flex justify-end">
+              <Button
+                variant="primary"
+                size="md"
+                isLoading={enCours}
+                onClick={() => void enregistrerSuites()}
+                leftIcon={<Save className="w-4 h-4" />}
+              >
+                Enregistrer le plan d'actions
+              </Button>
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

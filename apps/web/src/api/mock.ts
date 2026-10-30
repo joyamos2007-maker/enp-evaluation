@@ -404,7 +404,7 @@ function fabriquerReponse(compte: CompteInterne): ReponseConnexion {
 }
 
 /* ------------------------------------------------------------------ */
-/*  API publique — signatures identiques à src/api/client.ts           */
+/*  API publique : signatures identiques à src/api/client.ts           */
 /* ------------------------------------------------------------------ */
 
 export async function connexion(corps: CorpsConnexion): Promise<ReponseLogin> {
@@ -550,7 +550,7 @@ export async function desactiverMfaTotp(): Promise<ReponseSimple> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Évaluation des enseignements — signatures identiques à client.ts   */
+/*  Évaluation des enseignements : signatures identiques à client.ts   */
 /* ------------------------------------------------------------------ */
 
 export async function listeEvaluations(): Promise<UeAEvaluer[]> {
@@ -596,7 +596,7 @@ export async function obtenirJeton(
 }
 
 /**
- * Mock de l'envoi de bulletin — SÉPARÉ du client authentifié.
+ * Mock de l'envoi de bulletin : SÉPARÉ du client authentifié.
  * Marque l'UE comme « terminée » dans la liste simulée.
  */
 export async function envoyerBulletinMock(
@@ -623,7 +623,7 @@ export async function envoyerBulletinMock(
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Résultats (enseignant)                          */
+/*  DONNÉES SIMULÉES : Résultats (enseignant)                          */
 /* ================================================================== */
 
 const RESULTATS_RESUME: ResultatUeResume[] = [
@@ -917,7 +917,7 @@ function fabriquerResultatDetail(ueId: number): ResultatUe {
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Cahier de texte & visa                          */
+/*  DONNÉES SIMULÉES : Cahier de texte & visa                          */
 /* ================================================================== */
 
 const UE_CAHIER: UeCahier[] = [
@@ -1124,7 +1124,7 @@ let seancesMemoire: Seance[] = [
     type: "TP",
     groupe: "G1",
     statut: "tenue",
-    intitule: "SQL — requêtes de base",
+    intitule: "SQL : requêtes de base",
     contenu: "SELECT, JOIN, agrégats",
     travailAFaire: "Finir le TP et rendre le rapport",
     effectif: 17,
@@ -1224,7 +1224,7 @@ const AVANCEMENT_DATA: Avancement[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  API — Résultats (enseignant)                                       */
+/*  API : Résultats (enseignant)                                       */
 /* ------------------------------------------------------------------ */
 
 export async function resultatsMesUes(): Promise<ResultatUeResume[]> {
@@ -1242,7 +1242,7 @@ export async function resultatUe(
 }
 
 /* ------------------------------------------------------------------ */
-/*  API — Cahier de texte & visa                                       */
+/*  API : Cahier de texte & visa                                       */
 /* ------------------------------------------------------------------ */
 
 export async function cahierMesUes(): Promise<UeCahier[]> {
@@ -1462,14 +1462,14 @@ export async function dossierExporterNotes(
 ): Promise<Blob> {
   const cahier = await dossierCahierNotes(courseId);
   const contenu = [
-    `${cahier.cours.code} — ${cahier.cours.intitule}`,
+    `${cahier.cours.code} : ${cahier.cours.intitule}`,
     ...cahier.etudiants.map((etudiant) =>
       [
         etudiant.identifiant,
         etudiant.prenom,
         etudiant.nom,
         ...cahier.evaluations.map(
-          (evaluation) => evaluation.notes[etudiant.id] ?? "—",
+          (evaluation) => evaluation.notes[etudiant.id] ?? "-",
         ),
       ].join("\t"),
     ),
@@ -1747,13 +1747,13 @@ export async function dossierMesPresences(): Promise<PresencesEtudiant> {
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Pilotage (chef de département)                  */
+/*  DONNÉES SIMULÉES : Pilotage (chef de département)                  */
 /* ================================================================== */
 
 const CAMPAGNES_PILOTAGE: Campagne[] = [
   {
     id: 10,
-    libelle: "Évaluations S5 — Automne 2026",
+    libelle: "Évaluations S5 (Automne 2026)",
     semestre: "S5",
     anneeUniversitaire: "2026-2027",
     debut: "2026-09-01",
@@ -1762,7 +1762,7 @@ const CAMPAGNES_PILOTAGE: Campagne[] = [
   },
   {
     id: 11,
-    libelle: "Évaluations S3 — Automne 2026",
+    libelle: "Évaluations S3 (Automne 2026)",
     semestre: "S3",
     anneeUniversitaire: "2026-2027",
     debut: "2026-09-01",
@@ -2120,7 +2120,7 @@ const SYNTHESE_DATA: Record<number, Synthese> = {
 const suitesMemoire: Map<number, SuitesDonnees> = new Map();
 
 /* ------------------------------------------------------------------ */
-/*  API — Pilotage (chef de département)                               */
+/*  API : Pilotage (chef de département)                               */
 /* ------------------------------------------------------------------ */
 
 export async function directionStatistiques(
@@ -2290,7 +2290,7 @@ export async function pilotageChargerSuites(
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Scolarité                                       */
+/*  DONNÉES SIMULÉES : Scolarité                                       */
 /* ================================================================== */
 
 const DEPARTEMENTS: DepartementOption[] = [
@@ -2302,7 +2302,7 @@ const DEPARTEMENTS: DepartementOption[] = [
 let campagnesGestionMemoire: CampagneGestion[] = [
   {
     id: 201,
-    libelle: "Évaluations S5 — Informatique",
+    libelle: "Évaluations S5 (Informatique)",
     departmentId: 1,
     departement: "Informatique",
     anneeUniversitaire: "2026-2027",
@@ -2314,7 +2314,7 @@ let campagnesGestionMemoire: CampagneGestion[] = [
   },
   {
     id: 202,
-    libelle: "Évaluations S3 — Informatique",
+    libelle: "Évaluations S3 (Informatique)",
     departmentId: 1,
     departement: "Informatique",
     anneeUniversitaire: "2026-2027",
@@ -2326,7 +2326,7 @@ let campagnesGestionMemoire: CampagneGestion[] = [
   },
   {
     id: 203,
-    libelle: "Évaluations S1 — Électronique",
+    libelle: "Évaluations S1 (Électronique)",
     departmentId: 2,
     departement: "Électronique",
     anneeUniversitaire: "2026-2027",
@@ -2502,7 +2502,7 @@ const EN_TETES_IMPORT: Record<TypeImport, string[]> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  API — Scolarité                                                    */
+/*  API : Scolarité                                                    */
 /* ------------------------------------------------------------------ */
 
 export async function scolariteTableauDeBord(): Promise<TableauDeBordScolarite> {
@@ -3103,7 +3103,7 @@ export async function scolariteRestitution(
 const RESTITUTIONS: Restitution[] = [
   {
     campagneId: 201,
-    libelle: "Évaluations S5 — Informatique",
+    libelle: "Évaluations S5 (Informatique)",
     departement: "Informatique",
     anneeUniversitaire: "2026-2027",
     semestre: 5,
@@ -3115,7 +3115,7 @@ const RESTITUTIONS: Restitution[] = [
   },
   {
     campagneId: 10,
-    libelle: "Évaluations S3 — Automne 2025",
+    libelle: "Évaluations S3 (Automne 2025)",
     departement: "Informatique",
     anneeUniversitaire: "2025-2026",
     semestre: 3,
