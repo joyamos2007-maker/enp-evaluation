@@ -5,37 +5,39 @@
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
+    border-radius: 0px !important;
   }
 
   html {
     font-size: 16px;
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     letter-spacing: -0.011em;
     color: #17212B;
-    background-color: #F4F6F8;
+    background-color: #f0f5ff;
     scroll-behavior: smooth;
-    overflow-x: hidden;
+    overflow-x: clip;
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
   }
 
   body {
     margin: 0;
-    background-color: #F4F6F8;
+    background-color: #f0f5ff;
     color: #17212B;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    overflow-x: hidden;
+    overflow-x: clip;
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
     position: relative;
   }
 
   #root {
     width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
+    max-width: 100%;
+    overflow-x: clip;
     min-height: 100vh;
   }
 
@@ -69,14 +71,14 @@
   }
 
   /* Règle d'angles droits stricts pour l'esthétique institutionnelle */
-  button, input, select, textarea, table, th, td {
-    border-radius: 0px;
+  button, input, select, textarea, table, th, td, div, span, a, label, nav, aside, header, footer, section, article {
+    border-radius: 0px !important;
   }
 }
 
 /* Accessibilité et navigation clavier (WCAG 2.1 AA) */
 :focus-visible {
-  outline: 2px solid #008080 !important;
+  outline: 2px solid #1a5fb4 !important;
   outline-offset: 2px !important;
 }
 
@@ -85,7 +87,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #008080 !important;
+  outline: 2px solid #1a5fb4 !important;
   outline-offset: 2px !important;
 }
 
@@ -115,13 +117,13 @@ input[type="radio"] {
   height: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: #F4F6F8;
+  background: #f0f5ff;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #D8DEE5;
+  background: #d8dee5;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #6B7280;
+  background: #6b7280;
 }
 
 /* ---------------------------------------------------------------- */

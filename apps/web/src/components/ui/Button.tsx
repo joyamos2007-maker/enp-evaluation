@@ -26,7 +26,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const base =
-      'inline-flex items-center justify-center font-medium transition-colors border select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-enp-blue-primary focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
+      'inline-flex items-center justify-center font-medium transition-colors border select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-enp-blue-primary focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variants: Record<string, string> = {
       primary:
@@ -61,10 +61,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
         ) : (
-          leftIcon && <span className="shrink-0">{leftIcon}</span>
+          leftIcon && <span className="shrink-0 inline-flex items-center">{leftIcon}</span>
         )}
-        <span>{children}</span>
-        {!isLoading && rightIcon && <span className="shrink-0">{rightIcon}</span>}
+        <span className="inline-flex items-center gap-1.5">{children}</span>
+        {!isLoading && rightIcon && <span className="shrink-0 inline-flex items-center">{rightIcon}</span>}
       </button>
     );
   },

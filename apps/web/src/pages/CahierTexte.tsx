@@ -31,6 +31,7 @@ import {
   Select,
   Alert,
   EmptyState,
+  InfoBubble,
 } from '@/components/ui';
 
 type ModeAffichage = 'chronologique' | 'tableau' | 'calendrier';
@@ -159,11 +160,31 @@ export function CahierTexte() {
         title="Cahier de Texte Numérique Officiel"
         description="Traçabilité des cours magistraux, travaux dirigés et pratiques • Visas des enseignants"
         breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Cahier de texte' }]}
+        badge={
+          <InfoBubble
+            triggerVariant="pill"
+            triggerLabel="Cadre du visa"
+            title="Réglementation officielle du visa pédagogique"
+            badge="TRAÇABILITÉ ACADÉMIQUE"
+            icon="book"
+            duration={7000}
+            content={
+              <div className="space-y-2 text-xs leading-relaxed font-sans">
+                <p>
+                  Chaque séance consignée engage la responsabilité académique. L'enseignant dispose d'un délai réglementaire pour viser la séance ou émettre une réserve motivée.
+                </p>
+                <p>
+                  Les volumes horaires consolidés servent d'assiette aux états de service officiels et au suivi des maquettes pédagogiques par la Direction des Études.
+                </p>
+              </div>
+            }
+          />
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {peutSaisir && (
               <Link to="/cahier-texte/nouvelle" className="w-full sm:w-auto">
-                <Button variant="primary" size="md" className="w-full sm:w-auto justify-center" leftIcon={<Plus className="w-4 h-4" />}>
+                <Button variant="primary" size="md" className="w-full sm:w-auto justify-center font-bold min-h-[42px]" leftIcon={<Plus className="w-4 h-4" />}>
                   Nouvelle séance
                 </Button>
               </Link>
@@ -173,7 +194,7 @@ export function CahierTexte() {
                 type="button"
                 disabled={exportEnCours}
                 onClick={() => void telechargerExport('pdf')}
-                className="px-2.5 py-1.5 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors"
+                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
                 title="Exporter au format PDF officiel"
               >
                 PDF
@@ -182,7 +203,7 @@ export function CahierTexte() {
                 type="button"
                 disabled={exportEnCours}
                 onClick={() => void telechargerExport('xlsx')}
-                className="px-2.5 py-1.5 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors"
+                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
                 title="Exporter au format Excel"
               >
                 Excel
@@ -191,7 +212,7 @@ export function CahierTexte() {
                 type="button"
                 disabled={exportEnCours}
                 onClick={() => void telechargerExport('docx')}
-                className="px-2.5 py-1.5 text-xs font-semibold hover:bg-enp-blue-ice transition-colors"
+                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice transition-colors text-center font-sans"
                 title="Exporter au format Word"
               >
                 Word
@@ -201,13 +222,13 @@ export function CahierTexte() {
         }
       />
 
-      {/* Cartes d'avancement horaire si disponibles */}
+      {/* Cartes d'avancement horaire adaptées au mobile en grille 2 colonnes */}
       {ues.length > 0 && avancements.size > 0 && (
-        <div className="bg-white border border-enp-border p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep mb-3">
+        <div className="bg-white border border-enp-border p-3 sm:p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep mb-2.5 font-sans">
             Avancement horaire des Unités d'Enseignement
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             {ues.map((u) => {
               const av = avancements.get(u.ueId);
               const heuresRealisees = av
@@ -219,12 +240,12 @@ export function CahierTexte() {
               const pct = volumePrevu > 0 ? Math.min(100, Math.round((heuresRealisees / volumePrevu) * 100)) : 0;
 
               return (
-                <div key={u.ueId} className="p-3 border border-enp-border/80 bg-enp-blue-ice/30 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold font-mono text-enp-blue-deep">{u.code}</span>
-                    <span className="text-xs font-semibold text-enp-black">{pct}%</span>
+                <div key={u.ueId} className="p-2.5 sm:p-3 border border-enp-border/80 bg-enp-blue-ice/30 space-y-1.5 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-bold font-mono text-enp-blue-deep truncate">{u.code}</span>
+                    <span className="text-xs font-bold text-enp-black shrink-0 font-sans">{pct}%</span>
                   </div>
-                  <p className="text-xs text-enp-gray-medium truncate" title={u.intitule}>
+                  <p className="text-[11px] sm:text-xs text-enp-gray-medium truncate font-sans" title={u.intitule}>
                     {u.intitule}
                   </p>
                   <ProgressBar
@@ -233,8 +254,8 @@ export function CahierTexte() {
                     size="sm"
                     variant={pct >= 80 ? 'success' : 'primary'}
                   />
-                  <p className="text-[11px] text-enp-gray-medium">
-                    {heuresRealisees}h réalisées sur {volumePrevu}h prévues
+                  <p className="text-[10px] sm:text-[11px] text-enp-gray-medium font-sans truncate">
+                    {heuresRealisees}h / {volumePrevu}h prévues
                   </p>
                 </div>
               );
@@ -243,20 +264,20 @@ export function CahierTexte() {
         </div>
       )}
 
-      {/* Barre de contrôle : Recherche, Filtres & Bascule de vue */}
-      <div className="bg-white border border-enp-border p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+      {/* Barre de contrôle ergonomique mobile : Recherche, Filtres & Bascule de vue */}
+      <div className="bg-white border border-enp-border p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3">
           <div className="w-full lg:max-w-sm lg:flex-1">
             <Input
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Rechercher dans les contenus ou intitulés..."
+              placeholder="Rechercher séance, contenu..."
               startIcon={<Search className="w-4 h-4" />}
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="w-full sm:w-40">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+            <div className="col-span-2 sm:w-44">
               <Select
                 value={filtreUe}
                 onChange={(e) => setFiltreUe(e.target.value)}
@@ -271,7 +292,7 @@ export function CahierTexte() {
               </Select>
             </div>
 
-            <div className="w-full sm:w-32">
+            <div className="col-span-1 sm:w-28">
               <Select
                 value={filtreType}
                 onChange={(e) => setFiltreType(e.target.value)}
@@ -285,13 +306,13 @@ export function CahierTexte() {
               </Select>
             </div>
 
-            <div className="w-full sm:w-36">
+            <div className="col-span-1 sm:w-36">
               <Select
                 value={filtreVisa}
                 onChange={(e) => setFiltreVisa(e.target.value)}
                 aria-label="Filtrer par statut de visa"
               >
-                <option value="all">Tous les visas</option>
+                <option value="all">Tous visas</option>
                 <option value="en_attente">En attente</option>
                 <option value="vise">Visées</option>
                 <option value="conteste">Contestées</option>
@@ -299,11 +320,11 @@ export function CahierTexte() {
             </div>
 
             {/* Sélecteur de mode d'affichage */}
-            <div className="flex items-center border border-enp-border ml-auto mt-1 sm:mt-0">
+            <div className="col-span-2 sm:col-span-auto flex items-center border border-enp-border sm:ml-auto justify-end">
               <button
                 type="button"
                 onClick={() => setMode('chronologique')}
-                className={`p-2 transition-colors ${
+                className={`flex-1 sm:flex-none p-2 transition-colors flex items-center justify-center ${
                   mode === 'chronologique'
                     ? 'bg-enp-blue-primary text-white'
                     : 'bg-white text-enp-gray-medium hover:text-enp-black'
@@ -316,7 +337,7 @@ export function CahierTexte() {
               <button
                 type="button"
                 onClick={() => setMode('tableau')}
-                className={`p-2 border-l border-enp-border transition-colors ${
+                className={`flex-1 sm:flex-none p-2 border-l border-enp-border transition-colors flex items-center justify-center ${
                   mode === 'tableau'
                     ? 'bg-enp-blue-primary text-white'
                     : 'bg-white text-enp-gray-medium hover:text-enp-black'
@@ -329,7 +350,7 @@ export function CahierTexte() {
               <button
                 type="button"
                 onClick={() => setMode('calendrier')}
-                className={`p-2 border-l border-enp-border transition-colors ${
+                className={`flex-1 sm:flex-none p-2 border-l border-enp-border transition-colors flex items-center justify-center ${
                   mode === 'calendrier'
                     ? 'bg-enp-blue-primary text-white'
                     : 'bg-white text-enp-gray-medium hover:text-enp-black'
@@ -479,35 +500,41 @@ export function CahierTexte() {
         <div className="space-y-3">
           {seancesFiltrees.map((s) => {
             const visaConf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
+            const bordureStatut =
+              s.visa.statut === 'vise'
+                ? 'border-l-4 border-l-enp-green-valid'
+                : s.visa.statut === 'conteste'
+                ? 'border-l-4 border-l-enp-red-error'
+                : 'border-l-4 border-l-[#D97706]';
 
             return (
               <div
                 key={s.id}
-                className="bg-white border border-enp-border hover:border-enp-blue-primary/80 transition-colors p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                className={`bg-white border border-enp-border hover:border-enp-blue-primary/80 transition-colors p-3.5 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 ${bordureStatut}`}
               >
                 <div className="space-y-2 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
                       {s.ueCode}
                     </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
+                    <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border font-sans">
                       {s.type}
                     </span>
                     <Badge variant={visaConf.variant}>{visaConf.label}</Badge>
-                    <span className="text-xs text-enp-gray-medium">
+                    <span className="text-xs text-enp-gray-medium font-sans">
                       {LIBELLES_STATUT[s.statut] || s.statut}
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-enp-black truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-enp-black font-sans break-words">
                     {s.intitule}
                   </h3>
 
-                  <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed line-clamp-2">
+                  <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed line-clamp-2 font-sans">
                     {s.contenu}
                   </p>
 
-                  <div className="flex items-center gap-4 text-xs text-enp-gray-medium pt-1">
+                  <div className="flex items-center gap-3 sm:gap-4 text-xs text-enp-gray-medium pt-0.5 font-sans flex-wrap">
                     <span className="flex items-center gap-1 font-medium text-enp-blue-deep">
                       <CalendarIcon className="w-3.5 h-3.5" />
                       {formaterDateFr(s.date)}
@@ -519,15 +546,15 @@ export function CahierTexte() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0">
-                  <Link to={`/cahier-texte/${s.id}`}>
-                    <Button variant="outline" size="sm">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 pt-2 lg:pt-0 w-full lg:w-auto">
+                  <Link to={`/cahier-texte/${s.id}`} className="w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center font-semibold min-h-[40px] whitespace-nowrap">
                       Détail & Historique
                     </Button>
                   </Link>
                   {peutViser && s.visa.statut === 'en_attente' && (
-                    <Link to="/visas">
-                      <Button variant="primary" size="sm" leftIcon={<Stamp className="w-4 h-4" />}>
+                    <Link to="/visas" className="w-full sm:w-auto">
+                      <Button variant="primary" size="sm" className="w-full sm:w-auto justify-center font-bold min-h-[40px] whitespace-nowrap" leftIcon={<Stamp className="w-4 h-4" />}>
                         Viser
                       </Button>
                     </Link>

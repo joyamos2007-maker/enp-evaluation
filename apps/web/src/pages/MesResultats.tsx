@@ -114,10 +114,10 @@ export function MesResultats() {
                     <ProgressBar value={pct} showPercent={false} size="sm" variant={r.detailDisponible ? 'success' : 'warning'} />
                   </div>
                   <div className="flex items-center justify-between pt-1 text-xs">
-                    <span className="font-medium text-enp-gray-medium">Moyenne synthétique :</span>
-                    <span className="font-bold text-sm text-enp-blue-deep">
-                      {r.detailDisponible && r.moyenneGlobale !== null ? `${r.moyenneGlobale.toFixed(2)} / 5.0` : 'Masquée (< 5)'}
-                    </span>
+                    <span className="font-medium text-enp-gray-medium">Seuil d'anonymat :</span>
+                    <Badge variant={r.detailDisponible ? 'success' : 'warning'}>
+                      {r.detailDisponible ? 'Seuil atteint (≥ 5)' : '< 5 répondants'}
+                    </Badge>
                   </div>
                 </div>
               );

@@ -45,7 +45,7 @@ export function Drawer({
         onClick={onClose}
       />
       <div className={`fixed inset-y-0 ${positionClass} max-w-full flex`}>
-        <div className="w-screen max-w-sm sm:max-w-md bg-white border-r border-enp-border flex flex-col shadow-elevated">
+        <div className="w-full max-w-[85vw] sm:max-w-md bg-white border-r border-enp-border flex flex-col shadow-elevated">
           {/* Header */}
           <div className="px-5 py-4 bg-enp-blue-ice border-b border-enp-border flex items-center justify-between">
             <h2 className="text-base font-bold text-enp-blue-deep">{title}</h2>

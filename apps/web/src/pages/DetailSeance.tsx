@@ -336,12 +336,12 @@ export function DetailSeance() {
 
           {/* Formulaire ajout de pièce pour le délégué si séance non verrouillée */}
           {peutModifier && (
-            <div className="pt-3 flex items-center gap-3">
+            <div className="pt-3 flex flex-wrap items-center gap-3">
               <input
                 type="file"
                 id="ajout-piece"
                 onChange={(e) => e.target.files && setFichierUpload(e.target.files[0])}
-                className="text-xs file:mr-2 file:py-1 file:px-2 file:border file:border-enp-border file:text-xs file:bg-white hover:file:bg-enp-blue-ice"
+                className="text-xs max-w-full file:mr-2 file:py-1 file:px-2 file:border file:border-enp-border file:text-xs file:bg-white hover:file:bg-enp-blue-ice"
               />
               {fichierUpload && (
                 <Button

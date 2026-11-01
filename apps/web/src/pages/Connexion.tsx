@@ -12,11 +12,11 @@ import {
   HelpCircle,
   KeyRound,
   ArrowRight,
+  GraduationCap,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthContext';
 import { MockBanner } from '@/components/MockBanner';
-import { ENPLogo } from '@/components/ENPLogo';
 import { Button, Input, Alert } from '@/components/ui';
 import type { ChallengeMfa } from '@/api/types';
 
@@ -108,7 +108,7 @@ export function Connexion() {
           {/* ====================================================== */}
           {/* PANNEAU INSTITUTIONNEL GAUCHE (Desktop)                 */}
           {/* ====================================================== */}
-          <div className="lg:col-span-5 bg-enp-blue-deep text-white p-4 sm:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-[#00172E]">
+          <div className="lg:col-span-5 bg-enp-blue-deep text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-[#00172E]">
             {/* Arrière-plan décoratif géométrique sobre inspiré de l'ingénierie */}
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -125,60 +125,41 @@ export function Connexion() {
             </div>
 
             <div className="relative z-10 space-y-4 lg:space-y-6">
-              {/* En haut : Logo officiel de l'ENP */}
-              <div className="pb-2 border-b border-white/10 flex items-center justify-between">
+              {/* En haut : Logo officiel de l'ENP grand format (seul élément visible sur mobile) */}
+              <div className="flex items-center justify-center lg:justify-start py-2 lg:py-0 lg:pb-3 lg:border-b lg:border-white/10">
                 <img
                   src="/logo-enp-white.png"
                   alt="Logo officiel École Nationale Polytechnique"
-                  className="h-10 sm:h-14 w-auto object-contain"
-                />
-                <img
-                  src="/armoiries-togo.svg"
-                  alt="Armoiries de la République Togolaise"
-                  className="h-9 w-auto object-contain lg:hidden"
+                  className="h-20 sm:h-24 lg:h-16 w-auto max-w-[280px] sm:max-w-[340px] object-contain drop-shadow-sm transition-all"
                 />
               </div>
 
-              <div className="space-y-1 sm:space-y-2">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-enp-gold text-[10px] sm:text-xs font-semibold uppercase tracking-wider">
-                  <span>RÉPUBLIQUE TOGOLAISE</span>
-                  <span>•</span>
-                  <span>Travail, Liberté, Patrie</span>
-                </div>
-                <h2 className="text-lg sm:text-2xl font-bold font-serif text-white tracking-tight leading-snug">
+              {/* Présentation institutionnelle (Desktop uniquement : masquée sur mobile) */}
+              <div className="hidden lg:block space-y-2">
+                <h2 className="text-lg sm:text-2xl font-bold font-sans text-white tracking-tight leading-snug">
                   École Nationale Polytechnique
                 </h2>
                 <div className="w-12 h-1 bg-enp-gold" />
               </div>
 
-              <div className="hidden lg:block space-y-3 pt-2">
-                <h3 className="text-sm font-semibold text-[#D8DEE5] uppercase tracking-wider">
-                  Système Pédagogique Intégré
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  Portail académique sécurisé de l'ENP garantissant l'évaluation anonyme et objective
-                  des unités d'enseignement, la tenue rigoureuse du cahier de texte et le pilotage de la formation polytechnique.
+              {/* Présentation sobre et épurée (Desktop) */}
+              <div className="hidden lg:block space-y-4 pt-2">
+                <p className="text-sm text-slate-300 leading-relaxed font-sans">
+                  Portail officiel dédié à l'évaluation des enseignements, au cahier de texte et au suivi des présences et des notes.
                 </p>
-              </div>
 
-              {/* 3 engagements institutionnels (Desktop) */}
-              <div className="hidden lg:block space-y-3 pt-4 border-t border-white/10 text-xs">
-                <div className="flex items-start gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-enp-gold shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-white">Anonymat garanti & strict :</span>
-                    <p className="text-slate-300">
-                      Les résultats ne sont déverrouillés qu’à partir d’un seuil réglementaire de 5 répondants.
-                    </p>
+                <div className="space-y-2 pt-3 border-t border-white/10 text-xs font-sans text-slate-200">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-enp-gold shrink-0" />
+                    <span>Évaluations anonymes et sécurisées</span>
                   </div>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-enp-green-valid shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-white">Cahier de texte certifié :</span>
-                    <p className="text-slate-300">
-                      Horodatage et traçabilité intégrale des séances et visas d’enseignements.
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-enp-green-valid shrink-0" />
+                    <span>Cahier de texte certifié</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-sky-300 shrink-0" />
+                    <span>Suivi des présences et des notes</span>
                   </div>
                 </div>
               </div>
@@ -193,7 +174,7 @@ export function Connexion() {
               />
               <div className="text-[11px] text-slate-300">
                 <p className="font-semibold text-white tracking-wide uppercase">RÉPUBLIQUE TOGOLAISE</p>
-                <p className="text-slate-400">Direction des Systèmes d'Information & Scolarité Centrale</p>
+                <p className="text-slate-300 italic font-sans">Travail, Liberté, Patrie</p>
               </div>
             </div>
           </div>

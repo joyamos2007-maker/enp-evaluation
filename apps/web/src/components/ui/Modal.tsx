@@ -46,7 +46,7 @@ export function Modal({
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
-    full: 'max-w-[95vw]',
+    full: 'max-w-[calc(100%-1rem)]',
   };
 
   return (
@@ -59,7 +59,7 @@ export function Modal({
       <div className="flex min-h-screen items-center justify-center p-2.5 sm:p-4 text-center">
         {/* Backdrop sombre et sobre */}
         <div
-          className="fixed inset-0 bg-[#00172E]/75 backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-[#00172E]/75 transition-opacity"
           aria-hidden="true"
           onClick={onClose}
         />

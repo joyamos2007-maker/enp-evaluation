@@ -32,7 +32,7 @@ export function PageHeader({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold text-enp-blue-deep tracking-tight font-serif break-words">
+            <h1 className="text-xl sm:text-2xl font-bold text-enp-blue-deep tracking-tight font-sans break-words">
               {title}
             </h1>
             {badge && <div className="shrink-0">{badge}</div>}

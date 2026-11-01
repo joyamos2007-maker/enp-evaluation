@@ -141,7 +141,7 @@ export function SynthesePage() {
         </div>
 
         {synthese && (
-          <div className="text-xs text-enp-gray-medium text-right">
+          <div className="text-xs text-enp-gray-medium text-left sm:text-right">
             <span>Campus : <strong>{synthese.campus}</strong></span> •{' '}
             <span>Département : <strong>{synthese.departement}</strong></span>
           </div>
@@ -163,7 +163,7 @@ export function SynthesePage() {
         <div className="space-y-6">
           {/* Table récapitulative des moyennes de section A à E */}
           <div className="bg-white border border-enp-border p-5 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-enp-border">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-enp-border">
               <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep">
                 Moyennes départementales par section pédagogique
               </h2>

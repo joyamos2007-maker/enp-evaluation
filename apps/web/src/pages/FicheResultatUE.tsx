@@ -109,11 +109,11 @@ export function FicheResultatUE() {
     }
 
     return [
-      { note: '1 - Pas d\'accord', effectif: totaux[0], fill: '#A3262A' },
+      { note: '1 - Pas d\'accord', effectif: totaux[0], fill: '#d62828' },
       { note: '2 - Plutôt pas', effectif: totaux[1], fill: '#D97706' },
       { note: '3 - Neutre', effectif: totaux[2], fill: '#6B7280' },
-      { note: '4 - Plutôt d\'accord', effectif: totaux[3], fill: '#1F5A91' },
-      { note: '5 - Tout à fait', effectif: totaux[4], fill: '#16845B' },
+      { note: '4 - Plutôt d\'accord', effectif: totaux[3], fill: '#1a5fb4' },
+      { note: '5 - Tout à fait', effectif: totaux[4], fill: '#2a9d4a' },
     ];
   }, [resultat]);
 
@@ -279,7 +279,7 @@ export function FicheResultatUE() {
                         formatter={(val: any) => [`${val} / 5.0`, 'Moyenne']}
                         contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #D8DEE5', fontSize: '12px' }}
                       />
-                      <Bar dataKey="moyenne" fill="#1F5A91" barSize={18} />
+                      <Bar dataKey="moyenne" fill="#1a5fb4" barSize={18} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -302,7 +302,7 @@ export function FicheResultatUE() {
                         formatter={(val: any) => [val, 'Suffrages']}
                         contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #D8DEE5', fontSize: '12px' }}
                       />
-                      <Bar dataKey="effectif" fill="#16845B" barSize={24} />
+                      <Bar dataKey="effectif" fill="#2a9d4a" barSize={24} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -320,12 +320,12 @@ export function FicheResultatUE() {
                 <LineChart data={donneesHistorique} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis dataKey="session" stroke="#6B7280" fontSize={11} />
-                  <YAxis yAxisId="left" domain={[0, 5]} stroke="#1F5A91" fontSize={11} />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="#16845B" fontSize={11} />
+                  <YAxis yAxisId="left" domain={[0, 5]} stroke="#1a5fb4" fontSize={11} />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="#2a9d4a" fontSize={11} />
                   <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #D8DEE5', fontSize: '12px' }} />
                   <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                  <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Note moyenne (/5)" stroke="#1F5A91" strokeWidth={2} dot={{ r: 4 }} />
-                  <Line yAxisId="right" type="monotone" dataKey="participation" name="Participation (%)" stroke="#16845B" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 4 }} />
+                  <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Note moyenne (/5)" stroke="#1a5fb4" strokeWidth={2} dot={{ r: 4 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="participation" name="Participation (%)" stroke="#2a9d4a" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

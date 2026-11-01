@@ -23,6 +23,7 @@ import {
   Badge,
   EmptyState,
   SkeletonCard,
+  InfoBubble,
 } from '@/components/ui';
 
 export function ListeEvaluations() {
@@ -83,75 +84,89 @@ export function ListeEvaluations() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto animate-fade-in pb-4">
       <PageHeader
         title="Évaluations des Unités d'Enseignement"
-        description="Campagne officielle d'évaluation pédagogique anonyme de l'École Nationale Polytechnique"
+        description="Campagne officielle d'évaluation pédagogique anonyme • Session Harmattan"
+        badge={
+          <InfoBubble
+            triggerVariant="pill"
+            triggerLabel="Garantie d'anonymat"
+            title="Garantie institutionnelle d'anonymat et de neutralité"
+            badge="SÉCURITÉ DU SCRUTIN"
+            icon="shield"
+            duration={7000}
+            content={
+              <div className="space-y-2 text-xs leading-relaxed font-sans">
+                <p>
+                  Votre évaluation est <strong>strictement anonyme</strong>. Le bulletin est déposé dans l'urne numérique séparée sans aucun lien avec votre identité ou votre matricule.
+                </p>
+                <p>
+                  Une seule soumission définitive est autorisée par unité d'enseignement. Dépouillement sous contrôle du Conseil de Direction.
+                </p>
+              </div>
+            }
+          />
+        }
         breadcrumbs={[
           { label: 'Accueil', href: '/' },
           { label: 'Évaluations des UE' },
         ]}
       />
 
-      {/* Encart institutionnel certifiant l'anonymat intégral */}
-      <Alert
-        variant="institutional"
-        title="Garantie institutionnelle d'anonymat et de neutralité"
-        icon={<ShieldCheck className="w-5 h-5 text-enp-gold shrink-0 mt-0.5" />}
-      >
-        <p className="leading-relaxed">
-          Votre évaluation est <strong>strictement anonyme</strong>. Le bulletin est déposé dans l'urne numérique
-          séparée sans aucun lien avec votre identité ou votre matricule. Une seule soumission définitive est autorisée par unité d'enseignement.
-          Ces retours sont exploités par les Conseils de Département et la Direction des Études à des fins exclusives d'amélioration pédagogique.
-        </p>
-      </Alert>
-
-      {/* Indicateurs de progression globale */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Indicateurs de progression globale adaptés au mobile */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
         <StatCard
-          label="UE restantes à évaluer"
+          label="UE à évaluer"
           value={aFaire}
-          subtext={aFaire > 0 ? "Campagne active en cours" : "Toutes vos évaluations sont transmises"}
+          subtext={aFaire > 0 ? "Campagne active" : "Toutes transmises"}
           variant={aFaire > 0 ? 'warning' : 'success'}
-          icon={<Clock className="w-5 h-5" />}
+          icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5" />}
+          className="p-3 sm:p-5"
         />
         <StatCard
-          label="Évaluations validées"
+          label="Validées"
           value={terminees}
-          subtext={`Sur ${total} UE inscrites à votre cursus`}
+          subtext={`Sur ${total} UE`}
           variant="primary"
-          icon={<CheckCircle2 className="w-5 h-5" />}
+          icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />}
+          className="p-3 sm:p-5"
         />
-        <div className="bg-white border border-enp-border p-5 flex flex-col justify-center">
-          <span className="text-xs font-semibold uppercase tracking-wider text-enp-gray-medium mb-1">
-            Progression globale
-          </span>
+        <div className="col-span-2 sm:col-span-1 bg-white border border-enp-border p-3 sm:p-5 flex flex-col justify-center">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="font-semibold uppercase tracking-wider text-enp-gray-medium text-[11px] sm:text-xs font-sans">
+              Progression globale
+            </span>
+            <span className="font-bold text-enp-blue-deep font-sans">{pct}%</span>
+          </div>
           <ProgressBar
             value={pct}
-            label={`${terminees} sur ${total} complétée(s)`}
-            showPercent={true}
+            showPercent={false}
             size="md"
             variant={pct === 100 ? 'success' : 'primary'}
           />
+          <span className="text-[11px] text-enp-gray-medium mt-1 font-sans">
+            {terminees} sur {total} complétée(s)
+          </span>
         </div>
       </div>
 
-      {/* Barre de filtres et recherche */}
-      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-sm">
+      {/* Barre de filtres et recherche ergonomique mobile */}
+      <div className="bg-white border border-enp-border p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="relative flex-1 sm:max-w-xs">
           <Input
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
-            placeholder="Rechercher par code (ex: MAT101) ou intitulé..."
+            placeholder="Rechercher (ex: MAT101)..."
             startIcon={<Search className="w-4 h-4" />}
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-1.5 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setFiltreEtat('tous')}
-            className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+            className={`py-2 px-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-center border transition-colors select-none font-sans min-h-[38px] ${
               filtreEtat === 'tous'
                 ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
                 : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
@@ -162,7 +177,7 @@ export function ListeEvaluations() {
           <button
             type="button"
             onClick={() => setFiltreEtat('a_faire')}
-            className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+            className={`py-2 px-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-center border transition-colors select-none font-sans min-h-[38px] ${
               filtreEtat === 'a_faire'
                 ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
                 : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
@@ -173,7 +188,7 @@ export function ListeEvaluations() {
           <button
             type="button"
             onClick={() => setFiltreEtat('terminee')}
-            className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+            className={`py-2 px-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-center border transition-colors select-none font-sans min-h-[38px] ${
               filtreEtat === 'terminee'
                 ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
                 : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
@@ -217,27 +232,27 @@ export function ListeEvaluations() {
             return (
               <div
                 key={ue.ueId}
-                className={`bg-white border transition-colors p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                className={`bg-white border transition-colors p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 ${
                   estAFaire
-                    ? 'border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/20'
-                    : 'border-enp-border/60 bg-[#FAFAFA]'
+                    ? 'border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/20'
+                    : 'border-l-4 border-l-enp-green-valid border-t-enp-border/60 border-r-enp-border/60 border-b-enp-border/60 bg-[#FAFAFA]'
                 }`}
               >
                 <div className="space-y-1.5 min-w-0">
-                  <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
                       {ue.code}
                     </span>
                     <Badge variant={estAFaire ? 'warning' : 'success'}>
-                      {estAFaire ? 'À faire' : 'Évaluation enregistrée'}
+                      {estAFaire ? 'À évaluer' : 'Transmise'}
                     </Badge>
                   </div>
 
-                  <h2 className="text-base font-bold text-enp-black break-words">
+                  <h2 className="text-sm sm:text-base font-bold text-enp-black font-sans break-words">
                     {ue.intitule}
                   </h2>
 
-                  <div className="flex items-center gap-4 text-xs text-enp-gray-medium pt-0.5">
+                  <div className="flex items-center gap-4 text-xs text-enp-gray-medium pt-0.5 font-sans">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
                       Date limite : {formaterDate(ue.finCampagne)}
@@ -245,23 +260,24 @@ export function ListeEvaluations() {
                   </div>
                 </div>
 
-                <div className="shrink-0 pt-2 sm:pt-0 w-full sm:w-auto">
+                <div className="shrink-0 pt-1 sm:pt-0 w-full sm:w-auto">
                   {estAFaire ? (
                     <Link to={`/evaluations/${ue.ueId}`} className="block w-full sm:w-auto">
                       <Button
                         variant="primary"
                         size="md"
-                        className="w-full sm:w-auto justify-center"
-                        rightIcon={<ArrowRight className="w-4 h-4" />}
+                        className="w-full sm:w-auto justify-center font-bold whitespace-nowrap min-h-[42px]"
+                        leftIcon={<ClipboardCheck className="w-4 h-4 shrink-0" />}
+                        rightIcon={<ArrowRight className="w-4 h-4 shrink-0" />}
                       >
                         Évaluer l'UE
                       </Button>
                     </Link>
                   ) : (
-                    <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-enp-green-light text-enp-green-valid text-xs font-bold border border-enp-green-valid/20 w-full sm:w-auto">
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      Participation enregistrée
-                    </span>
+                    <div className="inline-flex items-center justify-center sm:justify-end gap-1.5 text-enp-green-valid text-xs font-bold py-1.5 px-3 bg-enp-green-light border border-enp-green-valid/20 w-full sm:w-auto font-sans">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-enp-green-valid" />
+                      Bulletin officiel scellé
+                    </div>
                   )}
                 </div>
               </div>

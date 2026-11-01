@@ -7,26 +7,75 @@ import {
   Bell,
   ShieldCheck,
   ChevronDown,
+  Home,
+  ClipboardCheck,
+  FileText,
+  GraduationCap,
+  CalendarCheck,
+  BookOpen,
+  Users,
+  Stamp,
+  BarChart3,
+  ClipboardList,
+  CheckSquare,
+  LineChart,
+  LayoutDashboard,
+  Megaphone,
+  UserCog,
+  Upload,
+  Award,
+  FileCheck2,
+  Globe2,
+  Sliders,
+  Building2,
+  Archive,
+  ScrollText,
+  Circle,
+  type LucideIcon,
 } from 'lucide-react';
-import * as Lucide from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
 import { entreesPourRoles, LIBELLES_ROLES, type EntreeMenu } from './menuConfig';
-import { MockBanner } from './MockBanner';
 import { ENPLogo } from './ENPLogo';
 import { api } from '@/api';
 import type { Notification, Role } from '@/api/types';
 
-type IconeLucide = Lucide.LucideIcon;
+const ICONES_MENU: Record<string, LucideIcon> = {
+  ClipboardCheck,
+  FileText,
+  GraduationCap,
+  CalendarCheck,
+  BookOpen,
+  Users,
+  Stamp,
+  BarChart3,
+  ClipboardList,
+  CheckSquare,
+  LineChart,
+  LayoutDashboard,
+  Megaphone,
+  UserCog,
+  Upload,
+  ShieldCheck,
+  Award,
+  FileCheck2,
+  Globe2,
+  Sliders,
+  Building2,
+  Archive,
+  ScrollText,
+  Home,
+  Bell,
+  Circle,
+};
 
-function iconePour(nom: string): IconeLucide {
-  const c = (Lucide as unknown as Record<string, IconeLucide>)[nom];
-  return c ?? Lucide.Circle;
+function iconePour(nom: string): LucideIcon {
+  return ICONES_MENU[nom] ?? Circle;
 }
 
 interface TabMobile {
   chemin: string;
   libelle: string;
-  icone: IconeLucide;
+  icone: LucideIcon;
   exact?: boolean;
 }
 
@@ -34,58 +83,58 @@ function getTabsMobile(role: Role): TabMobile[] {
   switch (role) {
     case 'etudiant':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/evaluations', libelle: 'Évaluations', icone: Lucide.ClipboardCheck },
-        { chemin: '/cahier-texte', libelle: 'Cahier', icone: Lucide.BookOpen },
-        { chemin: '/mes-notes', libelle: 'Notes', icone: Lucide.GraduationCap },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/evaluations', libelle: 'Évaluations', icone: ClipboardCheck },
+        { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
+        { chemin: '/mes-notes', libelle: 'Notes', icone: GraduationCap },
       ];
     case 'delegue':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/cahier-texte', libelle: 'Cahier', icone: Lucide.BookOpen },
-        { chemin: '/evaluations', libelle: 'Évaluations', icone: Lucide.ClipboardCheck },
-        { chemin: '/participation', libelle: 'Participation', icone: Lucide.Users },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
+        { chemin: '/evaluations', libelle: 'Évaluations', icone: ClipboardCheck },
+        { chemin: '/participation', libelle: 'Participation', icone: Users },
       ];
     case 'enseignant':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/visas', libelle: 'Visas', icone: Lucide.Stamp },
-        { chemin: '/cahier-texte', libelle: 'Cahier', icone: Lucide.BookOpen },
-        { chemin: '/resultats', libelle: 'Résultats', icone: Lucide.BarChart3 },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/visas', libelle: 'Visas', icone: Stamp },
+        { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
+        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
       ];
     case 'chef_departement':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/synthese', libelle: 'Synthèse', icone: Lucide.LineChart },
-        { chemin: '/participation', libelle: 'Participation', icone: Lucide.Users },
-        { chemin: '/resultats', libelle: 'Résultats', icone: Lucide.BarChart3 },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/synthese', libelle: 'Synthèse', icone: LineChart },
+        { chemin: '/participation', libelle: 'Participation', icone: Users },
+        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
       ];
     case 'scolarite':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/scolarite/campagnes', libelle: 'Campagnes', icone: Lucide.Megaphone },
-        { chemin: '/scolarite/comptes', libelle: 'Comptes', icone: Lucide.UserCog },
-        { chemin: '/scolarite/moderation', libelle: 'Modération', icone: Lucide.ShieldCheck },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/scolarite/campagnes', libelle: 'Campagnes', icone: Megaphone },
+        { chemin: '/scolarite/comptes', libelle: 'Comptes', icone: UserCog },
+        { chemin: '/scolarite/moderation', libelle: 'Modération', icone: ShieldCheck },
       ];
     case 'direction_etudes':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/direction/statistiques', libelle: 'Stats', icone: Lucide.Globe2 },
-        { chemin: '/direction/controles', libelle: 'Contrôles', icone: Lucide.Sliders },
-        { chemin: '/administration', libelle: 'Gestion', icone: Lucide.Building2 },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/direction/statistiques', libelle: 'Stats', icone: Globe2 },
+        { chemin: '/direction/controles', libelle: 'Contrôles', icone: Sliders },
+        { chemin: '/administration', libelle: 'Gestion', icone: Building2 },
       ];
     case 'admin':
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/administration', libelle: 'Gestion', icone: Lucide.Building2 },
-        { chemin: '/journal-audit', libelle: 'Audit', icone: Lucide.ScrollText },
-        { chemin: '/securite', libelle: 'Sécurité', icone: Lucide.ShieldCheck },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/administration', libelle: 'Gestion', icone: Building2 },
+        { chemin: '/journal-audit', libelle: 'Audit', icone: ScrollText },
+        { chemin: '/securite', libelle: 'Sécurité', icone: ShieldCheck },
       ];
     default:
       return [
-        { chemin: '/', libelle: 'Accueil', icone: Lucide.Home, exact: true },
-        { chemin: '/notifications', libelle: 'Notifs', icone: Lucide.Bell },
-        { chemin: '/securite', libelle: 'Sécurité', icone: Lucide.ShieldCheck },
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/notifications', libelle: 'Notifs', icone: Bell },
+        { chemin: '/securite', libelle: 'Sécurité', icone: ShieldCheck },
       ];
   }
 }
@@ -96,6 +145,7 @@ export function AppLayout() {
   const location = useLocation();
 
   const [menuMobileOuvert, setMenuMobileOuvert] = useState(false);
+  const [sidebarDesktopOuverte, setSidebarDesktopOuverte] = useState(true);
   const [erreurProfil, setErreurProfil] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [menuProfilOuvert, setMenuProfilOuvert] = useState(false);
@@ -177,7 +227,7 @@ export function AppLayout() {
           onClick={fermerMenuMobile}
           className={({ isActive }) => classeLienNavigation(isActive)}
         >
-          <Lucide.Home className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span className="font-medium">Tableau de bord</span>
         </NavLink>
       </div>
@@ -186,9 +236,7 @@ export function AppLayout() {
       {sectionsGroupes.map(([titreSection, items]) => (
         <div key={titreSection} className="space-y-1">
           <div className="px-4 py-1">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-enp-gray-medium">
-              {titreSection}
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">{titreSection}</p>
           </div>
           <div className="px-3 space-y-0.5">
             {items.map((item) => {
@@ -211,9 +259,9 @@ export function AppLayout() {
       ))}
 
       {/* Espace Compte & Sécurité */}
-      <div className="space-y-1 pt-2 border-t border-enp-border">
+      <div className="space-y-1 pt-2 border-t border-white/10">
         <div className="px-4 py-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-enp-gray-medium">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
             Sécurité & Compte
           </p>
         </div>
@@ -226,7 +274,7 @@ export function AppLayout() {
             <div className="relative">
               <Bell className="w-4 h-4 shrink-0" aria-hidden="true" />
               {nonLuesCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-enp-red-error rounded-full" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-enp-red-error" />
               )}
             </div>
             <span className="flex-1 truncate">Notifications</span>
@@ -250,36 +298,34 @@ export function AppLayout() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-enp-bg text-enp-black font-sans antialiased w-full max-w-full overflow-x-hidden">
-      {/* Bannière conditionnelle du mode de démonstration (VITE_USE_MOCK=true) */}
-      <MockBanner />
-
+    <div className="min-h-screen flex flex-col bg-enp-bg text-enp-black font-sans antialiased w-full max-w-full">
       {/* ======================================================== */}
-      {/* 1. BARRE SUPÉRIEURE OFFICIELLE INSTITUTIONNELLE            */}
+      {/* 1. EN-TÊTE FIXE INSTITUTIONNEL OPAQUE (IMMOBILE)         */}
       {/* ======================================================== */}
-      <header className="bg-enp-blue-deep text-white sticky top-0 z-40 border-b border-[#00172E] shadow-subtle w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Côté gauche : Bascule mobile + Logo ENP */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              type="button"
-              className="lg:hidden p-2 -ml-1 text-white hover:bg-white/10 border border-transparent focus:outline-none focus:border-white/40 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label={menuMobileOuvert ? 'Fermer la navigation' : 'Ouvrir la navigation'}
-              aria-expanded={menuMobileOuvert}
-              aria-controls="navigation-mobile"
-              onClick={() => setMenuMobileOuvert((prev) => !prev)}
-            >
-              {menuMobileOuvert ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+      <header className="fixed top-0 left-0 right-0 z-50 w-full h-16 sm:h-20 bg-[#0d3b66] text-white border-b border-[#00172E] shadow-elevated">
+        <div className="w-full px-3 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-2 sm:gap-4">
+            {/* Côté gauche : Bascule Hamburger PC + Logo officiel ENP agrandi */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              {/* Bouton Hamburger PC pour déplier / replier la bannière latérale */}
+              <button
+                type="button"
+                onClick={() => setSidebarDesktopOuverte((prev) => !prev)}
+                className="hidden lg:flex p-2 -ml-2 text-white/90 hover:text-white hover:bg-white/10 border border-transparent focus:outline-none focus:border-white/40 transition-colors items-center justify-center cursor-pointer min-h-[44px] min-w-[44px]"
+                aria-label={sidebarDesktopOuverte ? 'Masquer la barre latérale' : 'Afficher la barre latérale'}
+                aria-expanded={sidebarDesktopOuverte}
+                title={sidebarDesktopOuverte ? 'Replier le menu (plein écran)' : 'Déplier le menu'}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
 
-            <Link
-              to="/"
-              className="flex items-center gap-2 sm:gap-3 focus:outline-none focus:ring-1 focus:ring-white/40 py-1"
-              title="Retour au tableau de bord institutionnel"
-            >
-              <ENPLogo variant="light" size="sm" showSubtitle={true} showArmoiries={false} />
-            </Link>
-          </div>
+              <Link
+                to="/"
+                className="flex items-center gap-2 sm:gap-3 focus:outline-none focus:ring-1 focus:ring-white/40 py-1"
+                title="Retour au tableau de bord institutionnel"
+              >
+                <ENPLogo variant="light" size="md" showSubtitle={false} showArmoiries={false} />
+              </Link>
+            </div>
 
           {/* Côté droit : Profil actif, notifications, sélecteur et déconnexion */}
           <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
@@ -354,7 +400,7 @@ export function AppLayout() {
                 {utilisateur.prenom} {utilisateur.nom}
               </span>
               <span className="text-[11px] text-[#A6C4DE] leading-tight flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-enp-green-valid rounded-full inline-block" />
+                <span className="w-1.5 h-1.5 bg-enp-green-valid inline-block" />
                 {roleActifLibelle}
               </span>
             </div>
@@ -374,6 +420,9 @@ export function AppLayout() {
         </div>
       </header>
 
+      {/* Spacer opaque pour compenser exactement la hauteur du header fixe */}
+      <div className="h-16 sm:h-20 shrink-0 w-full pointer-events-none" aria-hidden="true" />
+
       {/* Message d'erreur de changement de profil si incident */}
       {erreurProfil && (
         <div className="bg-enp-red-light border-b border-enp-red-error text-enp-red-inst px-4 py-2 text-xs font-medium" role="alert">
@@ -382,23 +431,29 @@ export function AppLayout() {
       )}
 
       {/* ======================================================== */}
-      {/* 2. ZONE PRINCIPALE : SIDEBAR + CONTENU                   */}
+      {/* 2. ZONE PRINCIPALE : SIDEBAR FLUSH GAUCHE + CONTENU       */}
       {/* ======================================================== */}
-      <div className="flex flex-1 max-w-7xl mx-auto w-full min-w-0">
-        {/* Navigation latérale Desktop */}
+      <div className="flex flex-1 w-full min-w-0 relative">
+        {/* Navigation latérale Desktop rétractable, flush à gauche sans espace vide */}
         <aside
           aria-label="Menu institutionnel"
-          className="hidden lg:block w-64 shrink-0 border-r border-enp-border bg-white min-h-[calc(100vh-4rem-120px)] scrollbar-thin overflow-y-auto"
+          className={`hidden lg:flex flex-col shrink-0 border-r border-[#082642] bg-[#0d3b66] text-white sticky top-16 sm:top-20 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] transition-all duration-200 overflow-y-auto scrollbar-thin ${
+            sidebarDesktopOuverte
+              ? 'w-64 opacity-100'
+              : 'w-0 opacity-0 overflow-hidden border-r-0 pointer-events-none'
+          }`}
         >
-          <div className="p-4 border-b border-enp-border bg-enp-blue-ice/50">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-enp-blue-deep">
+          <div className="p-4 border-b border-white/10 bg-[#092b4a] shrink-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-enp-gold font-sans">
               Portail Officiel ENP
             </p>
-            <p className="text-xs text-enp-gray-medium mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5 font-sans">
               Année 2026-2027 • Semestre actif
             </p>
           </div>
-          {navigationContenu}
+          <div className="flex-1 overflow-y-auto">
+            {navigationContenu}
+          </div>
         </aside>
 
         {/* Navigation Mobile escamotable (Drawer) */}
@@ -411,13 +466,13 @@ export function AppLayout() {
           >
             {/* Backdrop avec flou sobre */}
             <div
-              className="fixed inset-0 bg-[#00172E]/75 backdrop-blur-xs transition-opacity animate-fade-in"
+              className="fixed inset-0 bg-[#00172E]/75 transition-opacity animate-fade-in"
               aria-hidden="true"
               onClick={fermerMenuMobile}
             />
-            <div className="relative w-80 max-w-[85vw] bg-white border-r border-enp-border shadow-elevated flex flex-col h-full overflow-hidden animate-slide-up">
+            <div className="relative w-80 max-w-[85vw] bg-enp-blue-deep text-white border-r border-[#082642] shadow-elevated flex flex-col h-full overflow-hidden animate-slide-up">
               {/* En-tête tiroir mobile */}
-              <div className="h-16 bg-enp-blue-deep text-white px-4 flex items-center justify-between shrink-0 border-b border-[#00172E]">
+              <div className="h-16 bg-[#092b4a] text-white px-4 flex items-center justify-between shrink-0 border-b border-white/10">
                 <ENPLogo variant="light" size="sm" showSubtitle={false} />
                 <button
                   type="button"
@@ -430,32 +485,32 @@ export function AppLayout() {
               </div>
 
               {/* Fiche Profil Utilisateur dans le tiroir mobile */}
-              <div className="p-4 bg-enp-blue-ice border-b border-enp-border shrink-0 space-y-3">
+              <div className="p-4 bg-[#092b4a]/80 border-b border-white/10 shrink-0 space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-enp-blue-deep text-white font-bold text-sm flex items-center justify-center shrink-0 border border-[#00172E]">
+                  <div className="w-10 h-10 bg-white text-enp-blue-deep font-bold text-sm flex items-center justify-center shrink-0 border border-white/20">
                     {utilisateur.prenom?.[0] ?? ''}{utilisateur.nom?.[0] ?? ''}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-enp-blue-deep truncate">
+                    <p className="text-sm font-bold text-white truncate">
                       {utilisateur.prenom} {utilisateur.nom}
                     </p>
-                    <p className="text-[11px] text-enp-gray-medium truncate">
-                      {utilisateur.email ?? utilisateur.identifiant}
+                    <p className="text-[11px] text-slate-300 truncate">
+                      Compte certifié #{utilisateur.id}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-enp-border/70 text-xs">
-                  <span className="text-enp-gray-medium font-medium">Rôle actif :</span>
-                  <span className="font-bold text-enp-blue-deep px-2 py-0.5 bg-white border border-enp-border">
+                <div className="flex items-center justify-between pt-1 border-t border-white/10 text-xs">
+                  <span className="text-slate-300 font-medium">Rôle actif :</span>
+                  <span className="font-bold text-white px-2 py-0.5 bg-white/15 border border-white/20">
                     {roleActifLibelle}
                   </span>
                 </div>
 
                 {/* Sélecteur de profil tactile pour comptes multi-rôles */}
                 {utilisateur.roles.length > 1 && (
-                  <div className="pt-2 border-t border-enp-border/70 space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-enp-gray-medium">
+                  <div className="pt-2 border-t border-white/10 space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
                       Basculer de profil actif
                     </p>
                     <div className="grid grid-cols-1 gap-1">
@@ -494,7 +549,7 @@ export function AppLayout() {
               </div>
 
               {/* Pied du tiroir mobile : Déconnexion rapide */}
-              <div className="p-3 bg-enp-bg border-t border-enp-border shrink-0">
+              <div className="p-3 bg-[#092b4a] border-t border-white/10 shrink-0">
                 <button
                   type="button"
                   onClick={handleDeconnexion}
@@ -512,9 +567,11 @@ export function AppLayout() {
         <main
           id="contenu-principal"
           tabIndex={-1}
-          className="flex-1 min-w-0 max-w-full p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 overflow-x-hidden"
+          className="flex-1 min-w-0 max-w-full p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 transition-all duration-200"
         >
-          <Outlet />
+          <div className="max-w-7xl mx-auto w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
 
@@ -548,18 +605,23 @@ export function AppLayout() {
         {/* Onglet Menu pour déplier le tiroir complet */}
         <button
           type="button"
-          onClick={() => setMenuMobileOuvert(true)}
+          onClick={() => setMenuMobileOuvert((v) => !v)}
           className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 text-center transition-colors select-none min-h-[56px] relative ${
             menuMobileOuvert
               ? 'text-enp-blue-deep font-bold border-t-2 border-enp-blue-primary bg-enp-blue-light/50'
               : 'text-enp-gray-medium hover:text-enp-black border-t-2 border-transparent'
           }`}
-          aria-label="Ouvrir le menu complet"
+          aria-label={menuMobileOuvert ? 'Fermer le menu' : 'Ouvrir le menu complet'}
+          aria-expanded={menuMobileOuvert}
         >
           <div className="relative">
-            <Menu className="w-5 h-5 shrink-0" aria-hidden="true" />
+            {menuMobileOuvert ? (
+              <X className="w-5 h-5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Menu className="w-5 h-5 shrink-0" aria-hidden="true" />
+            )}
             {nonLuesCount > 0 && (
-              <span className="absolute -top-1 -right-1.5 w-2 h-2 bg-enp-red-error rounded-full" />
+              <span className="absolute -top-1 -right-1.5 w-2 h-2 bg-enp-red-error" />
             )}
           </div>
           <span className="text-[10px] tracking-tight truncate max-w-[64px] mt-0.5">
@@ -569,10 +631,10 @@ export function AppLayout() {
       </nav>
 
       {/* ======================================================== */}
-      {/* 4. FOOTER INSTITUTIONNEL SOLEMNE ET ÉPURÉ                 */}
+      {/* 4. FOOTER INSTITUTIONNEL (Affiché uniquement sur desktop) */}
       {/* ======================================================== */}
-      <footer className="bg-[#00172E] text-white border-t-2 border-enp-teal mt-auto mb-14 lg:mb-0 w-full overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+      <footer className="hidden lg:block bg-enp-blue-deep text-white border-t-2 border-enp-blue-primary mt-auto w-full overflow-hidden">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Côté gauche : Armoiries officielles de la République Togolaise & Identité ENP */}
             <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
@@ -620,6 +682,6 @@ function classeLienNavigation(actif: boolean): string {
   const base =
     'flex items-center gap-3 px-3 py-2 text-xs sm:text-sm font-medium transition-colors border-l-4 select-none min-h-[38px]';
   return actif
-    ? `${base} bg-enp-blue-light text-enp-blue-deep font-bold border-l-enp-blue-primary shadow-subtle`
-    : `${base} text-enp-black hover:bg-enp-blue-ice hover:text-enp-blue-deep border-l-transparent`;
+    ? `${base} bg-enp-blue-primary text-white font-bold border-l-white shadow-subtle`
+    : `${base} text-slate-200 hover:bg-white/10 hover:text-white border-l-transparent`;
 }

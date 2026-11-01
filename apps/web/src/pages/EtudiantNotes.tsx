@@ -22,6 +22,7 @@ import {
   TableCell,
   TableHead,
   StatCard,
+  InfoBubble,
 } from '@/components/ui';
 
 export function EtudiantNotes() {
@@ -77,10 +78,30 @@ export function EtudiantNotes() {
   }, [notes]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in pb-4">
       <PageHeader
         title="Relevé individuel de notes"
         subtitle="Consultation de vos résultats aux devoirs continus et examens délibérés."
+        badge={
+          <InfoBubble
+            triggerVariant="pill"
+            triggerLabel="Notice des jurys"
+            title="Modalités d'affichage des notes et délibérations"
+            badge="DÉLIBÉRATIONS OFFICIELLES"
+            icon="info"
+            duration={7000}
+            content={
+              <div className="space-y-2 text-xs leading-relaxed font-sans">
+                <p>
+                  Les notes de devoirs et contrôles continus sont consultables dès publication par votre enseignant.
+                </p>
+                <p>
+                  Les notes d'examens terminaux font l'objet d'une délibération en jury avant d'être rendues visibles. Ce document est à usage personnel et ne se substitue pas à une attestation officielle.
+                </p>
+              </div>
+            }
+          />
+        }
         breadcrumbs={[
           { label: 'Accueil', href: '/' },
           { label: 'Mes notes académiques' },
@@ -90,6 +111,7 @@ export function EtudiantNotes() {
             <Button
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto font-semibold justify-center min-h-[38px] whitespace-nowrap"
               leftIcon={<Printer className="w-3.5 h-3.5" />}
               onClick={() => window.print()}
             >
@@ -105,9 +127,9 @@ export function EtudiantNotes() {
         </Alert>
       )}
 
-      {/* Notice de confidentialité et délibération */}
-      <div className="bg-enp-bg border-l-4 border-enp-blue-primary border-r border-t border-b border-enp-border p-4 text-xs text-enp-gray-medium leading-relaxed">
-        <span className="font-bold text-enp-blue-deep block mb-0.5">
+      {/* Notice de confidentialité et délibération (masquée sur mobile car disponible via la bulle 'i' ci-dessus) */}
+      <div className="hidden sm:block bg-enp-bg border-l-4 border-enp-blue-primary border-r border-t border-b border-enp-border p-4 text-xs text-enp-gray-medium leading-relaxed font-sans">
+        <span className="font-bold text-enp-blue-deep block mb-0.5 font-sans">
           Information officielle de la Scolarité :
         </span>
         Les notes de devoirs et contrôles continus sont consultables dès publication par votre enseignant.
@@ -118,83 +140,102 @@ export function EtudiantNotes() {
       {chargement ? (
         <div className="p-12 text-center bg-white border border-enp-border">
           <div className="inline-block w-8 h-8 border-2 border-enp-blue-ice border-t-enp-blue-primary animate-spin mb-2" />
-          <p className="text-sm text-enp-gray-medium">Chargement de votre dossier académique…</p>
+          <p className="text-sm text-enp-gray-medium font-sans">Chargement de votre dossier académique…</p>
         </div>
       ) : notes.length === 0 ? (
-        <div className="bg-white border border-enp-border p-12 text-center shadow-sm">
+        <div className="bg-white border border-enp-border p-8 sm:p-12 text-center shadow-sm">
           <ClipboardList className="w-12 h-12 text-enp-gray-medium mx-auto mb-3 opacity-40" />
-          <h3 className="text-base font-bold text-enp-blue-deep font-serif">
+          <h3 className="text-base font-bold text-enp-blue-deep font-sans">
             Aucune note renseignée pour le moment
           </h3>
-          <p className="text-xs text-enp-gray-medium max-w-sm mx-auto mt-1">
+          <p className="text-xs text-enp-gray-medium max-w-sm mx-auto mt-1 font-sans">
             Les évaluations saisies par vos enseignants apparaîtront automatiquement sur ce relevé.
           </p>
         </div>
       ) : (
         <>
-          {/* Statistiques synthétiques */}
+          {/* Statistiques synthétiques adaptées au mobile en grille 2x2 */}
           {stats && (
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
               <StatCard
-                title="Moyenne indicative"
+                title="Moyenne"
                 value={`${stats.moyenneSur20} / 20`}
-                icon={<Award className="w-5 h-5 text-enp-blue-primary" />}
-                description="Moyenne simple sur notes publiées"
+                icon={<Award className="w-4 h-4 sm:w-5 sm:h-5 text-enp-blue-primary" />}
+                description="Moyenne indicative"
+                variant="primary"
+                className="p-3 sm:p-5"
               />
               <StatCard
-                title="Évaluations inscrites"
+                title="Inscrites"
                 value={stats.total}
-                icon={<BookOpen className="w-5 h-5 text-enp-gray-medium" />}
-                description="Devoirs et examens prévus"
+                icon={<BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-enp-gray-medium" />}
+                description="Évaluations prévues"
+                className="p-3 sm:p-5"
               />
               <StatCard
-                title="Notes publiées"
+                title="Publiées"
                 value={stats.notesSaisies}
-                icon={<CheckCircle2 className="w-5 h-5 text-enp-green-valid" />}
-                description="Renseignées et délibérées"
+                icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-enp-green-valid" />}
+                description="Délibérées"
+                variant="success"
+                className="p-3 sm:p-5"
               />
               <StatCard
-                title="En attente jury"
+                title="En attente"
                 value={stats.enAttente}
-                icon={<Clock className="w-5 h-5 text-enp-gold" />}
-                description="Examens en cours de délibération"
+                icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-enp-gold" />}
+                description="Examens jury"
+                variant="warning"
+                className="p-3 sm:p-5"
               />
             </div>
           )}
 
           {/* Tableau des notes */}
           <div className="bg-white border border-enp-border shadow-sm">
-            <div className="p-4 border-b border-enp-border flex items-center justify-between">
-              <h3 className="font-bold text-enp-blue-deep font-serif text-sm">
+            <div className="p-3.5 sm:p-4 border-b border-enp-border flex items-center justify-between">
+              <h3 className="font-bold text-enp-blue-deep font-sans text-xs sm:text-sm">
                 Bordereau officiel des évaluations ({notes.length})
               </h3>
               <span className="text-xs text-enp-gray-medium font-mono">
-                Année courante
+                Harmattan
               </span>
             </div>
 
             {/* VUE MOBILE : Cartes de notes claires et lisibles sur téléphone */}
-            <div className="block sm:hidden divide-y divide-enp-border">
+            <div className="block sm:hidden p-2.5 space-y-2.5 bg-enp-bg">
               {notes.map((ligne) => {
                 const estExamenNonDelibere = !ligne.deliberee;
                 const sansNote = ligne.note === null;
+                const noteValide = ligne.note !== null && ligne.note >= ligne.bareme / 2;
+
+                const bordureNote = estExamenNonDelibere
+                  ? 'border-l-4 border-l-[#D97706]'
+                  : sansNote
+                  ? 'border-l-4 border-l-enp-border'
+                  : noteValide
+                  ? 'border-l-4 border-l-enp-green-valid'
+                  : 'border-l-4 border-l-enp-red-error';
 
                 return (
-                  <div key={`${ligne.evaluationId}-${ligne.coursId}`} className="p-4 space-y-2.5 bg-white">
+                  <div
+                    key={`${ligne.evaluationId}-${ligne.coursId}`}
+                    className={`p-3.5 space-y-2 bg-white border border-enp-border ${bordureNote}`}
+                  >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-xs font-bold bg-enp-blue-deep text-white px-2 py-0.5">
+                          <span className="font-mono text-xs font-bold bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20 px-1.5 py-0.2">
                             {ligne.code}
                           </span>
                           <Badge variant={ligne.type === 'devoir' ? 'default' : 'institutional'}>
-                            {ligne.type === 'devoir' ? 'Devoir' : 'Examen'}
+                            {ligne.type === 'devoir' ? 'Devoir continu' : 'Examen'}
                           </Badge>
                         </div>
-                        <p className="font-bold text-sm text-enp-black">
+                        <p className="font-bold text-sm text-enp-black font-sans truncate">
                           {ligne.intitule}
                         </p>
-                        <p className="text-xs text-enp-gray-medium font-medium">
+                        <p className="text-xs text-enp-gray-medium font-sans truncate">
                           {ligne.libelle}
                         </p>
                       </div>
@@ -202,26 +243,28 @@ export function EtudiantNotes() {
                       <div className="text-right shrink-0">
                         {estExamenNonDelibere ? (
                           <div className="space-y-1">
-                            <span className="text-xs text-enp-gold font-bold block">
+                            <span className="text-[11px] text-[#D97706] font-bold block font-sans">
                               En délibération
                             </span>
                             <Badge variant="warning">En attente jury</Badge>
                           </div>
                         ) : sansNote ? (
                           <div className="space-y-1">
-                            <span className="text-xs text-enp-gray-medium italic block">
+                            <span className="text-[11px] text-enp-gray-medium italic block font-sans">
                               Non renseignée
                             </span>
                             <Badge variant="outline">Non noté</Badge>
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            <div className={`font-mono font-bold text-lg ${
-                              ligne.note !== null && ligne.note >= ligne.bareme / 2 ? 'text-enp-blue-deep' : 'text-enp-red-dark'
+                            <div className={`font-mono font-bold text-base sm:text-lg ${
+                              noteValide ? 'text-enp-blue-deep' : 'text-enp-red-error'
                             }`}>
                               {ligne.note} <span className="text-xs font-normal text-enp-gray-medium">/{ligne.bareme}</span>
                             </div>
-                            <Badge variant="success">Publié</Badge>
+                            <Badge variant={noteValide ? 'success' : 'danger'}>
+                              {noteValide ? 'Validé' : 'Non validé'}
+                            </Badge>
                           </div>
                         )}
                       </div>
@@ -252,15 +295,15 @@ export function EtudiantNotes() {
                       <TableRow key={`${ligne.evaluationId}-${ligne.coursId}`}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold bg-enp-blue-deep text-white px-2 py-0.5">
+                            <span className="font-mono text-xs font-bold bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20 px-2 py-0.5">
                               {ligne.code}
                             </span>
-                            <span className="font-semibold text-enp-black text-sm">
+                            <span className="font-semibold text-enp-black text-sm font-sans">
                               {ligne.intitule}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm font-medium text-enp-blue-deep">
+                        <TableCell className="text-sm font-medium text-enp-blue-deep font-sans">
                           {ligne.libelle}
                         </TableCell>
                         <TableCell className="text-center">
@@ -278,7 +321,7 @@ export function EtudiantNotes() {
                               Non renseignée
                             </span>
                           ) : (
-                            <span className={ligne.note !== null && ligne.note >= ligne.bareme / 2 ? 'text-enp-blue-deep' : 'text-enp-red-dark'}>
+                            <span className={ligne.note !== null && ligne.note >= ligne.bareme / 2 ? 'text-enp-blue-deep' : 'text-enp-red-error'}>
                               {ligne.note} <span className="text-xs font-normal text-enp-gray-medium">/ {ligne.bareme}</span>
                             </span>
                           )}

@@ -25,4 +25,5 @@ export * from './PageHeader';
 export * from './SectionHeader';
 export * from './DataFilters';
 export * from './Toast';
+export * from './InfoBubble';
 

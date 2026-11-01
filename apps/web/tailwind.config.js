@@ -4,55 +4,55 @@ export default {
   theme: {
     extend: {
       colors: {
-        // --- Couleurs institutionnelles ENP officielles (calibrées sur le logo) ---
-        'enp-blue-deep': '#002140',      // Bleu nuit profond officiel du logo ENP (#002140)
-        'enp-blue-primary': '#0A4275',   // Bleu polytechnique officiel (actions, liens, boutons)
-        'enp-blue-dark': '#001A33',      // Bleu nuit très sombre pour états actifs/hover
-        'enp-blue-light': '#EAF2F8',     // Bleu clair institutionnel (surfaces actives, sélections)
-        'enp-blue-ice': '#F5F9FC',       // Bleu très clair (fond panneaux, sidebars)
-        'enp-teal': '#008080',           // Vert sarcelle officiel de l'engrenage du logo ENP (#008080)
-        'enp-teal-dark': '#005C5C',      // Sarcelle sombre
-        'enp-teal-light': '#E6F5F5',     // Sarcelle clair (surfaces innovantes, badges techniques)
-        'enp-green-inst': '#0F766E',     // Vert institutionnel
-        'enp-green-valid': '#16845B',    // Vert de validation (présence, publication, succès)
-        'enp-green-light': '#E8F5EF',    // Vert clair (badges validés)
-        'enp-red-inst': '#A3262A',       // Rouge institutionnel
-        'enp-red-error': '#C62828',      // Rouge d'erreur (danger, suppression, alerte)
-        'enp-red-light': '#FCEBEC',      // Rouge clair (fonds d'alerte)
-        'enp-gold': '#B08D35',           // Doré discret (sceau officiel, distinction)
-        'enp-gold-light': '#FBF6EA',     // Doré très clair (encadrés officiels)
-        'enp-white': '#FFFFFF',          // Blanc pur
-        'enp-bg': '#F4F6F8',             // Gris d'arrière-plan de travail
-        'enp-border': '#D8DEE5',         // Gris de bordure net
-        'enp-border-light': '#E8ECEF',   // Gris de bordure discrète
-        'enp-gray-medium': '#6B7280',    // Gris moyen (métadonnées, placeholders)
-        'enp-gray-dark': '#263238',      // Gris foncé (titres secondaires)
-        'enp-black': '#17212B',          // Noir institutionnel (texte principal)
+        // --- Couleurs institutionnelles officielles demandées ---
+        'enp-blue-deep': '#0d3b66',      // Bleu profond #0d3b66 pour la navigation latérale
+        'enp-blue-primary': '#1a5fb4',   // Bleu #1a5fb4 pour les actions principales
+        'enp-blue-dark': '#092847',      // Bleu foncé pour hover/active
+        'enp-blue-light': '#e6f0fa',     // Bleu clair pour sélections et états actifs légers
+        'enp-blue-ice': '#f0f5ff',       // Fond clair #f0f5ff
+        'enp-teal': '#2a9d4a',           // Vert institutionnel
+        'enp-teal-dark': '#1e7838',      // Vert foncé
+        'enp-teal-light': '#eaf6ed',     // Vert clair
+        'enp-green-inst': '#2a9d4a',     // Vert institutionnel
+        'enp-green-valid': '#2a9d4a',    // Vert #2a9d4a pour les validations
+        'enp-green-light': '#eaf6ed',    // Vert clair pour badges validés
+        'enp-red-inst': '#b51f1f',       // Rouge institutionnel
+        'enp-red-error': '#d62828',      // Rouge #d62828 uniquement pour les erreurs et actions dangereuses
+        'enp-red-light': '#fdf0f0',      // Rouge très clair pour les fonds d'erreur
+        'enp-gold': '#b08d35',           // Doré discret institutionnel
+        'enp-gold-light': '#fbf6ea',     // Doré clair
+        'enp-white': '#ffffff',          // Blanc pur
+        'enp-bg': '#f0f5ff',             // Fond clair #f0f5ff
+        'enp-border': '#d8dee5',         // Séparateurs gris
+        'enp-border-light': '#e8ecef',   // Séparateurs gris clair
+        'enp-gray-medium': '#6b7280',    // Gris moyen
+        'enp-gray-dark': '#263238',      // Gris foncé
+        'enp-black': '#17212b',          // Noir institutionnel
 
         // Alias de compatibilité
-        'enp-primary': '#0A4275',
-        'enp-primary-dark': '#002140',
-        'enp-primary-light': '#EAF2F8',
-        'enp-ink': '#17212B',
+        'enp-primary': '#1a5fb4',
+        'enp-primary-dark': '#0d3b66',
+        'enp-primary-light': '#e6f0fa',
+        'enp-ink': '#17212b',
         'enp-ink-soft': '#475569',
-        'enp-sky': '#EAF2F8',
-        'enp-bordeaux': '#A3262A',
-        'enp-bordeaux-light': '#FCEBEC',
+        'enp-sky': '#e6f0fa',
+        'enp-bordeaux': '#d62828',
+        'enp-bordeaux-light': '#fdf0f0',
       },
       borderRadius: {
         'none': '0px',
-        'sm': '2px',
-        'DEFAULT': '2px',
-        'md': '3px',
-        'lg': '4px',
-        'xl': '4px',
-        '2xl': '4px',
-        '3xl': '4px',
-        'full': '9999px',
+        'sm': '0px',
+        'DEFAULT': '0px',
+        'md': '0px',
+        'lg': '0px',
+        'xl': '0px',
+        '2xl': '0px',
+        '3xl': '0px',
+        'full': '0px',
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        serif: ['Merriweather', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        serif: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
         'subtle': '0 1px 2px 0 rgba(23, 33, 43, 0.04)',
@@ -66,8 +66,8 @@ export default {
         'medium': '200ms',
       },
       animation: {
-        'fade-in': 'fadeIn 0.15s ease-out',
-        'slide-up': 'slideUp 0.18s ease-out',
+        'fade-in': 'fadeIn 0.18s ease-out',
+        'slide-up': 'slideUp 0.20s ease-out',
       },
       keyframes: {
         fadeIn: {

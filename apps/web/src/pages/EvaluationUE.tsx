@@ -28,8 +28,8 @@ import {
   ProgressBar,
   Stepper,
   Textarea,
-  ConfirmDialog,
   Badge,
+  InfoBubble,
 } from '@/components/ui';
 
 const OPTIONS_NOTATION: { valeur: Note; libelle: string; code: string }[] = [
@@ -263,46 +263,61 @@ export function EvaluationUE() {
   /* ------------------------------------------------------------------ */
   if (phase === 'introduction') {
     return (
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6 animate-fade-in">
         <Link
           to="/evaluations"
-          className="inline-flex items-center gap-1.5 text-xs text-enp-blue-primary hover:text-enp-blue-deep font-medium"
+          className="inline-flex items-center gap-1.5 text-xs text-enp-blue-primary hover:text-enp-blue-deep font-semibold"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Retour à la liste des UE
         </Link>
 
         <PageHeader
-          title={`Évaluation de l'enseignement : ${ue?.code}`}
+          title={`Évaluation : ${ue?.code}`}
           description={ue?.intitule}
-          badge={<Badge variant="warning">À renseigner</Badge>}
+          badge={
+            <InfoBubble
+              triggerVariant="pill"
+              triggerLabel="Protocole d'anonymat"
+              title="Protocole solennel d'évaluation anonyme (ENP)"
+              badge="SÉCURITÉ DU SCRUTIN"
+              icon="shield"
+              duration={8000}
+              content={
+                <div className="space-y-2 text-xs leading-relaxed">
+                  <p>
+                    <strong>Anonymat certifié :</strong> Un jeton cryptographique à usage unique est émis. Vos réponses sont déposées dans une urne numérique isolée sans aucune mention de votre identité ou matricule.
+                  </p>
+                  <p>
+                    <strong>Soumission unique et définitive :</strong> Une seule soumission est autorisée par unité d'enseignement.
+                  </p>
+                  <p className="text-[11px] text-enp-gray-medium border-t border-enp-border pt-1.5">
+                    Seuil de dépouillement : Au minimum 5 répondants requis pour assurer la confidentialité intégrale.
+                  </p>
+                </div>
+              }
+            />
+          }
         />
 
-        <Alert
-          variant="institutional"
-          title="Protocole solennel d'évaluation anonyme (ENP)"
-          icon={<ShieldCheck className="w-6 h-6 text-enp-gold shrink-0 mt-0.5" />}
-        >
-          <div className="space-y-3 mt-2 text-xs sm:text-sm leading-relaxed">
-            <p>
-              Avant de débuter votre évaluation, veuillez prendre connaissance des règles statutaires suivantes :
-            </p>
-            <ul className="list-disc list-inside space-y-1.5 text-enp-black">
-              <li>
-                <strong>Anonymat certifié :</strong> Dès le clic sur « Débuter l'évaluation », un jeton cryptographique à usage unique est émis. Vos réponses sont déposées dans une urne électronique physiquement isolée et ne comportent aucune mention de votre nom ou matricule.
-              </li>
-              <li>
-                <strong>Soumission unique et définitive :</strong> Une seule soumission est autorisée par unité d'enseignement. Une fois validé, votre bulletin ne peut plus être modifié.
-              </li>
-              <li>
-                <strong>Déontologie des commentaires :</strong> Les champs de remarques sont destinés à enrichir la démarche qualité. Ne formulez aucun propos nominatif ou indice susceptible de révéler votre identité.
-              </li>
-              <li>
-                <strong>Seuil de protection :</strong> Aucun résultat détaillé n'est restitué aux équipes pédagogiques si l'effectif des répondants est inférieur à 5 étudiants.
-              </li>
-            </ul>
+        <div className="p-4 sm:p-5 bg-white border border-enp-border space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-enp-blue-light text-enp-blue-deep flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-enp-blue-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-enp-blue-deep">
+                Scrutin anonyme officiel de l'École Nationale Polytechnique
+              </h2>
+              <p className="text-xs text-enp-gray-medium">
+                Vos réponses permettent d'ajuster les maquettes et contenus de formation.
+              </p>
+            </div>
           </div>
-        </Alert>
+          <p className="text-xs text-enp-black leading-relaxed">
+            Le questionnaire évalue 5 axes pédagogiques (objectifs, cours magistraux, travaux dirigés, charge de travail, supports) suivis d'un espace de remarques constructives. Votre progression est sauvegardée automatiquement.
+          </p>
+        </div>
 
         {erreurAction && (
           <Alert variant="danger" title="Impossible de démarrer l'évaluation">
@@ -310,14 +325,11 @@ export function EvaluationUE() {
           </Alert>
         )}
 
-        <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-enp-border">
-          <Link to="/evaluations" className="w-full sm:w-auto">
-            <Button variant="outline" className="w-full sm:w-auto justify-center">Annuler</Button>
-          </Link>
+        <div className="pt-2 flex justify-end border-t border-enp-border">
           <Button
             variant="primary"
             size="lg"
-            className="w-full sm:w-auto justify-center"
+            className="w-full sm:w-auto justify-center font-bold"
             isLoading={enCours}
             onClick={() => void demarrer()}
             rightIcon={<ArrowRight className="w-5 h-5" />}
@@ -621,38 +633,45 @@ export function EvaluationUE() {
             </Alert>
           )}
 
-          <div className="pt-4 border-t border-enp-border flex items-center justify-between gap-3">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => setPhase('commentaires')}
-              leftIcon={<ArrowLeft className="w-4 h-4" />}
-            >
-              Modifier mes réponses
-            </Button>
+          {/* Validation d'engagement directe sans popup répétitif */}
+          <div className="pt-4 border-t border-enp-border space-y-4">
+            <label className="flex items-start gap-2.5 cursor-pointer text-xs sm:text-sm text-enp-black select-none">
+              <input
+                type="checkbox"
+                checked={confirmerEnvoi}
+                onChange={(e) => setConfirmerEnvoi(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-enp-blue-primary border-enp-border focus:ring-enp-blue-primary shrink-0"
+              />
+              <span className="leading-snug">
+                Je certifie avoir relu mes réponses et confirme leur dépôt <strong>définitif et irréversible</strong> dans l'urne électronique officielle de l'ENP.
+              </span>
+            </label>
 
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => setConfirmerEnvoi(true)}
-              rightIcon={<Send className="w-4 h-4" />}
-            >
-              Déposer mon bulletin dans l'urne
-            </Button>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setPhase('commentaires')}
+                leftIcon={<ArrowLeft className="w-4 h-4" />}
+                className="w-full sm:w-auto"
+              >
+                Modifier mes réponses
+              </Button>
+
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={!confirmerEnvoi}
+                isLoading={enCours}
+                onClick={() => void executerEnvoiFinal()}
+                rightIcon={<Send className="w-4 h-4" />}
+                className="w-full sm:w-auto font-bold"
+              >
+                Déposer mon bulletin dans l'urne
+              </Button>
+            </div>
           </div>
         </div>
-
-        {/* Dialogue modal de confirmation finale */}
-        <ConfirmDialog
-          isOpen={confirmerEnvoi}
-          onClose={() => setConfirmerEnvoi(false)}
-          onConfirm={() => void executerEnvoiFinal()}
-          title="Confirmer le dépôt anonyme"
-          message="Confirmez-vous le dépôt définitif de votre bulletin d'évaluation ? Cette action est irréversible et clôturera votre participation pour cette unité d'enseignement."
-          confirmLabel="Confirmer et déposer"
-          variant="primary"
-          isLoading={enCours}
-        />
       </div>
     );
   }
@@ -679,10 +698,15 @@ export function EvaluationUE() {
         </p>
       </div>
 
-      <div className="pt-4">
-        <Link to="/evaluations">
-          <Button variant="primary" size="md">
-            Retourner à la liste de mes évaluations
+      <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <Link to="/evaluations" className="w-full sm:w-auto">
+          <Button variant="primary" size="md" className="w-full sm:w-auto font-bold">
+            Continuer mes évaluations
+          </Button>
+        </Link>
+        <Link to="/" className="w-full sm:w-auto">
+          <Button variant="outline" size="md" className="w-full sm:w-auto font-semibold">
+            Retour au tableau de bord
           </Button>
         </Link>
       </div>

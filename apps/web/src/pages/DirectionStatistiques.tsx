@@ -234,15 +234,15 @@ export function DirectionStatistiques() {
             title="Comparatif des taux de participation par campus et département"
             subtitle="Taux effectif de mobilisation (%) pour le semestre actif"
           >
-            <div className="h-64 w-full" aria-label="Graphique des taux par département">
+            <div className="h-64 w-full min-w-0 overflow-hidden" aria-label="Graphique des taux par département">
               <ResponsiveContainer width="99%" height="100%">
-                <BarChart data={donneesDepartements} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
+                <BarChart data={donneesDepartements} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                   <XAxis dataKey="departement" stroke="#6B7280" fontSize={11} />
                   <YAxis domain={[0, 100]} stroke="#6B7280" fontSize={11} />
                   <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #D8DEE5', fontSize: '12px' }} />
                   <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                  <Bar dataKey="tauxParticipation" name="Participation (%)" fill="#0A4275" barSize={28} />
+                  <Bar dataKey="tauxParticipation" name="Participation (%)" fill="#1a5fb4" barSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
