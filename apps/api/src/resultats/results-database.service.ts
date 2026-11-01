@@ -59,6 +59,16 @@ export class ResultsDatabaseService implements OnModuleInit, OnModuleDestroy {
     return res.rows;
   }
 
+  async ping(): Promise<boolean> {
+    try {
+      await this.pool.query('SELECT 1');
+      return true;
+    } catch (err) {
+      this.logger.warn('Ping de la base resultats echoue : ' + (err as Error).message);
+      return false;
+    }
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.pool.end();
   }

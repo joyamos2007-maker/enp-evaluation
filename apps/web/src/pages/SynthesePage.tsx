@@ -139,6 +139,7 @@ export function SynthesePage() {
         </select>
       </div>
 
+<<<<<<< Updated upstream
       <InfoCard titre="Usage des résultats" icone={false}>
         <p>Résultats à visée d'amélioration pédagogique ; ils ne peuvent constituer, à eux seuls, un élément d'appréciation individuelle.</p>
       </InfoCard>
@@ -220,6 +221,98 @@ export function SynthesePage() {
               </tbody>
             </table>
           </div>
+=======
+            <Table<LigneSynthese>
+              columns={[
+                {
+                  key: 'code',
+                  header: 'Code UE',
+                  render: (l) => (
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {l.code}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'intitule',
+                  header: 'Intitulé',
+                  render: (l) => <span className="font-bold text-enp-black">{l.intitule}</span>,
+                },
+                {
+                  key: 'reponses',
+                  header: 'Suffrages',
+                  align: 'center',
+                  render: (l) => (
+                    <span className={`font-semibold ${l.detailDisponible ? 'text-enp-black' : 'text-enp-gray-medium'}`}>
+                      {l.nbReponses} {l.detailDisponible ? '' : '(< 5)'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'moyA',
+                  header: 'A. Organisation',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyA) : '-'}</span>,
+                },
+                {
+                  key: 'moyB',
+                  header: 'B. Pédagogie',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyB) : '-'}</span>,
+                },
+                {
+                  key: 'moyC',
+                  header: 'C. Écoute',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyC) : '-'}</span>,
+                },
+                {
+                  key: 'moyD',
+                  header: 'D. Évaluation',
+                  align: 'center',
+                  render: (l) => <span className="font-medium">{l.detailDisponible ? fmtMoy(l.moyD) : '-'}</span>,
+                },
+                {
+                  key: 'satisfactionE',
+                  header: 'Satisfaction E',
+                  align: 'center',
+                  render: (l) => {
+                    if (!l.detailDisponible || l.satisfactionE === null) {
+                      return <span className="text-enp-gray-medium">-</span>;
+                    }
+                    const note = l.satisfactionE;
+                    const estFaible = note < SEUIL_ATTENTION;
+                    return (
+                      <span
+                        className={`font-bold px-2 py-0.5 ${
+                          estFaible
+                            ? 'bg-enp-violet-soft text-[#5B21B6] border border-[#DDD6FE]'
+                            : 'bg-enp-green-light text-enp-green-valid border border-enp-green-valid/30'
+                        }`}
+                      >
+                        {note.toFixed(2)}
+                      </span>
+                    );
+                  },
+                },
+              ]}
+              data={synthese.lignes}
+              keyExtractor={(l) => l.ueId}
+            />
+          </div>
+
+          {/* Formulaire des suites et plan d'actions correctives */}
+          <div className="bg-white border border-enp-border p-6 space-y-5">
+            <div className="border-b border-enp-border pb-3">
+              <h2 className="text-base font-bold text-enp-blue-deep flex items-center gap-2">
+                <Award className="w-5 h-5 text-enp-violet" />
+                Plan d'Actions Correctives & Délibération Départementale
+              </h2>
+              <p className="text-xs text-enp-gray-medium mt-0.5">
+                Renseigné sous la responsabilité du Chef de Département et transmis à la Direction des Études
+              </p>
+            </div>
+>>>>>>> Stashed changes
 
           {/* Bloc analyse et suites */}
           <div className="bg-white border border-enp-border rounded-lg p-4 space-y-4">

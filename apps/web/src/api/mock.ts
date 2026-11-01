@@ -118,6 +118,24 @@ const COMPTES: CompteInterne[] = [
     activeRole: "scolarite",
     motDePasse: "demo-scolarite-2026",
   },
+  {
+    id: 1006,
+    nom: "Amavi",
+    prenom: "Afi",
+    identifiant: "DEMO-DIR",
+    roles: ["direction_etudes"],
+    activeRole: "direction_etudes",
+    motDePasse: "demo-direction-2026",
+  },
+  {
+    id: 1007,
+    nom: "Administrateur",
+    prenom: "Demo",
+    identifiant: "DEMO-ADMIN",
+    roles: ["admin"],
+    activeRole: "admin",
+    motDePasse: "demo-admin-2026",
+  },
 ];
 
 /* ------------------------------------------------------------------ */

@@ -4,6 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
+<<<<<<< Updated upstream
         // Teal institutionnel — éléments structurants et actions
         'enp-primary': '#0F766E',
         'enp-primary-dark': '#115E59',
@@ -11,6 +12,38 @@ export default {
         'enp-teal-dark': '#0F4C4A',
         // Bleu foncé institutionnel — texte principal, titres
         'enp-ink': '#0F172A',
+=======
+        // --- Couleurs institutionnelles ENP officielles (calibrées sur le logo) ---
+        'enp-blue-deep': '#002140',      // Bleu nuit profond officiel du logo ENP (#002140)
+        'enp-blue-primary': '#0A4275',   // Bleu polytechnique officiel (actions, liens, boutons)
+        'enp-blue-dark': '#001A33',      // Bleu nuit très sombre pour états actifs/hover
+        'enp-blue-light': '#EAF2F8',     // Bleu clair institutionnel (surfaces actives, sélections)
+        'enp-blue-ice': '#F5F9FC',       // Bleu très clair (fond panneaux, sidebars)
+        'enp-teal': '#008080',           // Vert sarcelle officiel de l'engrenage du logo ENP (#008080)
+        'enp-teal-dark': '#005C5C',      // Sarcelle sombre
+        'enp-teal-light': '#E6F5F5',     // Sarcelle clair (surfaces innovantes, badges techniques)
+        'enp-green-inst': '#0F766E',     // Vert institutionnel
+        'enp-green-valid': '#16845B',    // Vert de validation (présence, publication, succès)
+        'enp-green-light': '#E8F5EF',    // Vert clair (badges validés)
+        'enp-red-inst': '#A3262A',       // Rouge institutionnel
+        'enp-red-error': '#C62828',      // Rouge d'erreur (danger, suppression, alerte)
+        'enp-red-light': '#FCEBEC',      // Rouge clair (fonds d'alerte)
+        'enp-violet': '#6D28D9',         // Violet d'accent (distinction, alertes)
+        'enp-violet-soft': '#F3E8FF',    // Violet doux (fonds d'accent)
+        'enp-white': '#FFFFFF',          // Blanc pur
+        'enp-bg': '#F4F6F8',             // Gris d'arrière-plan de travail
+        'enp-border': '#D8DEE5',         // Gris de bordure net
+        'enp-border-light': '#E8ECEF',   // Gris de bordure discrète
+        'enp-gray-medium': '#6B7280',    // Gris moyen (métadonnées, placeholders)
+        'enp-gray-dark': '#263238',      // Gris foncé (titres secondaires)
+        'enp-black': '#17212B',          // Noir institutionnel (texte principal)
+
+        // Alias de compatibilité
+        'enp-primary': '#0A4275',
+        'enp-primary-dark': '#002140',
+        'enp-primary-light': '#EAF2F8',
+        'enp-ink': '#17212B',
+>>>>>>> Stashed changes
         'enp-ink-soft': '#475569',
         // Teal clair — fonds d'accent
         'enp-sky': '#E6F4F2',

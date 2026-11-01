@@ -11,6 +11,8 @@ export interface UtilisateurSession {
   id: number;
   nom: string;
   prenom: string;
+  email?: string;
+  identifiant?: string;
   roles: Role[];
   activeRole: Role;
 }

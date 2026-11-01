@@ -1,6 +1,8 @@
 # Déploiement de production – ENP
 
 Ce document détaille la checklist minimale avant mise en ligne de la plateforme ENP.
+Pour l'architecture cloud Azure preparee pour ce projet, consulter
+[`deploiement-azure.md`](./deploiement-azure.md).
 
 ## Exemple de configuration de production
 
@@ -17,7 +19,7 @@ Une configuration Docker de base est fournie dans [`infra/docker-compose.prod.ym
 - Serveur Linux avec accès root ou sudo
 - HTTPS activé via reverse proxy (Nginx ou Caddy)
 - Certificats TLS gérés par Let’s Encrypt ou un équivalent institutionnel
-- Base PostgreSQL distincte pour chaque rôle : application, urne, résultats
+- Une base PostgreSQL logique commune, avec les rôles distincts `app_main`, `ballot_app` et `results_app`
 - Accès SSH restreint aux administrateurs techniques
 
 ## 2. Variables d’environnement de production
@@ -28,9 +30,7 @@ Copier `.env.example` vers `.env` puis remplacer les valeurs par les vraies vale
 
 - `NODE_ENV=production`
 - `PORT=3000`
-- `DATABASE_URL` est unique et différente de `DATABASE_URL_BALLOT` et `DATABASE_URL_RESULTS`
-- `DATABASE_URL_BALLOT` est unique et distincte
-- `DATABASE_URL_RESULTS` est unique et distincte
+- les trois URLs de connexion utilisent des comptes distincts et pointent vers la même base logique
 - `JWT_ACCESS_SECRET` est long et unique
 - `JWT_REFRESH_SECRET` est long et distinct du secret d’accès
 - `BALLOT_TOKEN_SECRET` est distinct des secrets JWT
@@ -65,7 +65,7 @@ Avant toute mise en production :
 ## 5. Données et base
 
 - migrer les schémas SQL dans l’environnement de prod
-- valider que le rôle application ne peut pas écrire dans la base urne ou résultat
+- valider que `app_main` ne peut pas accéder au schéma `ballot`, que `ballot_app` ne lit pas les identités/le registre et que `results_app` est en lecture seule
 - vérifier les permissions PostgreSQL par compte utilisateur
 - mettre en place un plan de backup journalier
 - conserver une procédure de restauration de la base déjà testée
@@ -102,7 +102,7 @@ Checklist avant mise en ligne :
 
 - [ ] .env de production renseigné et distinct de l’environnement local
 - [ ] secrets JWT générés aléatoirement
-- [ ] base de données séparée pour chaque rôle
+- [ ] une base logique commune configurée avec les trois rôles PostgreSQL aux privilèges vérifiés
 - [ ] CORS restreint à l’origine front
 - [ ] cookies sécurisés en production
 - [ ] API accessible uniquement via HTTPS

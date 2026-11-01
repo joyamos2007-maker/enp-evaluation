@@ -41,6 +41,7 @@ export function EtudiantPresences() {
       )}
       {chargement ? <p className="text-enp-ink-soft">Chargement…</p> : (
         <>
+<<<<<<< Updated upstream
           {statistiques && (
             <section aria-label="Statistiques de présence" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <CarteStatistique libelle="Taux de présence" valeur={statistiques.tauxPresence === null ? '—' : `${statistiques.tauxPresence}%`} />
@@ -68,6 +69,54 @@ export function EtudiantPresences() {
                   </tr>
                 ))}</tbody>
               </table>
+=======
+          {stats && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <StatCard
+                  title="Taux d'assiduité"
+                  value={stats.tauxPresence === null ? '-' : `${stats.tauxPresence}%`}
+                  icon={<CalendarCheck className="w-5 h-5 text-enp-blue-primary" />}
+                  description="Présences et retards / Total"
+                />
+                <StatCard
+                  title="Séances émargées"
+                  value={`${stats.seancesMarquees} / ${stats.seancesTotal}`}
+                  icon={<BookOpen className="w-5 h-5 text-enp-gray-medium" />}
+                  description="Séances avec statut saisi"
+                />
+                <StatCard
+                  title="Présences"
+                  value={stats.presents}
+                  icon={<CheckCircle2 className="w-5 h-5 text-enp-green-valid" />}
+                  description="À l'heure au cours"
+                />
+                <StatCard
+                  title="Absences"
+                  value={stats.absents}
+                  icon={<XCircle className="w-5 h-5 text-enp-red-dark" />}
+                  description="Non justifiées"
+                />
+                <StatCard
+                  title="Retards"
+                  value={stats.retards}
+                  icon={<Clock className="w-5 h-5 text-enp-violet" />}
+                  description="Arrivées tardives"
+                />
+              </div>
+
+              {stats.tauxPresence !== null && (
+                <div className="bg-white border border-enp-border p-4">
+                  <ProgressBar
+                    value={stats.tauxPresence}
+                    max={100}
+                    variant={stats.tauxPresence >= 80 ? 'success' : stats.tauxPresence >= 65 ? 'warning' : 'danger'}
+                    label="Seuil d'assiduité réglementaire (Seuil éliminatoire : 80%)"
+                    showValue={true}
+                  />
+                </div>
+              )}
+>>>>>>> Stashed changes
             </div>
           )}
         </>

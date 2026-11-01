@@ -45,9 +45,9 @@ Copier `.env.example` vers `.env` et remplir les valeurs de production.
 
 Valeurs à garantir :
 
-- `DATABASE_URL` : base principale pour l'application
-- `DATABASE_URL_BALLOT` : base dédiée à l'urne, différente de `DATABASE_URL`
-- `DATABASE_URL_RESULTS` : base dédiée aux résultats, différente des deux autres
+- `DATABASE_URL` : connexion au registre applicatif avec le rôle `app_main`
+- `DATABASE_URL_BALLOT` : connexion d'écriture dans l'urne avec `ballot_app`
+- `DATABASE_URL_RESULTS` : connexion en lecture seule des résultats avec `results_app`
 - `JWT_ACCESS_SECRET` : secret HS256 pour les accès, au moins 32 caractères
 - `JWT_REFRESH_SECRET` : secret distinct pour les refresh tokens, au moins 32 caractères
 - `BALLOT_TOKEN_SECRET` : secret distinct pour les jetons de vote, au moins 32 caractères
@@ -58,7 +58,7 @@ Valeurs à garantir :
 Règles de sécurité :
 
 - les trois secrets doivent être distincts
-- les URLs de base doivent être différentes entre `DATABASE_URL`, `DATABASE_URL_BALLOT` et `DATABASE_URL_RESULTS`
+- les trois URLs doivent avoir des identifiants de connexion distincts, mais pointer vers la même base PostgreSQL : les schémas `evaluation` et `ballot` sont consultés ensemble
 - en production, le cookie de session doit être servi avec `secure: true`
 - `ALLOWED_ORIGINS` doit être restreint au seul domaine/port frontend approuvé
 - ne jamais exposer de jeton de session côté JavaScript
@@ -83,6 +83,7 @@ Règles de sécurité :
 
 - `docs/decisions.md` : historique des décisions architecturales et de sécurité
 - `docs/deploiement-production.md` : checklist de mise en production et d’exploitation
+- `docs/deploiement-azure.md` : préparation Azure Container Apps et Azure Database for PostgreSQL
 
 ## Rôles académiques et périmètres
 

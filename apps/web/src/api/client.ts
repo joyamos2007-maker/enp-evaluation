@@ -56,7 +56,7 @@ import type {
 } from "./types";
 import { ApiError } from "./error";
 
-const BASE_URL = "/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 /* ------------------------------------------------------------------ */
 /*  Gestion du jeton en mémoire (jamais en stockage persistant)        */

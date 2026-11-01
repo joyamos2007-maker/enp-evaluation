@@ -1,6 +1,7 @@
 # Guide de déploiement production – ENP
 
 Ce guide est écrit pour un utilisateur novice. Il explique simplement comment mettre le projet ENP en production sur un serveur Linux avec Docker.
+Pour la preparation sur Azure, voir [`docs/deploiement-azure.md`](./docs/deploiement-azure.md).
 
 ## 1. Ce que tu as déjà dans le projet
 
@@ -48,9 +49,9 @@ Voici un exemple correct :
 NODE_ENV=production
 PORT=3000
 
-DATABASE_URL=postgresql://enp_user:MotDePasseTrèsFort@db:5432/enp_evaluation
-DATABASE_URL_BALLOT=postgresql://enp_user:MotDePasseTrèsFort@db:5432/enp_ballot
-DATABASE_URL_RESULTS=postgresql://enp_user:MotDePasseTrèsFort@db:5432/enp_results
+DATABASE_URL=postgresql://app_main:MotDePasseFort@db:5432/enp_evaluation
+DATABASE_URL_BALLOT=postgresql://ballot_app:MotDePasseFort@db:5432/enp_evaluation
+DATABASE_URL_RESULTS=postgresql://results_app:MotDePasseFort@db:5432/enp_evaluation
 
 JWT_ACCESS_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 JWT_REFRESH_SECRET=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
@@ -63,7 +64,7 @@ COOKIE_SECURE=true
 
 ### À retenir
 
-- les 3 bases doivent être différentes
+- les trois connexions utilisent des rôles différents dans la même base PostgreSQL `enp_evaluation`
 - les secrets JWT doivent être différents
 - les secrets doivent être longs et aléatoires
 - `COOKIE_SECURE=true` doit être utilisé en production
@@ -181,9 +182,9 @@ Exemple :
 NODE_ENV=production
 PORT=3000
 
-DATABASE_URL=postgresql://enp_user:MotDePasseTrèsFort@db:5432/enp_evaluation
-DATABASE_URL_BALLOT=postgresql://enp_user:MotDePasseTrèsFort@db:5432/enp_ballot
-DATABASE_URL_RESULTS=postgresql://enp_user:MotDePasseTrèsFort@db:5432/enp_results
+DATABASE_URL=postgresql://app_main:MotDePasseFort@db:5432/enp_evaluation
+DATABASE_URL_BALLOT=postgresql://ballot_app:MotDePasseFort@db:5432/enp_evaluation
+DATABASE_URL_RESULTS=postgresql://results_app:MotDePasseFort@db:5432/enp_evaluation
 
 JWT_ACCESS_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 JWT_REFRESH_SECRET=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
@@ -308,7 +309,7 @@ docker compose -f infra/docker-compose.prod.yml logs
 Avant d’ouvrir le site au public, vérifie :
 
 - [ ] le fichier `.env` contient les vraies valeurs
-- [ ] les trois bases sont différentes
+- [ ] les trois rôles ont des mots de passe distincts et les privilèges attendus sur la même base
 - [ ] les secrets sont différents
 - [ ] le domaine est bien configuré
 - [ ] le certificat HTTPS est installé

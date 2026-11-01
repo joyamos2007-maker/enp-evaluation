@@ -73,6 +73,7 @@ export function TableauDeBordScolaritePage() {
         <>
           {/* Cartes statistiques */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<<<<<<< Updated upstream
             <div className="bg-white border border-enp-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-shadow">
               <div className="flex items-center gap-3">
                 <div className="shrink-0 w-11 h-11 rounded-lg bg-enp-primary flex items-center justify-center">
@@ -82,6 +83,52 @@ export function TableauDeBordScolaritePage() {
                   <p className="text-2xl font-bold text-enp-ink tracking-tight">{data.campagnesOuvertes}</p>
                   <p className="text-xs text-enp-ink-soft">Campagnes ouvertes</p>
                 </div>
+=======
+            <StatCard
+              title="Campagnes ouvertes"
+              value={data.campagnesOuvertes}
+              icon={<Megaphone className="w-5 h-5 text-enp-blue-primary" />}
+              description="Actuellement en phase de vote"
+            />
+            <StatCard
+              title="Comptes à activer"
+              value={data.comptesSansMotDePasse}
+              icon={<UserCog className="w-5 h-5 text-enp-violet" />}
+              description="Sans mot de passe initialisé"
+            />
+            <StatCard
+              title="Commentaires à modérer"
+              value={data.commentairesAModerer}
+              icon={<MessageSquare className="w-5 h-5 text-enp-red-dark" />}
+              description="En attente de relecture"
+            />
+            <StatCard
+              title="Participation globale"
+              value={`${tauxParticipation}%`}
+              icon={<TrendingUp className="w-5 h-5 text-enp-green-valid" />}
+              description={`${data.participation.participations} / ${data.participation.inscriptions} inscrits`}
+            />
+          </div>
+
+          {/* Participation et Quorum de représentativité */}
+          <div className="bg-white border border-enp-border p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-enp-border pb-3">
+              <div>
+                <h2 className="text-base font-bold text-enp-blue-deep font-serif">
+                  Indice de participation institutionnelle
+                </h2>
+                <p className="text-xs text-enp-gray-medium mt-0.5">
+                  Calculé sur l’ensemble des jetons anonymes délivrés pour les campagnes de l’année courante.
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-bold font-mono text-enp-blue-primary">
+                  {data.participation.participations} / {data.participation.inscriptions}
+                </span>
+                <span className="text-xs text-enp-gray-medium block">
+                  {data.participation.bulletins} bulletins anonymes déposés
+                </span>
+>>>>>>> Stashed changes
               </div>
             </div>
             <div className="bg-white border border-enp-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-shadow">
@@ -119,11 +166,96 @@ export function TableauDeBordScolaritePage() {
             </div>
           </div>
 
+<<<<<<< Updated upstream
           {/* Barre participation */}
           <div className="bg-white border border-enp-border rounded-xl p-5 shadow-card space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-enp-ink font-semibold">Participation</span>
               <span className="text-enp-ink-soft">{data.participation.participations} / {data.participation.inscriptions} jetons</span>
+=======
+          {/* Actions prioritaires requises */}
+          <div className="bg-white border border-enp-border p-6 shadow-sm">
+            <SectionHeader
+              title="Actions requises de la Scolarité"
+              description="Tâches administratives prioritaires en attente de traitement."
+            />
+
+            <div className="mt-4 space-y-2">
+              {data.comptesSansMotDePasse > 0 && (
+                <div className="flex items-center justify-between p-3.5 bg-enp-bg border-l-4 border-enp-violet border-r border-t border-b border-enp-border text-sm">
+                  <div className="flex items-center gap-3">
+                    <UserCog className="w-5 h-5 text-enp-violet shrink-0" />
+                    <div>
+                      <p className="font-semibold text-enp-blue-deep">
+                        {data.comptesSansMotDePasse} compte(s) sans mot de passe
+                      </p>
+                      <p className="text-xs text-enp-gray-medium">
+                        Générez et distribuez les fiches d'activation individuelle pour les nouveaux inscrits.
+                      </p>
+                    </div>
+                  </div>
+                  <Link to="/scolarite/comptes">
+                    <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                      Gérer
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              {data.commentairesAModerer > 0 && (
+                <div className="flex items-center justify-between p-3.5 bg-enp-bg border-l-4 border-enp-red-dark border-r border-t border-b border-enp-border text-sm">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-5 h-5 text-enp-red-dark shrink-0" />
+                    <div>
+                      <p className="font-semibold text-enp-blue-deep">
+                        {data.commentairesAModerer} commentaire(s) étudiant(s) à modérer
+                      </p>
+                      <p className="text-xs text-enp-gray-medium">
+                        Contrôle de conformité selon la charte déontologique avant transmission aux enseignants.
+                      </p>
+                    </div>
+                  </div>
+                  <Link to="/scolarite/moderation">
+                    <Button variant="danger" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                      Modérer
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              {campagnesACloturer.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between p-3.5 bg-enp-bg border-l-4 border-enp-blue-primary border-r border-t border-b border-enp-border text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5 text-enp-blue-primary shrink-0" />
+                    <div>
+                      <p className="font-semibold text-enp-blue-deep">
+                        Campagne arrivée à échéance : « {c.libelle} »
+                      </p>
+                      <p className="text-xs text-enp-gray-medium">
+                        La date limite ({new Date(c.fin).toLocaleDateString('fr-FR')}) est dépassée. Clôturez la campagne pour calculer les résultats officiels.
+                      </p>
+                    </div>
+                  </div>
+                  <Link to="/scolarite/campagnes">
+                    <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                      Clôturer
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+
+              {data.comptesSansMotDePasse === 0 &&
+                data.commentairesAModerer === 0 &&
+                campagnesACloturer.length === 0 && (
+                  <div className="p-4 bg-enp-green-light border border-enp-green-valid/30 text-enp-green-valid flex items-center gap-3 text-sm">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <span>Toutes les opérations courantes de scolarité sont à jour. Aucun blocage en cours.</span>
+                  </div>
+                )}
+>>>>>>> Stashed changes
             </div>
             <div className="h-3 w-full rounded-full bg-enp-sky overflow-hidden" aria-hidden="true">
               <div className="h-full bg-gradient-to-r from-enp-primary to-enp-teal transition-all duration-500" style={{ width: `${tauxParticipation}%` }} />
@@ -163,6 +295,7 @@ export function TableauDeBordScolaritePage() {
             </div>
           </div>
 
+<<<<<<< Updated upstream
           {/* À faire */}
           <InfoCard titre="À faire">
             <ul className="space-y-1.5">
@@ -192,6 +325,49 @@ export function TableauDeBordScolaritePage() {
               )}
             </ul>
           </InfoCard>
+=======
+          {/* Raccourcis métier de la scolarité */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link
+              to="/scolarite/imports"
+              className="bg-white border border-enp-border p-5 hover:border-enp-blue-primary transition-colors block"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <FileSpreadsheet className="w-5 h-5 text-enp-blue-primary" />
+                <h4 className="font-bold text-enp-blue-deep text-sm">Imports académiques CSV</h4>
+              </div>
+              <p className="text-xs text-enp-gray-medium leading-relaxed">
+                Importation des cohortes d'étudiants, unités d'enseignement, inscriptions et enseignants.
+              </p>
+            </Link>
+
+            <Link
+              to="/scolarite/deliberations"
+              className="bg-white border border-enp-border p-5 hover:border-enp-blue-primary transition-colors block"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Award className="w-5 h-5 text-enp-violet" />
+                <h4 className="font-bold text-enp-blue-deep text-sm">Délibération des examens</h4>
+              </div>
+              <p className="text-xs text-enp-gray-medium leading-relaxed">
+                Contrôle et publication officielle des notes d'examen après validation par le jury.
+              </p>
+            </Link>
+
+            <Link
+              to="/scolarite/restitution"
+              className="bg-white border border-enp-border p-5 hover:border-enp-blue-primary transition-colors block"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <MessageSquare className="w-5 h-5 text-enp-green-valid" />
+                <h4 className="font-bold text-enp-blue-deep text-sm">Restitution (Art. 77)</h4>
+              </div>
+              <p className="text-xs text-enp-gray-medium leading-relaxed">
+                Rédaction et publication de la synthèse globale des résultats et des engagements d'amélioration.
+              </p>
+            </Link>
+          </div>
+>>>>>>> Stashed changes
         </>
       )}
     </div>

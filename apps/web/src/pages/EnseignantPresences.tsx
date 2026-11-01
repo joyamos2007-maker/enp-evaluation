@@ -195,6 +195,176 @@ export function EnseignantPresences() {
                     ))}</tbody>
                   </table>
                 </div>
+<<<<<<< Updated upstream
+=======
+              ) : (
+                <>
+                  {/* VUE MOBILE TACTILE : Cartes individuelles avec boutons d'émargement rapides */}
+                  <div className="block lg:hidden divide-y divide-enp-border">
+                    {detail.etudiants.map((etudiant) => {
+                      const statutActuel = statuts[etudiant.id];
+                      const taux = etudiant.statistiques?.tauxPresence;
+
+                      return (
+                        <div key={etudiant.id} className="p-3.5 space-y-2.5 bg-white">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-bold text-sm text-enp-black">
+                                {etudiant.prenom} {etudiant.nom}
+                              </p>
+                              <span className="font-mono text-xs font-semibold text-enp-blue-deep bg-enp-blue-light px-1.5 py-0.2 border border-enp-blue-primary/20 inline-block mt-0.5">
+                                {etudiant.identifiant ?? '-'}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              {taux !== null && taux !== undefined ? (
+                                <Badge variant={taux >= 80 ? 'success' : taux >= 65 ? 'warning' : 'danger'}>
+                                  Assiduité : {taux}%
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-enp-gray-medium font-mono">-</span>
+                              )}
+                              <p className="text-[10px] text-enp-gray-medium mt-0.5">
+                                P: {etudiant.statistiques?.presents ?? 0} · A: {etudiant.statistiques?.absents ?? 0} · R: {etudiant.statistiques?.retards ?? 0}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 3 boutons tactiles larges pour mobile */}
+                          <div className="grid grid-cols-3 gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStatuts((curr) => ({
+                                  ...curr,
+                                  [etudiant.id]: statutActuel === 'present' ? ('' as StatutPresenceEtudiant) : 'present',
+                                }))
+                              }
+                              className={`py-2 px-1 text-xs font-bold text-center border transition-all min-h-[40px] flex items-center justify-center select-none ${
+                                statutActuel === 'present'
+                                  ? 'bg-enp-green-valid text-white border-enp-green-valid shadow-subtle'
+                                  : 'bg-white text-enp-black border-enp-border hover:bg-enp-green-light'
+                              }`}
+                            >
+                              ✓ Présent
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStatuts((curr) => ({
+                                  ...curr,
+                                  [etudiant.id]: statutActuel === 'absent' ? ('' as StatutPresenceEtudiant) : 'absent',
+                                }))
+                              }
+                              className={`py-2 px-1 text-xs font-bold text-center border transition-all min-h-[40px] flex items-center justify-center select-none ${
+                                statutActuel === 'absent'
+                                  ? 'bg-enp-red-dark text-white border-enp-red-dark shadow-subtle'
+                                  : 'bg-white text-enp-black border-enp-border hover:bg-enp-red-light'
+                              }`}
+                            >
+                              ✕ Absent
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStatuts((curr) => ({
+                                  ...curr,
+                                  [etudiant.id]: statutActuel === 'retard' ? ('' as StatutPresenceEtudiant) : 'retard',
+                                }))
+                              }
+                              className={`py-2 px-1 text-xs font-bold text-center border transition-all min-h-[40px] flex items-center justify-center select-none ${
+                                statutActuel === 'retard'
+                                  ? 'bg-enp-violet text-white border-enp-violet shadow-subtle'
+                                  : 'bg-white text-enp-black border-enp-border hover:bg-enp-violet-soft'
+                              }`}
+                            >
+                              ⏱ Retard
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* VUE DESKTOP : Grand tableau exhaustif */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>N° Matricule</TableHead>
+                          <TableHead>Nom & Prénom</TableHead>
+                          <TableHead className="text-center">Présences cumulées</TableHead>
+                          <TableHead className="text-center">Absences cumulées</TableHead>
+                          <TableHead className="text-center">Retards</TableHead>
+                          <TableHead className="text-center">Taux d'assiduité</TableHead>
+                          <TableHead className="w-56 text-right">Statut de la séance</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detail.etudiants.map((etudiant) => {
+                          const taux = etudiant.statistiques?.tauxPresence;
+                          return (
+                            <TableRow key={etudiant.id}>
+                              <TableCell className="font-mono text-xs font-bold text-enp-blue-deep">
+                                {etudiant.identifiant ?? '-'}
+                              </TableCell>
+                              <TableCell className="font-semibold text-enp-black text-sm">
+                                {etudiant.prenom} {etudiant.nom}
+                              </TableCell>
+                              <TableCell className="text-center font-mono text-enp-green-valid font-bold">
+                                {etudiant.statistiques?.presents ?? '-'}
+                              </TableCell>
+                              <TableCell className="text-center font-mono text-enp-red-dark font-bold">
+                                {etudiant.statistiques?.absents ?? '-'}
+                              </TableCell>
+                              <TableCell className="text-center font-mono text-enp-violet font-bold">
+                                {etudiant.statistiques?.retards ?? '-'}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {taux !== null && taux !== undefined ? (
+                                  <Badge variant={taux >= 80 ? 'success' : taux >= 65 ? 'warning' : 'danger'}>
+                                    {taux}%
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-enp-gray-medium font-mono">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <select
+                                  aria-label={`Statut de présence de ${etudiant.prenom} ${etudiant.nom}`}
+                                  value={statuts[etudiant.id] ?? ''}
+                                  onChange={(e) =>
+                                    setStatuts((curr) => ({
+                                      ...curr,
+                                      [etudiant.id]: e.target.value as StatutPresenceEtudiant | '',
+                                    }))
+                                  }
+                                  className={`w-36 border px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-enp-blue-primary ${
+                                    statuts[etudiant.id] === 'present'
+                                      ? 'bg-enp-green-light/40 border-enp-green-valid text-enp-green-valid'
+                                      : statuts[etudiant.id] === 'absent'
+                                      ? 'bg-enp-red-light/40 border-enp-red-dark text-enp-red-dark'
+                                      : statuts[etudiant.id] === 'retard'
+                                      ? 'bg-enp-violet-soft border-enp-violet text-enp-violet'
+                                      : 'border-enp-border bg-white text-enp-black'
+                                  }`}
+                                >
+                                  <option value="">Non émargé</option>
+                                  <option value="present">Présent</option>
+                                  <option value="absent">Absent</option>
+                                  <option value="retard">En retard</option>
+                                </select>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+>>>>>>> Stashed changes
               )}
             </section>
           )}

@@ -252,6 +252,63 @@ export function EvaluationUE() {
           <ArrowLeft size={18} aria-hidden="true" />
           Retour à la liste
         </Link>
+<<<<<<< Updated upstream
+=======
+
+        <PageHeader
+          title={`Évaluation de l'enseignement : ${ue?.code}`}
+          description={ue?.intitule}
+          badge={<Badge variant="warning">À renseigner</Badge>}
+        />
+
+        <Alert
+          variant="institutional"
+          title="Protocole solennel d'évaluation anonyme (ENP)"
+          icon={<ShieldCheck className="w-6 h-6 text-enp-violet shrink-0 mt-0.5" />}
+        >
+          <div className="space-y-3 mt-2 text-xs sm:text-sm leading-relaxed">
+            <p>
+              Avant de débuter votre évaluation, veuillez prendre connaissance des règles statutaires suivantes :
+            </p>
+            <ul className="list-disc list-inside space-y-1.5 text-enp-black">
+              <li>
+                <strong>Anonymat certifié :</strong> Dès le clic sur « Débuter l'évaluation », un jeton cryptographique à usage unique est émis. Vos réponses sont déposées dans une urne électronique physiquement isolée et ne comportent aucune mention de votre nom ou matricule.
+              </li>
+              <li>
+                <strong>Soumission unique et définitive :</strong> Une seule soumission est autorisée par unité d'enseignement. Une fois validé, votre bulletin ne peut plus être modifié.
+              </li>
+              <li>
+                <strong>Déontologie des commentaires :</strong> Les champs de remarques sont destinés à enrichir la démarche qualité. Ne formulez aucun propos nominatif ou indice susceptible de révéler votre identité.
+              </li>
+              <li>
+                <strong>Seuil de protection :</strong> Aucun résultat détaillé n'est restitué aux équipes pédagogiques si l'effectif des répondants est inférieur à 5 étudiants.
+              </li>
+            </ul>
+          </div>
+        </Alert>
+
+        {erreurAction && (
+          <Alert variant="danger" title="Impossible de démarrer l'évaluation">
+            {erreurAction}
+          </Alert>
+        )}
+
+        <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-enp-border">
+          <Link to="/evaluations" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto justify-center">Annuler</Button>
+          </Link>
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full sm:w-auto justify-center"
+            isLoading={enCours}
+            onClick={() => void demarrer()}
+            rightIcon={<ArrowRight className="w-5 h-5" />}
+          >
+            Débuter l'évaluation
+          </Button>
+        </div>
+>>>>>>> Stashed changes
       </div>
     );
   }
@@ -490,6 +547,7 @@ export function EvaluationUE() {
           </p>
         </div>
 
+<<<<<<< Updated upstream
         <InfoCard>
           <p className="flex items-start gap-2">
             <Info size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
@@ -499,6 +557,16 @@ export function EvaluationUE() {
             </span>
           </p>
         </InfoCard>
+=======
+        <Alert
+          variant="institutional"
+          title="Consigne de déontologie et protection de l'anonymat"
+          icon={<Info className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
+        >
+          Ces retours sont transmis de façon collégiale et anonymisée.
+          Veillez à <strong>ne mentionner aucun prénom, nom, note d'examen ou événement personnel</strong> permettant de vous identifier formellement.
+        </Alert>
+>>>>>>> Stashed changes
 
         <div>
           <label
@@ -596,11 +664,75 @@ export function EvaluationUE() {
   // Phase envoi (confirmation)
   if (phase === 'envoi') {
     return (
+<<<<<<< Updated upstream
       <div className="space-y-6 max-w-2xl">
         <div>
           <h1 className="text-xl font-bold text-enp-ink">
             Envoi de vos réponses
           </h1>
+=======
+      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+        <PageHeader
+          title="Récapitulatif avant dépôt définitif"
+          description={`Vérification intégrale des réponses pour l'UE ${ue?.code}`}
+        />
+
+        <Alert
+          variant="warning"
+          title="Attention : l'envoi est irréversible"
+          icon={<AlertCircle className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
+        >
+          Une fois votre bulletin déposé dans l'urne numérique, il est définitivement scellé.
+          Vous ne pourrez plus modifier vos réponses ni réévaluer cette unité d'enseignement.
+        </Alert>
+
+        <div className="bg-white border border-enp-border p-6 space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep border-b border-enp-border pb-2">
+            Synthèse de votre saisie
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+            <div className="p-3 bg-enp-blue-ice/50 border border-enp-border">
+              <span className="text-enp-gray-medium block">Critères évalués :</span>
+              <strong className="text-base text-enp-blue-deep font-bold">
+                {nbRepondu} / {totalCriteres} critères renseignés
+              </strong>
+            </div>
+            <div className="p-3 bg-enp-blue-ice/50 border border-enp-border">
+              <span className="text-enp-gray-medium block">Commentaires formulés :</span>
+              <strong className="text-base text-enp-blue-deep font-bold">
+                {pointsForts ? 'Points forts saisis' : 'Aucun point fort'} •{' '}
+                {pointsAAmeliorer ? 'Axes de progrès saisis' : 'Aucun axe'}
+              </strong>
+            </div>
+          </div>
+
+          {erreurAction && (
+            <Alert variant="danger" title="Échec lors du dépôt">
+              {erreurAction}
+            </Alert>
+          )}
+
+          <div className="pt-4 border-t border-enp-border flex items-center justify-between gap-3">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setPhase('commentaires')}
+              leftIcon={<ArrowLeft className="w-4 h-4" />}
+            >
+              Modifier mes réponses
+            </Button>
+
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => setConfirmerEnvoi(true)}
+              rightIcon={<Send className="w-4 h-4" />}
+            >
+              Déposer mon bulletin dans l'urne
+            </Button>
+          </div>
+>>>>>>> Stashed changes
         </div>
 
         <InfoCard titre="Cette action est définitive" icone={false}>

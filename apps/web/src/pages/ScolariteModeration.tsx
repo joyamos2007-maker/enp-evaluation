@@ -94,10 +94,71 @@ export function ScolariteModeration() {
   const compteur = useMemo(() => commentaires.length, [commentaires]);
 
   return (
+<<<<<<< Updated upstream
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Modération</h1>
         <p className="text-sm text-enp-ink-soft mt-1">Validez ou masquez les commentaires des étudiants.</p>
+=======
+    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Modération Déontologique des Commentaires"
+        description="Filtrage strict des remarques textuelles des étudiants avant publication de la restitution"
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Scolarité', href: '/scolarite' },
+          { label: 'Modération' },
+        ]}
+      />
+
+      <Alert
+        variant="institutional"
+        title="Charte déontologique de la Scolarité Centrale"
+        icon={<ShieldCheck className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
+      >
+        <p className="leading-relaxed">
+          Seule la Scolarité Centrale est habilitée à modérer les commentaires. L'administrateur technique ne lit jamais ces avis.
+          Doivent être masqués : les propos injurieux, diffamatoires ou comportant des éléments nominatifs susceptibles
+          d'identifier un étudiant ou de viser nommément un agent en dehors de l'appréciation pédagogique collégiale.
+        </p>
+      </Alert>
+
+      {/* Barre de sélection de la campagne et du statut */}
+      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="w-full sm:w-72">
+            <Select
+              label="Campagne d'évaluation"
+              value={campagneId}
+              onChange={(e) => setCampagneId(e.target.value ? Number(e.target.value) : '')}
+            >
+              {campagnes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.libelle} ({c.anneeUniversitaire} • S{c.semestre})
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-56">
+            <Select
+              label="Statut des commentaires"
+              value={statut}
+              onChange={(e) => setStatut(e.target.value)}
+            >
+              {STATUTS_MODERATION.map((s) => (
+                <option key={s.valeur} value={s.valeur}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        <span className="text-xs text-enp-gray-medium self-end sm:self-auto font-medium">
+          {commentaires.length} commentaire(s) affiché(s)
+        </span>
+>>>>>>> Stashed changes
       </div>
 
       <InfoCard titre="Règles de modération">

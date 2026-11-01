@@ -1,6 +1,12 @@
+<<<<<<< Updated upstream
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, AlertCircle, ArrowRight } from 'lucide-react';
+=======
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Search } from 'lucide-react';
+>>>>>>> Stashed changes
 import { api, ApiError } from '@/api';
 import type { ResultatUeResume } from '@/api/types';
 
@@ -77,6 +83,7 @@ export function MesResultats() {
             {resultats.map((r, i) => {
               const pct = r.inscrits > 0 ? Math.round((r.repondants / r.inscrits) * 100) : 0;
               return (
+<<<<<<< Updated upstream
                 <tr key={r.ueId} className={i % 2 === 0 ? 'bg-enp-sky' : 'bg-white'}>
                   <td className="px-3 py-3">
                     <Link to={`/resultats/${r.ueId}?campagne=${r.campagneId}`} className="text-enp-primary font-medium hover:underline">{r.code}</Link>
@@ -96,6 +103,33 @@ export function MesResultats() {
                     )}
                   </td>
                 </tr>
+=======
+                <div
+                  key={`${r.ueId}-${r.campagneId}`}
+                  onClick={() => navigate(`/resultats/${r.ueId}?campagne=${r.campagneId}`)}
+                  className="bg-white border border-enp-border p-4 space-y-3 cursor-pointer hover:border-enp-blue-primary/60 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-2 py-0.5 border border-enp-blue-primary/20">
+                      {r.code}
+                    </span>
+                    <Badge variant={r.detailDisponible ? 'success' : 'warning'}>
+                      {r.detailDisponible ? 'Quorum atteint' : 'Seuil anonymat (<5)'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-enp-black">{r.intitule}</h3>
+                    <p className="text-xs text-enp-gray-medium">{r.libelleCampagne}</p>
+                  </div>
+                  <div className="space-y-1 pt-1 border-t border-enp-border/60">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-enp-gray-medium">{r.repondants} / {r.inscrits} répondants</span>
+                      <span className="font-bold text-enp-blue-deep">{pct}%</span>
+                    </div>
+                    <ProgressBar value={pct} showPercent={false} size="sm" variant={r.detailDisponible ? 'success' : 'warning'} />
+                  </div>
+                </div>
+>>>>>>> Stashed changes
               );
             })}
           </tbody>

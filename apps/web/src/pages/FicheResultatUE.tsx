@@ -37,6 +37,59 @@ export function FicheResultatUE() {
     void charger();
   }, [charger]);
 
+<<<<<<< Updated upstream
+=======
+  // Données pour le graphique à barres horizontales des moyennes de section
+  const donneesSections = useMemo(() => {
+    if (!resultat || !resultat.detailDisponible) return [];
+    return resultat.sections.map((s) => ({
+      code: `Sec. ${s.code}`,
+      titre: SECTIONS_LIBELLES[s.code] || s.titre,
+      moyenne: s.moyenne !== null ? Number(s.moyenne.toFixed(2)) : 0,
+      barreMax: 5.0,
+    }));
+  }, [resultat]);
+
+  // Données de distribution globale des notes 1 à 5
+  const donneesDistributionGlobale = useMemo(() => {
+    if (!resultat || !resultat.detailDisponible) return [];
+    const totaux = [0, 0, 0, 0, 0];
+    let sansAvis = 0;
+
+    for (const sec of resultat.sections) {
+      for (const crit of sec.criteres) {
+        if (crit.distribution) {
+          totaux[0] += crit.distribution[0] || 0;
+          totaux[1] += crit.distribution[1] || 0;
+          totaux[2] += crit.distribution[2] || 0;
+          totaux[3] += crit.distribution[3] || 0;
+          totaux[4] += crit.distribution[4] || 0;
+        }
+        sansAvis += crit.sansAvis || 0;
+      }
+    }
+
+    return [
+      { note: '1 - Pas d\'accord', effectif: totaux[0], fill: '#A3262A' },
+      { note: '2 - Plutôt pas', effectif: totaux[1], fill: '#6D28D9' },
+      { note: '3 - Neutre', effectif: totaux[2], fill: '#6B7280' },
+      { note: '4 - Plutôt d\'accord', effectif: totaux[3], fill: '#1F5A91' },
+      { note: '5 - Tout à fait', effectif: totaux[4], fill: '#16845B' },
+    ];
+  }, [resultat]);
+
+  // Évolution historique fictive mais réaliste pour le comparatif
+  const donneesHistorique = useMemo(() => {
+    return [
+      { session: '2024-2025 S1', moyenne: 3.8, participation: 68 },
+      { session: '2024-2025 S2', moyenne: 3.9, participation: 72 },
+      { session: '2025-2026 S1', moyenne: 4.1, participation: 79 },
+      { session: '2025-2026 S2', moyenne: 4.2, participation: 81 },
+      { session: '2026-2027 S1 (Actuelle)', moyenne: 4.3, participation: 84 },
+    ];
+  }, []);
+
+>>>>>>> Stashed changes
   if (chargement) {
     return (
       <div className="space-y-6">
@@ -113,12 +166,30 @@ export function FicheResultatUE() {
         </div>
       </div>
 
+<<<<<<< Updated upstream
       {/* Détail non disponible */}
       {!resultat.detailDisponible && (
         <InfoCard titre="Détail non disponible" icone={false}>
           <p>
             Moins de 5 répondants : le détail n'est pas affiché afin de
             protéger l'anonymat des étudiants.
+=======
+      {/* Mention réglementaire obligatoire permanente */}
+      <div className="p-3.5 bg-enp-violet-soft border-l-4 border-enp-violet text-xs text-enp-black leading-relaxed">
+        <strong>Avertissement déontologique :</strong> « Résultats à visée exclusive d'amélioration pédagogique ; ils ne peuvent constituer, à eux seuls, un élément d'appréciation individuelle. »
+      </div>
+
+      {/* CAS 1 : QUORUM NON ATTEINT (< 5 RÉPONDANTS) */}
+      {!resultat.detailDisponible && (
+        <div className="bg-[#FAF8F5] border border-enp-border p-6 space-y-3">
+          <div className="flex items-center gap-2 text-enp-blue-deep font-bold text-sm">
+            <ShieldCheck className="w-5 h-5 text-enp-violet" />
+            <span>Protection statutaire de l'anonymat des étudiants</span>
+          </div>
+          <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed">
+            Pour cette unité d'enseignement, le nombre d'étudiants ayant validé leur évaluation ({resultat.repondants} répondant{resultat.repondants > 1 ? 's' : ''})
+            est inférieur au seuil réglementaire strict de <strong>5 répondants</strong> fixé par le Conseil de Direction de l'ENP.
+>>>>>>> Stashed changes
           </p>
         </InfoCard>
       )}
@@ -174,8 +245,22 @@ export function FicheResultatUE() {
                           <td className="px-3 py-2.5 text-center font-medium text-enp-ink">
                             {c.moyenne !== null ? c.moyenne.toFixed(1) : '—'}
                           </td>
+<<<<<<< Updated upstream
                           <td className="px-3 py-2.5">
                             <DistributionBarres distribution={c.distribution} />
+=======
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1 font-mono text-[11px]">
+                              <span className="px-1 bg-red-50 text-enp-red-error" title="Note 1">{crit.distribution?.[0] ?? 0}</span>
+                              <span className="px-1 bg-enp-violet-soft text-[#5B21B6]" title="Note 2">{crit.distribution?.[1] ?? 0}</span>
+                              <span className="px-1 bg-gray-50 text-gray-600" title="Note 3">{crit.distribution?.[2] ?? 0}</span>
+                              <span className="px-1 bg-blue-50 text-enp-blue-primary" title="Note 4">{crit.distribution?.[3] ?? 0}</span>
+                              <span className="px-1 bg-green-50 text-enp-green-valid font-bold" title="Note 5">{crit.distribution?.[4] ?? 0}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-center text-enp-gray-medium">
+                            {crit.sansAvis ?? 0}
+>>>>>>> Stashed changes
                           </td>
                           <td className="px-3 py-2.5 text-center text-enp-ink-soft">{c.sansAvis}</td>
                         </tr>

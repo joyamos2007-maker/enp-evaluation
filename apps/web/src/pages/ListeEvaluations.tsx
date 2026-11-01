@@ -46,6 +46,7 @@ export function ListeEvaluations() {
     }
   }
 
+<<<<<<< Updated upstream
   if (chargement) {
     return (
       <div className="space-y-6">
@@ -54,6 +55,58 @@ export function ListeEvaluations() {
           <div
             className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin"
             aria-hidden="true"
+=======
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
+      <PageHeader
+        title="Évaluations des Unités d'Enseignement"
+        description="Campagne officielle d'évaluation pédagogique anonyme de l'École Nationale Polytechnique"
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Évaluations des UE' },
+        ]}
+      />
+
+      {/* Encart institutionnel certifiant l'anonymat intégral */}
+      <Alert
+        variant="institutional"
+        title="Garantie institutionnelle d'anonymat et de neutralité"
+        icon={<ShieldCheck className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
+      >
+        <p className="leading-relaxed">
+          Votre évaluation est <strong>strictement anonyme</strong>. Le bulletin est déposé dans l'urne numérique
+          séparée sans aucun lien avec votre identité ou votre matricule. Une seule soumission définitive est autorisée par unité d'enseignement.
+          Ces retours sont exploités par les Conseils de Département et la Direction des Études à des fins exclusives d'amélioration pédagogique.
+        </p>
+      </Alert>
+
+      {/* Indicateurs de progression globale */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          label="UE restantes à évaluer"
+          value={aFaire}
+          subtext={aFaire > 0 ? "Campagne active en cours" : "Toutes vos évaluations sont transmises"}
+          variant={aFaire > 0 ? 'warning' : 'success'}
+          icon={<Clock className="w-5 h-5" />}
+        />
+        <StatCard
+          label="Évaluations validées"
+          value={terminees}
+          subtext={`Sur ${total} UE inscrites à votre cursus`}
+          variant="primary"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+        />
+        <div className="bg-white border border-enp-border p-5 flex flex-col justify-center">
+          <span className="text-xs font-semibold uppercase tracking-wider text-enp-gray-medium mb-1">
+            Progression globale
+          </span>
+          <ProgressBar
+            value={pct}
+            label={`${terminees} sur ${total} complétée(s)`}
+            showPercent={true}
+            size="md"
+            variant={pct === 100 ? 'success' : 'primary'}
+>>>>>>> Stashed changes
           />
           <span>Chargement des évaluations…</span>
         </div>

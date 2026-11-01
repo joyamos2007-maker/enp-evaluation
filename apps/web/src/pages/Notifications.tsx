@@ -42,6 +42,53 @@ export function Notifications() {
     }
   }
 
+<<<<<<< Updated upstream
+=======
+  async function marquerToutesLues() {
+    const nonLues = items.filter((it) => !it.luLe);
+    for (const notif of nonLues) {
+      try {
+        await api.marquerNotificationLue(notif.id);
+      } catch {
+        //
+      }
+    }
+    setItems((prev) => prev.map((it) => ({ ...it, luLe: new Date().toISOString() })));
+  }
+
+  const itemsFiltres = useMemo(() => {
+    return items.filter((it) => {
+      if (filtre === 'non_lues') return !it.luLe;
+      return true;
+    });
+  }, [items, filtre]);
+
+  const totalPages = Math.max(1, Math.ceil(itemsFiltres.length / pageSize));
+  const itemsPagines = useMemo(() => {
+    const debut = (page - 1) * pageSize;
+    return itemsFiltres.slice(debut, debut + pageSize);
+  }, [itemsFiltres, page, pageSize]);
+
+  const nonLuesCount = items.filter((it) => !it.luLe).length;
+
+  function iconeType(titre: string) {
+    const lower = titre.toLowerCase();
+    if (lower.includes('campagne') || lower.includes('ouverte') || lower.includes('clôture')) {
+      return <Megaphone className="w-5 h-5 text-enp-blue-primary shrink-0" />;
+    }
+    if (lower.includes('visa') || lower.includes('séance')) {
+      return <Stamp className="w-5 h-5 text-enp-violet shrink-0" />;
+    }
+    if (lower.includes('restitution') || lower.includes('résultat')) {
+      return <FileCheck2 className="w-5 h-5 text-enp-green-valid shrink-0" />;
+    }
+    if (lower.includes('import') || lower.includes('synchronisation')) {
+      return <Upload className="w-5 h-5 text-enp-blue-deep shrink-0" />;
+    }
+    return <Info className="w-5 h-5 text-enp-blue-primary shrink-0" />;
+  }
+
+>>>>>>> Stashed changes
   return (
     <section className="mx-auto max-w-3xl space-y-5">
       <h1 className="flex items-center gap-2 text-2xl font-bold text-enp-ink">

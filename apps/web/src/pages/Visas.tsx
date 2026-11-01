@@ -154,6 +154,7 @@ export function Visas() {
         </p>
       </div>
 
+<<<<<<< Updated upstream
       {erreurAction && (
         <div
           className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
@@ -165,6 +166,100 @@ export function Visas() {
             aria-hidden="true"
           />
           <span>{erreurAction}</span>
+=======
+      <Alert
+        variant="institutional"
+        title="Responsabilité pédagogique de l'enseignant"
+        icon={<Stamp className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
+      >
+        Le visa confère valeur officielle aux heures d'enseignement consignées.
+        En cas de désaccord sur le contenu ou le volume horaire, contestez la séance avec un motif explicatif
+        afin de permettre au délégué de procéder à la rectification.
+      </Alert>
+
+      {chargement ? (
+        <div className="py-12 text-center text-enp-gray-medium text-sm">
+          Chargement des séances en attente…
+        </div>
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur">{erreur}</Alert>
+      ) : seances.length === 0 ? (
+        <EmptyState
+          title="Toutes les séances sont visées"
+          description="Vous n'avez actuellement aucune séance en attente de visa. Les prochaines saisies de vos délégués apparaîtront ici."
+          icon={<CheckCircle2 className="w-8 h-8 text-enp-green-valid" />}
+        />
+      ) : (
+        <div className="space-y-4">
+          {seances.map((s) => (
+            <div
+              key={s.id}
+              className="bg-white border border-enp-border p-5 space-y-4 hover:border-enp-blue-primary/60 transition-colors"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-enp-border pb-3">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
+                    {s.ueCode}
+                  </span>
+                  <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
+                    {s.type}
+                  </span>
+                  <span className="text-xs font-medium text-enp-gray-medium">
+                    Séance du {s.date} • {s.debut} à {s.fin}
+                  </span>
+                </div>
+                <Badge variant="warning">En attente de visa</Badge>
+              </div>
+
+              <div>
+                <h2 className="text-base font-bold text-enp-black mb-1.5">{s.intitule}</h2>
+                <div className="p-3 bg-enp-blue-ice/30 border border-enp-border text-xs sm:text-sm text-enp-black whitespace-pre-line leading-relaxed">
+                  {s.contenu}
+                </div>
+              </div>
+
+              {s.travailAFaire && (
+                <div className="text-xs text-enp-gray-medium">
+                  <strong>Travail demandé :</strong> {s.travailAFaire}
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-enp-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <Link
+                  to={`/cahier-texte/${s.id}`}
+                  className="text-xs text-enp-blue-primary hover:text-enp-blue-deep font-semibold underline underline-offset-2"
+                >
+                  Consulter la fiche complète & pièces jointes
+                </Link>
+
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="w-full sm:w-auto justify-center"
+                    onClick={() => {
+                      setContesteId(s.id);
+                      setCommentaire('');
+                    }}
+                    leftIcon={<AlertTriangle className="w-4 h-4" />}
+                  >
+                    Contester
+                  </Button>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="w-full sm:w-auto justify-center"
+                    isLoading={enCoursId === s.id}
+                    onClick={() => void validerVisa(s.id)}
+                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  >
+                    Viser la séance
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+>>>>>>> Stashed changes
         </div>
       )}
 

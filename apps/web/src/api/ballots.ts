@@ -1,7 +1,7 @@
 import type { BulletinEnvoye, ReponseSimple } from './types';
 import { ApiError } from './error';
 
-const BASE_URL = '/api/v1';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 /**
  * Envoi du bulletin de vote — SÉPARÉ du client authentifié.

@@ -1,10 +1,11 @@
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY . .
-RUN cd apps/api && npm install && npm run build
+RUN cd apps/api && npm ci && npm run build
+RUN cd apps/api && npm prune --omit=dev --no-audit --no-fund
 
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app/apps/api
 ENV NODE_ENV=production
 

@@ -181,6 +181,7 @@ export function FormSeance() {
         {modeModification ? "Modifier la séance" : "Nouvelle séance"}
       </h1>
 
+<<<<<<< Updated upstream
       {enLectureSeule && (
         <InfoCard titre="Séance visée : modification impossible">
           <p>
@@ -188,6 +189,18 @@ export function FormSeance() {
             lecture seule.
           </p>
         </InfoCard>
+=======
+      {/* Avertissement de verrouillage si visée */}
+      {estVerrouillee && (
+        <Alert
+          variant="warning"
+          title="Séance verrouillée après visa officiel"
+          icon={<Lock className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
+        >
+          Cette séance a été formellement visée par l'enseignant-chercheur responsable.
+          Elle ne peut plus faire l'objet de modifications directes afin d'assurer l'intégrité de l'audit.
+        </Alert>
+>>>>>>> Stashed changes
       )}
 
       {erreurGlobal && (

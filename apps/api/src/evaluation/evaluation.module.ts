@@ -22,5 +22,6 @@ import { RestitutionService } from './restitution.service';
     BallotsService,
     RestitutionService,
   ],
+  exports: [BallotDatabaseService],
 })
 export class EvaluationModule {}

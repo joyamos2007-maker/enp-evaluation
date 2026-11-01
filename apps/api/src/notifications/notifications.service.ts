@@ -85,8 +85,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       await this.creerRappelsCampagne();
       await this.creerRappelsSeances();
       await this.envoyerCourrielsEnAttente();
-    } catch {
-      this.logger.error('Le traitement des rappels et courriels a échoué');
+    } catch (error) {
+      this.logger.error(
+        'Le traitement des rappels et courriels a échoué',
+        error instanceof Error ? error.stack : String(error),
+      );
     } finally {
       this.traitementEnCours = false;
     }
