@@ -63,6 +63,10 @@ describe('IdentityService', () => {
         { id: 'token', expires_at: new Date(Date.now() + 1_800_000) },
       ]);
     await service.demanderReinitialisation('ETU-12');
+    expect(db.query.mock.calls[1][0]).toContain("'password_reset'::varchar(30)");
+    expect(db.query.mock.calls[1][1]).toEqual([12, expect.any(String)]);
+    expect(db.query.mock.calls[2][0]).toContain("'password_reset'::varchar(30)");
+    expect(db.query.mock.calls[2][1]).toEqual([12, expect.any(String)]);
     expect(email.enfiler).toHaveBeenCalledWith(
       'password-reset:token',
       'utilisateur@enp.dz',

@@ -208,10 +208,10 @@ export class IdentityService {
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
     await this.db.query(
       `INSERT INTO identity.account_tokens (user_id, type, token_hash, expires_at)
-       SELECT $1, $2, $3, NOW() + INTERVAL '30 minutes'
+       SELECT $1, 'password_reset'::varchar(30), $2, NOW() + INTERVAL '30 minutes'
        WHERE NOT EXISTS (
          SELECT 1 FROM identity.account_tokens
-         WHERE user_id = $1 AND type = $2 AND used_at IS NULL
+         WHERE user_id = $1 AND type = 'password_reset'::varchar(30) AND used_at IS NULL
            AND created_at > NOW() - INTERVAL '2 minutes'
        )
        ON CONFLICT (user_id, type) WHERE used_at IS NULL
@@ -219,13 +219,14 @@ export class IdentityService {
                      expires_at = EXCLUDED.expires_at,
                      attempts = 0,
                      created_at = NOW()`,
-      [rows[0].id, TOKEN_REINITIALISATION, this.hashChallenge(code)],
+      [rows[0].id, this.hashChallenge(code)],
     );
     const created = await this.db.query<{ id: string; expires_at: Date }>(
       `SELECT id, expires_at FROM identity.account_tokens
-       WHERE user_id = $1 AND type = $2 AND used_at IS NULL
-         AND token_hash = $3 AND created_at > NOW() - INTERVAL '1 second'`,
-      [rows[0].id, TOKEN_REINITIALISATION, this.hashChallenge(code)],
+       WHERE user_id = $1 AND type = 'password_reset'::varchar(30)
+         AND used_at IS NULL AND token_hash = $2
+         AND created_at > NOW() - INTERVAL '1 second'`,
+      [rows[0].id, this.hashChallenge(code)],
     );
     if (created.length === 0) return;
 
