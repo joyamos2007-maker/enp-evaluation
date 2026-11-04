@@ -3,11 +3,8 @@ import type { FormEvent, ReactNode } from 'react';
 import { AlertCircle, Building2, Layers3, Plus, RefreshCw } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { ReferentielsAdministration } from '@/api/types';
-import { useAuth } from '@/auth/AuthContext';
 
 export function Administration() {
-  const { aRole } = useAuth();
-  const directionSeule = aRole('direction_etudes') && !aRole('admin');
   const [data, setData] = useState<ReferentielsAdministration | null>(null);
   const [campusNom, setCampusNom] = useState('');
   const [departementNom, setDepartementNom] = useState('');
@@ -96,12 +93,10 @@ export function Administration() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-enp-ink">
-            {directionSeule ? 'Gestion des campus' : 'Administration'}
+            Administration
           </h1>
           <p className="mt-1 text-sm text-enp-ink-soft">
-            {directionSeule
-              ? 'Ajoutez les campus de l’ENP qui seront disponibles pour les services académiques.'
-              : 'Configurez les campus, départements et programmes utilisés par les campagnes.'}
+            Configurez les campus, départements et programmes utilisés par les campagnes.
           </p>
         </div>
         <button
@@ -126,97 +121,85 @@ export function Administration() {
 
       {data && (
         <>
-          <div className={`grid grid-cols-1 gap-4 ${directionSeule ? 'sm:grid-cols-1' : 'sm:grid-cols-3'}`}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Statistique titre="Campus" valeur={data.campus.length} />
-            {!directionSeule && (
-              <>
-                <Statistique titre="Départements" valeur={data.departements.length} />
-                <Statistique titre="Programmes" valeur={data.programmes.length} />
-              </>
-            )}
+            <Statistique titre="Départements" valeur={data.departements.length} />
+            <Statistique titre="Programmes" valeur={data.programmes.length} />
           </div>
 
           <section
-            className={`grid grid-cols-1 gap-4 ${directionSeule ? 'max-w-xl' : 'xl:grid-cols-3'}`}
+            className="grid grid-cols-1 gap-4 xl:grid-cols-3"
             aria-label="Créer des référentiels"
           >
             <Formulaire titre="Ajouter un campus" enCours={action === 'campus'} onSubmit={soumettreCampus}>
               <ChampNom valeur={campusNom} changer={setCampusNom} libelle="Nom du campus" />
             </Formulaire>
 
-            {!directionSeule && (
-              <>
-                <Formulaire
-                  titre="Ajouter un département"
-                  enCours={action === 'departement'}
-                  desactive={data.campus.length === 0}
-                  onSubmit={soumettreDepartement}
+            <Formulaire
+              titre="Ajouter un département"
+              enCours={action === 'departement'}
+              desactive={data.campus.length === 0}
+              onSubmit={soumettreDepartement}
+            >
+              <label className="block space-y-1 text-sm font-medium text-enp-ink">
+                <span>Campus</span>
+                <select
+                  value={campusId}
+                  onChange={(event) => setCampusId(event.target.value ? Number(event.target.value) : '')}
+                  required
+                  disabled={data.campus.length === 0}
+                  className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink"
                 >
-                  <label className="block space-y-1 text-sm font-medium text-enp-ink">
-                    <span>Campus</span>
-                    <select
-                      value={campusId}
-                      onChange={(event) => setCampusId(event.target.value ? Number(event.target.value) : '')}
-                      required
-                      disabled={data.campus.length === 0}
-                      className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink"
-                    >
-                      <option value="">Sélectionner un campus</option>
-                      {data.campus.map((campus) => <option key={campus.id} value={campus.id}>{campus.nom}</option>)}
-                    </select>
-                  </label>
-                  <ChampNom valeur={departementNom} changer={setDepartementNom} libelle="Nom du département" />
-                </Formulaire>
+                  <option value="">Sélectionner un campus</option>
+                  {data.campus.map((campus) => <option key={campus.id} value={campus.id}>{campus.nom}</option>)}
+                </select>
+              </label>
+              <ChampNom valeur={departementNom} changer={setDepartementNom} libelle="Nom du département" />
+            </Formulaire>
 
-                <Formulaire
-                  titre="Ajouter un programme"
-                  enCours={action === 'programme'}
-                  desactive={data.departements.length === 0}
-                  onSubmit={soumettreProgramme}
+            <Formulaire
+              titre="Ajouter un programme"
+              enCours={action === 'programme'}
+              desactive={data.departements.length === 0}
+              onSubmit={soumettreProgramme}
+            >
+              <label className="block space-y-1 text-sm font-medium text-enp-ink">
+                <span>Département</span>
+                <select
+                  value={departmentId}
+                  onChange={(event) => setDepartmentId(event.target.value ? Number(event.target.value) : '')}
+                  required
+                  disabled={data.departements.length === 0}
+                  className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink"
                 >
-                  <label className="block space-y-1 text-sm font-medium text-enp-ink">
-                    <span>Département</span>
-                    <select
-                      value={departmentId}
-                      onChange={(event) => setDepartmentId(event.target.value ? Number(event.target.value) : '')}
-                      required
-                      disabled={data.departements.length === 0}
-                      className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink"
-                    >
-                      <option value="">Sélectionner un département</option>
-                      {data.departements.map((departement) => (
-                        <option key={departement.id} value={departement.id}>
-                          {departement.nom} — {departement.campus}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <ChampNom valeur={programmeNom} changer={setProgrammeNom} libelle="Nom du programme" />
-                </Formulaire>
-              </>
-            )}
+                  <option value="">Sélectionner un département</option>
+                  {data.departements.map((departement) => (
+                    <option key={departement.id} value={departement.id}>
+                      {departement.nom} — {departement.campus}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <ChampNom valeur={programmeNom} changer={setProgrammeNom} libelle="Nom du programme" />
+            </Formulaire>
           </section>
 
-          <section className={`grid grid-cols-1 gap-4 ${directionSeule ? 'max-w-xl' : 'lg:grid-cols-3'}`}>
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <ListeReferentiel
               titre="Campus"
               icone={<Building2 size={18} aria-hidden="true" />}
               elements={data.campus.map((campus) => campus.nom)}
             />
-            {!directionSeule && (
-              <>
-                <ListeReferentiel
-                  titre="Départements"
-                  icone={<Building2 size={18} aria-hidden="true" />}
-                  elements={data.departements.map((departement) => `${departement.nom} — ${departement.campus}`)}
-                />
-                <ListeReferentiel
-                  titre="Programmes"
-                  icone={<Layers3 size={18} aria-hidden="true" />}
-                  elements={data.programmes.map((programme) => `${programme.nom} — ${programme.departement}`)}
-                />
-              </>
-            )}
+            <ListeReferentiel
+              titre="Départements"
+              icone={<Building2 size={18} aria-hidden="true" />}
+              elements={data.departements.map((departement) => `${departement.nom} — ${departement.campus}`)}
+            />
+            <ListeReferentiel
+              titre="Programmes"
+              icone={<Layers3 size={18} aria-hidden="true" />}
+              elements={data.programmes.map((programme) => `${programme.nom} — ${programme.departement}`)}
+            />
           </section>
         </>
       )}

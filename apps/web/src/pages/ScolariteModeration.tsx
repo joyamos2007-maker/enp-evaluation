@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { AlertCircle, CheckCircle, EyeOff } from 'lucide-react';
 import { api, ApiError } from '@/api';
-import type { CampagneGestion, CommentaireAModerer } from '@/api/types';
+import type { CampagneCommentaire, CommentaireAModerer } from '@/api/types';
 import { InfoCard } from '@/components/InfoCard';
+import { useAuth } from '@/auth/AuthContext';
 
 const STATUT_FILTRE: { valeur: string; libelle: string }[] = [
   { valeur: 'a_moderer', libelle: 'À modérer' },
@@ -23,9 +24,11 @@ function melanger<T>(arr: T[]): T[] {
 }
 
 export function ScolariteModeration() {
-  const [campagnes, setCampagnes] = useState<CampagneGestion[]>([]);
+  const { aRole } = useAuth();
+  const lectureSeule = aRole('direction_etudes');
+  const [campagnes, setCampagnes] = useState<CampagneCommentaire[]>([]);
   const [campagneId, setCampagneId] = useState<number | ''>('');
-  const [statut, setStatut] = useState<string>('a_moderer');
+  const [statut, setStatut] = useState<string>(lectureSeule ? '' : 'a_moderer');
   const [commentaires, setCommentaires] = useState<CommentaireAModerer[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -34,8 +37,7 @@ export function ScolariteModeration() {
   const chargerCampagnes = useCallback(async () => {
     setErreur(null);
     try {
-      const cs = await api.scolariteCampagnes();
-      const disponibles = cs.filter((c) => c.statut === 'close' || c.statut === 'restituee');
+      const disponibles = await api.moderationCampagnes();
       setCampagnes(disponibles);
       setCampagneId((precedent) =>
         disponibles.some((c) => c.id === precedent) ? precedent : disponibles[0]?.id ?? '',
@@ -96,13 +98,21 @@ export function ScolariteModeration() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Modération</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">Validez ou masquez les commentaires des étudiants.</p>
+        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
+          {lectureSeule ? 'Commentaires libres' : 'Modération'}
+        </h1>
+        <p className="text-sm text-enp-ink-soft mt-1">
+          {lectureSeule
+            ? 'Consultation des commentaires libres des campagnes de tous les campus.'
+            : 'Validez ou masquez les commentaires des étudiants.'}
+        </p>
       </div>
 
-      <InfoCard titre="Règles de modération">
-        <p>Masquez tout commentaire contenant un élément qui permettrait d'identifier un étudiant, ou des propos injurieux. Un commentaire masqué n'est jamais transmis à l'enseignant.</p>
-      </InfoCard>
+      {!lectureSeule && (
+        <InfoCard titre="Règles de modération">
+          <p>Masquez tout commentaire contenant un élément qui permettrait d'identifier un étudiant, ou des propos injurieux. Un commentaire masqué n'est jamais transmis à l'enseignant.</p>
+        </InfoCard>
+      )}
 
       {/* Filtres */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -124,6 +134,7 @@ export function ScolariteModeration() {
             onChange={(e) => setStatut(e.target.value)}
             className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
           >
+            <option value="">Tous les statuts</option>
             {STATUT_FILTRE.map((s) => <option key={s.valeur} value={s.valeur}>{s.libelle}</option>)}
           </select>
         </div>
@@ -173,7 +184,7 @@ export function ScolariteModeration() {
               </div>
               <p className="text-xs text-enp-ink-soft">{c.type === 'points_forts' ? 'Points forts' : 'Points à améliorer'}</p>
               <p className="text-sm text-enp-ink leading-relaxed">{c.texte}</p>
-              {c.statut === 'a_moderer' && (
+              {!lectureSeule && c.statut === 'a_moderer' && (
                 <div className="flex gap-2 pt-1">
                   <button type="button"
                     onClick={() => void moderer(c.id, 'valide')}

@@ -11,14 +11,25 @@ describe('CahierTexteController', () => {
     viser: jest.fn(),
     avancement: jest.fn(),
   };
-  const controller = new CahierTexteController(cahier as never);
-  const delegue = { headers: {}, utilisateur: { id: 12, roles: ['delegue'] } };
+  const campusScope = {
+    forScolarite: jest.fn(),
+    forChefDepartement: jest.fn(),
+  };
+  const controller = new CahierTexteController(cahier as never, campusScope as never);
+  const delegue = {
+    headers: {},
+    utilisateur: { id: 12, roles: ['delegue'], activeRole: 'delegue' },
+  };
   const enseignant = {
     headers: {},
-    utilisateur: { id: 24, roles: ['enseignant'] },
+    utilisateur: { id: 24, roles: ['enseignant'], activeRole: 'enseignant' },
   };
 
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => {
+    jest.resetAllMocks();
+    campusScope.forScolarite.mockResolvedValue(9);
+    campusScope.forChefDepartement.mockResolvedValue(14);
+  });
 
   it('protège la création et modification pour les délégués, le visa pour les enseignants', () => {
     const prototype = CahierTexteController.prototype;
@@ -33,21 +44,66 @@ describe('CahierTexteController', () => {
     expect(Reflect.getMetadata(ROLES_KEY, handler('viser'))).toEqual([
       'enseignant',
     ]);
+    expect(Reflect.getMetadata(ROLES_KEY, handler('mesUes'))).toEqual([
+      'delegue',
+      'enseignant',
+      'etudiant',
+      'scolarite',
+      'chef_departement',
+    ]);
   });
 
-  it('valide les paramètres et transmet le périmètre pour les lectures', () => {
+  it('valide les paramètres et transmet le périmètre pour les lectures', async () => {
     cahier.mesUes.mockResolvedValue([]);
-    void controller.mesUes(delegue);
-    expect(cahier.mesUes).toHaveBeenCalledWith(12, ['delegue']);
-    expect(() => controller.seances(delegue, 'invalid')).toThrow(
+    await controller.mesUes(delegue);
+    expect(cahier.mesUes).toHaveBeenCalledWith(12, ['delegue'], null, null);
+    await expect(controller.seances(delegue, 'invalid')).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    void controller.seances(enseignant, undefined, 'en_attente');
+    await controller.seances(enseignant, undefined, 'en_attente');
     expect(cahier.seances).toHaveBeenCalledWith(
       24,
       ['enseignant'],
       undefined,
       'en_attente',
+      null,
+      null,
+    );
+  });
+
+  it('limite les lectures au campus Scolarité ou au département du Chef', async () => {
+    const scolarite = {
+      headers: {},
+      utilisateur: {
+        id: 33,
+        roles: ['scolarite', 'admin'],
+        activeRole: 'scolarite',
+      },
+    };
+    const chef = {
+      headers: {},
+      utilisateur: {
+        id: 44,
+        roles: ['chef_departement'],
+        activeRole: 'chef_departement',
+      },
+    };
+
+    await controller.mesUes(scolarite);
+    await controller.seances(chef);
+
+    expect(campusScope.forScolarite).toHaveBeenCalledWith(33, ['scolarite']);
+    expect(cahier.mesUes).toHaveBeenCalledWith(33, ['scolarite'], 9, null);
+    expect(campusScope.forChefDepartement).toHaveBeenCalledWith(44, [
+      'chef_departement',
+    ]);
+    expect(cahier.seances).toHaveBeenCalledWith(
+      44,
+      ['chef_departement'],
+      undefined,
+      undefined,
+      null,
+      14,
     );
   });
 

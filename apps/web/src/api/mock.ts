@@ -22,6 +22,7 @@ import type {
   LigneSynthese,
   SuitesDonnees,
   CampagneGestion,
+  CampagneCommentaire,
   CampagneEntreeGestion,
   DepartementOption,
   ResultatCodes,
@@ -3134,6 +3135,15 @@ export async function scolariteCommentaires(
   let liste = commentairesMemoire.map((c) => ({ ...c }));
   if (statut) liste = liste.filter((c) => c.statut === statut);
   return liste;
+}
+
+export async function moderationCampagnes(): Promise<CampagneCommentaire[]> {
+  await delai();
+  return campagnesGestionMemoire.flatMap((campagne) =>
+    campagne.statut === "close" || campagne.statut === "restituee"
+      ? [{ id: campagne.id, libelle: campagne.libelle, statut: campagne.statut }]
+      : [],
+  );
 }
 
 export async function scolariteModererCommentaire(

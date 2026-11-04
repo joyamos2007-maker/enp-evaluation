@@ -35,8 +35,36 @@ describe('CahierTexteService', () => {
         enseignants: ['A. Enseignant'],
       },
     ]);
-    expect(db.query.mock.calls[0][1]).toEqual([12, true, false, false]);
+    expect(db.query.mock.calls[0][1]).toEqual([12, true, false, false, null, null]);
     expect(db.query.mock.calls[0][0]).toContain('ref.class_delegate');
+  });
+
+  it('limite les séances du Service Scolarité au campus et celles du Chef au département', async () => {
+    db.query.mockResolvedValueOnce([]);
+    await service.mesUes(20, ['scolarite'], 9, null);
+    expect(db.query.mock.calls[0][0]).toContain('d.campus_id = $5');
+    expect(db.query.mock.calls[0][1]).toEqual([
+      20,
+      false,
+      false,
+      false,
+      9,
+      null,
+    ]);
+
+    db.query.mockResolvedValueOnce([]);
+    await service.seances(21, ['chef_departement'], undefined, undefined, null, 14);
+    expect(db.query.mock.calls[1][0]).toContain('p.department_id = $8');
+    expect(db.query.mock.calls[1][1]).toEqual([
+      21,
+      null,
+      null,
+      false,
+      false,
+      false,
+      null,
+      14,
+    ]);
   });
 
   it('ne retourne que les séances dans le périmètre du rôle connecté', async () => {
@@ -71,6 +99,8 @@ describe('CahierTexteService', () => {
       true,
       false,
       false,
+      null,
+      null,
     ]);
     expect(result[0]).toMatchObject({
       id: 8,
@@ -182,6 +212,8 @@ describe('CahierTexteService', () => {
       false,
       false,
       true,
+      null,
+      null,
     ]);
   });
 

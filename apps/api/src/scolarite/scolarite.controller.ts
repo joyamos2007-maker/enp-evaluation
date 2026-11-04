@@ -23,23 +23,23 @@ export class ScolariteController {
   constructor(private readonly scolarite: ScolariteService) {}
 
   @Get('tableau-de-bord')
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   tableauDeBord(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    return this.scolarite.tableauDeBord(utilisateur.id, utilisateur.roles);
+    return this.scolarite.tableauDeBord(utilisateur.id, [utilisateur.activeRole]);
   }
 
   @Get('deliberations-examens')
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   deliberationsExamens(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    return this.scolarite.deliberationsExamens(utilisateur.id, utilisateur.roles);
+    return this.scolarite.deliberationsExamens(utilisateur.id, [utilisateur.activeRole]);
   }
 
   @Get('deliberations-examens/:assessmentId')
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   detailsDeliberationExamen(
     @Req() requete: RequeteAuthentifiee,
     @Param('assessmentId') assessmentIdBrut: string,
@@ -48,13 +48,13 @@ export class ScolariteController {
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
     return this.scolarite.detailsDeliberationExamen(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
       idValide(assessmentIdBrut),
     );
   }
 
   @Post('deliberations-examens/:assessmentId')
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   delibererExamen(
     @Req() requete: RequeteAuthentifiee,
     @Param('assessmentId') assessmentIdBrut: string,
@@ -63,7 +63,7 @@ export class ScolariteController {
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
     return this.scolarite.delibererExamen(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
       idValide(assessmentIdBrut),
     );
   }
@@ -74,10 +74,10 @@ export class ReferentielsController {
   constructor(private readonly scolarite: ScolariteService) {}
 
   @Get('departements')
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   departements(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    return this.scolarite.departements(utilisateur.id, utilisateur.roles);
+    return this.scolarite.departements(utilisateur.id, [utilisateur.activeRole]);
   }
 }

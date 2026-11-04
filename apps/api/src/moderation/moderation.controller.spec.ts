@@ -1,4 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { ModerationController } from './moderation.controller';
 
 const BALLOT = '3d2ffb41-1f7c-464c-bccf-0d9ca21a3958';
@@ -7,11 +8,39 @@ describe('ModerationController', () => {
   const moderation = { lister: jest.fn(), decider: jest.fn() };
   const campusScope = { forScolarite: jest.fn() };
   const controller = new ModerationController(moderation as never, campusScope as never);
-  const sco = { headers: {}, utilisateur: { id: 2, roles: ['scolarite'] } };
+  const sco = {
+    headers: {},
+    utilisateur: { id: 2, roles: ['scolarite'], activeRole: 'scolarite' },
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
     campusScope.forScolarite.mockResolvedValue(9);
+  });
+
+  it('autorise la Direction à lire les commentaires, mais réserve les décisions à la Scolarité', async () => {
+    const prototype = ModerationController.prototype;
+    const handler = (name: string) =>
+      Object.getOwnPropertyDescriptor(prototype, name)?.value;
+    expect(Reflect.getMetadata(ROLES_KEY, handler('lister'))).toEqual([
+      'scolarite',
+      'direction_etudes',
+    ]);
+    expect(Reflect.getMetadata(ROLES_KEY, handler('decider'))).toEqual([
+      'scolarite',
+    ]);
+
+    moderation.lister.mockResolvedValue([]);
+    await controller.lister('3', undefined, {
+      headers: {},
+      utilisateur: {
+        id: 2,
+        roles: ['direction_etudes'],
+        activeRole: 'direction_etudes',
+      },
+    });
+    expect(campusScope.forScolarite).not.toHaveBeenCalled();
+    expect(moderation.lister).toHaveBeenCalledWith(3, undefined, null);
   });
 
   it('liste les commentaires d une campagne avec un filtre facultatif', async () => {

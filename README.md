@@ -87,8 +87,17 @@ Règles de sécurité :
 
 ## Rôles académiques et périmètres
 
-- `direction_etudes` est un rôle global ENP : il consulte la synthèse multisite,
-  publie les statistiques d'une période et consulte les contrôles académiques.
+- Le profil actif sélectionné est la seule autorité utilisée pour les contrôles
+  d’accès et les limites de campus/département ; les rôles cumulés d’un compte
+  ne s’additionnent pas pendant une session.
+- `admin` est l’administrateur technique : il gère les référentiels, les comptes,
+  les archives et l’audit complet. Il ne gère pas les campagnes académiques, ne
+  modère pas les commentaires et ne consulte pas les résultats.
+- `scolarite` ne voit dans le journal d’audit que les événements rattachés à son
+  campus ; l’administrateur technique conserve la vue complète.
+- `direction_etudes` est un rôle global ENP : il consulte les résultats et
+  commentaires multisites, les synthèses et contrôles académiques, et publie les
+  statistiques d'une période.
 - `scolarite` est affecté à un seul campus. Ses listes, campagnes, imports,
   résultats, modérations et restitutions sont limités à ce campus.
 - `chef_departement` reste un rôle distinct, rattaché à un département, avec
@@ -128,11 +137,12 @@ Routes principales :
   `/api/v1/affectations`. Les imports et mutations refusent une année déjà
   archivée. L’administration peut créer/lire les snapshots en lecture seule
   via `/api/v1/archives/annuelles`.
-- `direction_etudes` peut consulter la liste des campus et en ajouter via
-  `GET /api/v1/administration/referentiels` et `POST /api/v1/administration/campus`.
+- `admin` consulte et gère les référentiels structurels via
+  `GET /api/v1/administration/referentiels` et les routes de création associées.
 - Le délégué peut renseigner le cahier de texte de sa classe et participer aux
-  évaluations des cours de sa délégation. Les enseignants voient leurs séances,
-  visent les cours qui leur sont affectés et peuvent consulter le cahier.
+  évaluations des cours de sa délégation. Les enseignants voient leurs séances
+  et visent les cours qui leur sont affectés ; le Chef de département lit le
+  cahier de son département et la Scolarité celui de son campus.
 - Le cahier de texte et les visas utilisent les routes `/api/v1/cahier-texte`.
   Appliquer `infra/sql/010_cahier_texte.sql` avant de déployer cette fonctionnalité.
   Les heures prévues peuvent être renseignées par cours dans `ref.course`

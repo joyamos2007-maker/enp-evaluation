@@ -43,7 +43,7 @@ export class AcademicManagementController {
   ) {
     const user = request.utilisateur;
     if (!user) throw new UnauthorizedException('Jeton manquant');
-    const campus = await this.campusScope.forScolarite(user.id, user.roles);
+    const campus = await this.campusScope.forScolarite(user.id, [user.activeRole]);
     return this.assignments.listerEnseignants(idPositif(courseId, 'courseId'), campus);
   }
 
@@ -55,7 +55,7 @@ export class AcademicManagementController {
   ) {
     const user = request.utilisateur;
     if (!user) throw new UnauthorizedException('Jeton manquant');
-    const campus = await this.campusScope.forScolarite(user.id, user.roles);
+    const campus = await this.campusScope.forScolarite(user.id, [user.activeRole]);
     return this.assignments.ajouterEnseignant(
       idPositif(courseId, 'courseId'),
       idPositif(userId, 'userId'),
@@ -72,7 +72,7 @@ export class AcademicManagementController {
   ) {
     const user = request.utilisateur;
     if (!user) throw new UnauthorizedException('Jeton manquant');
-    const campus = await this.campusScope.forScolarite(user.id, user.roles);
+    const campus = await this.campusScope.forScolarite(user.id, [user.activeRole]);
     return this.assignments.retirerEnseignant(
       idPositif(courseId, 'courseId'),
       idPositif(userId, 'userId'),
@@ -90,7 +90,7 @@ export class AcademicManagementController {
     const user = request.utilisateur;
     if (!user) throw new UnauthorizedException('Jeton manquant');
     if (!year) throw new BadRequestException('anneeUniversitaire obligatoire');
-    const campus = await this.campusScope.forScolarite(user.id, user.roles);
+    const campus = await this.campusScope.forScolarite(user.id, [user.activeRole]);
     return this.assignments.listerDelegues(idPositif(programId, 'programId'), year, campus);
   }
 
@@ -118,7 +118,7 @@ export class AcademicManagementController {
     ) {
       throw new BadRequestException('Données de mandat incomplètes');
     }
-    const campus = await this.campusScope.forScolarite(user.id, user.roles);
+    const campus = await this.campusScope.forScolarite(user.id, [user.activeRole]);
     return this.assignments.enregistrerDelegue(
       body.programId,
       body.userId,
@@ -141,7 +141,7 @@ export class AcademicManagementController {
     const user = request.utilisateur;
     if (!user) throw new UnauthorizedException('Jeton manquant');
     if (!year) throw new BadRequestException('anneeUniversitaire obligatoire');
-    const campus = await this.campusScope.forScolarite(user.id, user.roles);
+    const campus = await this.campusScope.forScolarite(user.id, [user.activeRole]);
     return this.assignments.retirerDelegue(
       idPositif(programId, 'programId'),
       year,

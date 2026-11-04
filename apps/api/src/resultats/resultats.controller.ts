@@ -26,17 +26,31 @@ export class ResultatsController {
 
   @Get('mes-ues')
   @Header('Cache-Control', 'no-store')
-  @Acces('enseignant')
-  mesUes(@Req() requete: RequeteAuthentifiee) {
+  @Acces('enseignant', 'chef_departement', 'scolarite', 'direction_etudes')
+  async mesUes(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    return this.resultats.mesUes(utilisateur.id);
+    const rolesActifs = [utilisateur.activeRole];
+    const campusId =
+      utilisateur.activeRole === 'scolarite'
+        ? await this.campusScope.forScolarite(utilisateur.id, rolesActifs)
+        : null;
+    const departmentId =
+      utilisateur.activeRole === 'chef_departement'
+        ? await this.campusScope.forChefDepartement(utilisateur.id, rolesActifs)
+        : null;
+    return this.resultats.mesUes(
+      utilisateur.id,
+      rolesActifs,
+      campusId,
+      departmentId,
+    );
   }
 
   // ueId designe un ref.course.
   @Get('ues/:ueId')
   @Header('Cache-Control', 'no-store')
-  @Acces('enseignant', 'chef_departement', 'scolarite', 'admin')
+  @Acces('enseignant', 'chef_departement', 'scolarite', 'direction_etudes')
   async fiche(
     @Param('ueId') ueIdBrut: string,
     @Query('campagneId') campagneIdBrut: string | undefined,
@@ -48,17 +62,22 @@ export class ResultatsController {
     const courseId = lireId(ueIdBrut);
     const campagneId = lireId(campagneIdBrut);
     if (courseId === null || campagneId === null) {
-      throw new BadRequestException('ueId (dans l URL) et campagneId (parametre) : entiers positifs obligatoires');
+      throw new BadRequestException(
+        'ueId (dans l URL) et campagneId (parametre) : entiers positifs obligatoires',
+      );
     }
 
-    const campusId = utilisateur.roles.includes('scolarite')
-      ? await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles)
-      : null;
-    const departmentId = utilisateur.roles.includes('chef_departement')
-      ? await this.campusScope.forChefDepartement(utilisateur.id, utilisateur.roles)
-      : null;
+    const rolesActifs = [utilisateur.activeRole];
+    const campusId =
+      utilisateur.activeRole === 'scolarite'
+        ? await this.campusScope.forScolarite(utilisateur.id, rolesActifs)
+        : null;
+    const departmentId =
+      utilisateur.activeRole === 'chef_departement'
+        ? await this.campusScope.forChefDepartement(utilisateur.id, rolesActifs)
+        : null;
     const fiche = await this.resultats.fiche(
-      utilisateur,
+      { ...utilisateur, roles: rolesActifs },
       courseId,
       campagneId,
       campusId,
@@ -66,7 +85,12 @@ export class ResultatsController {
     );
     // Journal : qui consulte quoi, jamais les resultats eux-memes
     this.logger.log(
-      'Consultation des resultats : utilisateur ' + utilisateur.id + ', UE ' + courseId + ', campagne ' + campagneId,
+      'Consultation des resultats : utilisateur ' +
+        utilisateur.id +
+        ', UE ' +
+        courseId +
+        ', campagne ' +
+        campagneId,
     );
     return fiche;
   }

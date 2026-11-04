@@ -1,6 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
 import { Acces } from '../auth/acces.decorator';
-import type { RequeteAuthentifiee } from '../auth/auth.types';
 import { AdministrationService } from './administration.service';
 
 function nomValide(corps: unknown): string {
@@ -25,14 +24,11 @@ export class AdministrationController {
   constructor(private readonly administration: AdministrationService) {}
 
   @Get('referentiels')
-  @Acces('admin', 'direction_etudes')
-  referentiels(@Req() requete: RequeteAuthentifiee) {
-    const roles = requete.utilisateur?.roles ?? [];
-    return this.administration.referentiels(!roles.includes('admin'));
+  referentiels() {
+    return this.administration.referentiels(false);
   }
 
   @Post('campus')
-  @Acces('admin', 'direction_etudes')
   creerCampus(@Body() corps: unknown) {
     return this.administration.creerCampus(nomValide(corps));
   }

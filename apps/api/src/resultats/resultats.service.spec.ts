@@ -1,4 +1,8 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ResultatsService } from './resultats.service';
 
 describe('ResultatsService', () => {
@@ -38,31 +42,41 @@ describe('ResultatsService', () => {
   describe('fiche', () => {
     it('retourne 404 quand l UE ou la campagne n existe pas', async () => {
       db.query.mockResolvedValueOnce([]);
-      await expect(service.fiche(sco, 1, 3)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.fiche(sco, 1, 3)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('refuse (403) un enseignant qui n enseigne pas cette UE, sans preparer l urne', async () => {
       db.query.mockResolvedValueOnce([meta({ enseigne: false })]);
-      await expect(service.fiche(ens, 1, 3)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.fiche(ens, 1, 3)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
       expect(db.query).toHaveBeenCalledTimes(1);
       expect(urne.lire).not.toHaveBeenCalled();
     });
 
     it('refuse (409) une campagne qui n est pas close, sans toucher a l urne', async () => {
       db.query.mockResolvedValueOnce([meta({ statut: 'ouverte' })]);
-      await expect(service.fiche(sco, 1, 3)).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.fiche(sco, 1, 3)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(db.query).toHaveBeenCalledTimes(1);
       expect(urne.lire).not.toHaveBeenCalled();
     });
 
     it('refuse (409) pendant le delai de preparation', async () => {
-      db.query.mockResolvedValueOnce([meta()]).mockResolvedValueOnce([{ etat: 'attente' }]);
+      db.query
+        .mockResolvedValueOnce([meta()])
+        .mockResolvedValueOnce([{ etat: 'attente' }]);
       await expect(service.fiche(ens, 1, 3)).rejects.toThrow('preparation');
       expect(urne.lire).not.toHaveBeenCalled();
     });
 
     it('n agrege rien sous le seuil de 5 repondants', async () => {
-      db.query.mockResolvedValueOnce([meta()]).mockResolvedValueOnce([{ etat: 'prete' }]);
+      db.query
+        .mockResolvedValueOnce([meta()])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire.mockResolvedValueOnce([{ n: 4 }]);
       const res = await service.fiche(ens, 1, 3);
       expect(res).toMatchObject({
@@ -77,7 +91,9 @@ describe('ResultatsService', () => {
     });
 
     it('retourne le detail a partir de 5 repondants', async () => {
-      db.query.mockResolvedValueOnce([meta()]).mockResolvedValueOnce([{ etat: 'prete' }]);
+      db.query
+        .mockResolvedValueOnce([meta()])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire
         .mockResolvedValueOnce([{ n: 6 }])
         .mockResolvedValueOnce([
@@ -107,12 +123,37 @@ describe('ResultatsService', () => {
         .mockResolvedValueOnce([meta({ enseigne: false })])
         .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire.mockResolvedValueOnce([{ n: 2 }]);
-      await expect(service.fiche(sco, 1, 3)).resolves.toMatchObject({ detailDisponible: false });
+      await expect(service.fiche(sco, 1, 3)).resolves.toMatchObject({
+        detailDisponible: false,
+      });
+    });
+
+    it('refuse à l’administrateur technique l’accès aux résultats', async () => {
+      db.query.mockResolvedValueOnce([meta({ enseigne: false })]);
+      await expect(
+        service.fiche({ id: 1, roles: ['admin'] }, 1, 3),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(urne.lire).not.toHaveBeenCalled();
+    });
+
+    it('permet à la Direction des Études de consulter les résultats multisites', async () => {
+      const direction = { id: 4, roles: ['direction_etudes'] };
+      db.query
+        .mockResolvedValueOnce([meta({ enseigne: false })])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
+      urne.lire.mockResolvedValueOnce([{ n: 4 }]);
+
+      await expect(service.fiche(direction, 1, 3)).resolves.toMatchObject({
+        detailDisponible: false,
+      });
+      expect(db.query.mock.calls[0][1]).toEqual([1, 3, 4, null, null]);
     });
 
     it('permet au Chef de département de consulter une UE de son seul département', async () => {
       const chef = { id: 45, roles: ['chef_departement'] };
-      db.query.mockResolvedValueOnce([meta({ enseigne: false })]).mockResolvedValueOnce([{ etat: 'prete' }]);
+      db.query
+        .mockResolvedValueOnce([meta({ enseigne: false })])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire.mockResolvedValueOnce([{ n: 4 }]);
       await expect(service.fiche(chef, 1, 3, null, 12)).resolves.toMatchObject({
         detailDisponible: false,
@@ -121,7 +162,9 @@ describe('ResultatsService', () => {
     });
 
     it('lit l urne seulement pour une campagne close et preparee, et seulement les commentaires valides', async () => {
-      db.query.mockResolvedValueOnce([meta()]).mockResolvedValueOnce([{ etat: 'prete' }]);
+      db.query
+        .mockResolvedValueOnce([meta()])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire
         .mockResolvedValueOnce([{ n: 6 }])
         .mockResolvedValueOnce([])
@@ -136,7 +179,9 @@ describe('ResultatsService', () => {
     });
 
     it('n interroge jamais l urne avec un identifiant d utilisateur', async () => {
-      db.query.mockResolvedValueOnce([meta()]).mockResolvedValueOnce([{ etat: 'prete' }]);
+      db.query
+        .mockResolvedValueOnce([meta()])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
       urne.lire
         .mockResolvedValueOnce([{ n: 6 }])
         .mockResolvedValueOnce([])
@@ -164,6 +209,18 @@ describe('ResultatsService', () => {
       expect(urne.lire).not.toHaveBeenCalled();
     });
 
+    it('applique le campus et le rôle actif au périmètre de la liste', async () => {
+      db.query.mockResolvedValueOnce([]);
+
+      await expect(service.mesUes(45, ['scolarite'], 7, null)).resolves.toEqual(
+        [],
+      );
+
+      expect(db.query.mock.calls[0][1]).toEqual([45, false, null, 7, false]);
+      expect(db.query.mock.calls[0][0]).toContain('d.campus_id = $4');
+      expect(db.query.mock.calls[0][0]).toContain('OR $5::boolean');
+    });
+
     it('prepare chaque campagne une seule fois et applique le seuil', async () => {
       db.query
         .mockResolvedValueOnce([ligne(1, 'INF501'), ligne(2, 'INF502')])
@@ -172,10 +229,22 @@ describe('ResultatsService', () => {
       const res = await service.mesUes(30);
       expect(db.query).toHaveBeenCalledTimes(2);
       expect(res).toEqual([
-        expect.objectContaining({ ueId: 1, repondants: 6, detailDisponible: true, inscrits: 40 }),
-        expect.objectContaining({ ueId: 2, repondants: 0, detailDisponible: false }),
+        expect.objectContaining({
+          ueId: 1,
+          repondants: 6,
+          detailDisponible: true,
+          inscrits: 40,
+        }),
+        expect.objectContaining({
+          ueId: 2,
+          repondants: 0,
+          detailDisponible: false,
+        }),
       ]);
-      expect(urne.lire.mock.calls[0][1]).toEqual([[3, 3], [1, 2]]);
+      expect(urne.lire.mock.calls[0][1]).toEqual([
+        [3, 3],
+        [1, 2],
+      ]);
     });
 
     it('masque les campagnes encore dans le delai de preparation', async () => {

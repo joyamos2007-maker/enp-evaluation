@@ -60,7 +60,7 @@ export default function App() {
             <Route
               path="/journal-audit"
               element={
-                <RequireRole role="admin">
+                <RequireRole roles={["admin", "scolarite"]}>
                   <JournalAudit />
                 </RequireRole>
               }
@@ -122,11 +122,19 @@ export default function App() {
               }
             />
 
-            {/* Délégué pour la saisie, enseignant pour la consultation et le visa */}
+            {/* Lecture selon le périmètre du rôle ; saisie réservée au délégué */}
             <Route
               path="/cahier-texte"
               element={
-                <RequireRole roles={["delegue", "enseignant", "etudiant"]}>
+                <RequireRole
+                  roles={[
+                    "delegue",
+                    "enseignant",
+                    "etudiant",
+                    "chef_departement",
+                    "scolarite",
+                  ]}
+                >
                   <CahierTexte />
                 </RequireRole>
               }
@@ -142,7 +150,15 @@ export default function App() {
             <Route
               path="/cahier-texte/:id"
               element={
-                <RequireRole roles={["delegue", "enseignant", "etudiant"]}>
+                <RequireRole
+                  roles={[
+                    "delegue",
+                    "enseignant",
+                    "etudiant",
+                    "chef_departement",
+                    "scolarite",
+                  ]}
+                >
                   <DetailSeance />
                 </RequireRole>
               }
@@ -176,7 +192,14 @@ export default function App() {
             <Route
               path="/resultats"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole
+                  roles={[
+                    "enseignant",
+                    "chef_departement",
+                    "scolarite",
+                    "direction_etudes",
+                  ]}
+                >
                   <MesResultats />
                 </RequireRole>
               }
@@ -184,7 +207,14 @@ export default function App() {
             <Route
               path="/resultats/:ueId"
               element={
-                <RequireRole role="enseignant">
+                <RequireRole
+                  roles={[
+                    "enseignant",
+                    "chef_departement",
+                    "scolarite",
+                    "direction_etudes",
+                  ]}
+                >
                   <FicheResultatUE />
                 </RequireRole>
               }
@@ -224,11 +254,11 @@ export default function App() {
               }
             />
 
-            {/* Scolarité & Admin */}
+            {/* Scolarité */}
             <Route
               path="/scolarite"
               element={
-                <RequireRole roles={["scolarite", "admin"]}>
+                <RequireRole role="scolarite">
                   <ScolariteTableauDeBord />
                 </RequireRole>
               }
@@ -236,7 +266,7 @@ export default function App() {
             <Route
               path="/scolarite/campagnes"
               element={
-                <RequireRole roles={["scolarite", "admin"]}>
+                <RequireRole role="scolarite">
                   <ScolariteCampagnes />
                 </RequireRole>
               }
@@ -260,7 +290,15 @@ export default function App() {
             <Route
               path="/scolarite/moderation"
               element={
-                <RequireRole roles={["scolarite", "admin"]}>
+                <RequireRole role="scolarite">
+                  <ScolariteModeration />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/direction/commentaires"
+              element={
+                <RequireRole role="direction_etudes">
                   <ScolariteModeration />
                 </RequireRole>
               }
@@ -268,7 +306,7 @@ export default function App() {
             <Route
               path="/scolarite/deliberations"
               element={
-                <RequireRole roles={["scolarite", "admin"]}>
+                <RequireRole role="scolarite">
                   <ScolariteDeliberations />
                 </RequireRole>
               }
@@ -276,7 +314,7 @@ export default function App() {
             <Route
               path="/scolarite/restitution"
               element={
-                <RequireRole roles={["scolarite", "admin"]}>
+                <RequireRole role="scolarite">
                   <ScolariteRestitution />
                 </RequireRole>
               }
@@ -298,7 +336,7 @@ export default function App() {
             <Route
               path="/administration"
               element={
-                <RequireRole roles={["admin", "direction_etudes"]}>
+                <RequireRole role="admin">
                   <Administration />
                 </RequireRole>
               }

@@ -5,8 +5,14 @@ describe('RestitutionController', () => {
   const restitution = { publier: jest.fn(), pourEtudiant: jest.fn() };
   const campusScope = { forScolarite: jest.fn() };
   const controller = new RestitutionController(restitution as never, campusScope as never);
-  const sco = { headers: {}, utilisateur: { id: 2, roles: ['scolarite'] } };
-  const etu = { headers: {}, utilisateur: { id: 42, roles: ['etudiant'] } };
+  const sco = {
+    headers: {},
+    utilisateur: { id: 2, roles: ['scolarite'], activeRole: 'scolarite' },
+  };
+  const etu = {
+    headers: {},
+    utilisateur: { id: 42, roles: ['etudiant'], activeRole: 'etudiant' },
+  };
   const corps = { resultats: 'R', suites: 'S' };
 
   beforeEach(() => {
@@ -37,9 +43,9 @@ describe('RestitutionController', () => {
     expect(restitution.publier).not.toHaveBeenCalled();
   });
 
-  it('liste les restitutions de l etudiant connecte', () => {
+  it('liste les restitutions de l etudiant connecte', async () => {
     restitution.pourEtudiant.mockResolvedValue([]);
-    controller.mesRestitutions(etu);
+    await controller.mesRestitutions(etu);
     expect(restitution.pourEtudiant).toHaveBeenCalledWith(42);
   });
 });

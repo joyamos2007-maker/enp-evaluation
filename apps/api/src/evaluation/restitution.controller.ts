@@ -43,7 +43,10 @@ export class RestitutionController {
     if (campagneId === null) throw new BadRequestException('Identifiant de campagne invalide');
     const entree = validerRestitution(corps);
 
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     const campagne = await this.restitution.publier(campagneId, utilisateur.id, entree, campusId);
     this.logger.log('Restitution publiee : utilisateur ' + utilisateur.id + ', campagne ' + campagneId);
     return campagne;

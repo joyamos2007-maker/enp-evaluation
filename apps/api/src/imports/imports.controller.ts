@@ -1,6 +1,5 @@
 import {
   Controller,
-  ForbiddenException,
   Post,
   UseInterceptors,
   UploadedFile,
@@ -65,8 +64,9 @@ export class ImportsController {
     }
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
-    return this.importsService.importUsers(file.buffer, campusId, utilisateur.roles);
+    const rolesActifs = [utilisateur.activeRole];
+    const campusId = await this.campusScope.forScolarite(utilisateur.id, rolesActifs);
+    return this.importsService.importUsers(file.buffer, campusId, rolesActifs);
   }
 
   @Post(':type/verification')
@@ -82,10 +82,10 @@ export class ImportsController {
     if (!file) throw new BadRequestException('Aucun fichier CSV fourni');
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    if (type === 'ue' && utilisateur.activeRole !== 'admin') {
-      throw new ForbiddenException('Seule l’administration peut modifier le catalogue des UE');
-    }
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     return this.academicImports.verifier(type, file.buffer, utilisateur.id, campusId);
   }
 
@@ -100,7 +100,10 @@ export class ImportsController {
     if (typeof body?.importId !== 'string') throw new BadRequestException('Identifiant d’import obligatoire');
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     return this.academicImports.valider(type, body.importId, utilisateur.id, campusId);
   }
 

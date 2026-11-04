@@ -20,6 +20,7 @@ import type {
   Synthese,
   SuitesDonnees,
   CampagneGestion,
+  CampagneCommentaire,
   CampagneEntreeGestion,
   DepartementOption,
   ResultatCodes,
@@ -937,6 +938,10 @@ export async function scolariteCommentaires(
   return requete<CommentaireAModerer[]>(
     `/moderation/commentaires${qs ? `?${qs}` : ""}`,
   );
+}
+
+export async function moderationCampagnes(): Promise<CampagneCommentaire[]> {
+  return requete<CampagneCommentaire[]>("/moderation/campagnes");
 }
 
 export async function scolariteModererCommentaire(

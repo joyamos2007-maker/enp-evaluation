@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { CampagnesController } from './campagnes.controller';
 
 describe('CampagnesController', () => {
@@ -14,7 +15,13 @@ describe('CampagnesController', () => {
     verifierDepartement: jest.fn(),
   };
   const controller = new CampagnesController(campagnes as never, campusScope as never);
-  const admin = { utilisateur: { id: 1, roles: ['admin'] } };
+  const scolarite = {
+    utilisateur: {
+      id: 1,
+      roles: ['scolarite', 'admin'],
+      activeRole: 'scolarite',
+    },
+  };
   const corpsValide = {
     libelle: 'Evaluation S5',
     departmentId: 1,
@@ -26,37 +33,46 @@ describe('CampagnesController', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    campusScope.forScolarite.mockResolvedValue(null);
+    campusScope.forScolarite.mockResolvedValue(6);
     campusScope.verifierDepartement.mockResolvedValue(undefined);
   });
 
+  it('réserve les opérations de campagne au Service Scolarité', () => {
+    const prototype = CampagnesController.prototype;
+    for (const nom of ['creer', 'lister', 'detail', 'ouvrir', 'cloturer']) {
+      const handler = Object.getOwnPropertyDescriptor(prototype, nom)?.value;
+      expect(Reflect.getMetadata(ROLES_KEY, handler)).toEqual(['scolarite']);
+    }
+  });
+
   it('refuse un corps invalide sans appeler le service', async () => {
-    await expect(controller.creer({ libelle: '' }, admin)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.creer({ libelle: '' }, scolarite)).rejects.toBeInstanceOf(BadRequestException);
     expect(campagnes.creer).not.toHaveBeenCalled();
   });
 
   it('transmet une campagne valide au service avec de vraies dates', async () => {
     campagnes.creer.mockResolvedValue({ id: 1 });
-    await controller.creer(corpsValide, admin);
+    await controller.creer(corpsValide, scolarite);
     const entree = campagnes.creer.mock.calls[0][0];
     expect(entree.debut).toBeInstanceOf(Date);
     expect(entree.departmentId).toBe(1);
-    expect(campusScope.verifierDepartement).toHaveBeenCalledWith(1, null);
+    expect(campusScope.forScolarite).toHaveBeenCalledWith(1, ['scolarite']);
+    expect(campusScope.verifierDepartement).toHaveBeenCalledWith(1, 6);
   });
 
   it('refuse un identifiant invalide', async () => {
-    await expect(controller.detail('abc', admin)).rejects.toBeInstanceOf(BadRequestException);
-    await expect(controller.ouvrir('0', admin)).rejects.toBeInstanceOf(BadRequestException);
-    await expect(controller.cloturer('1; DROP TABLE', admin)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.detail('abc', scolarite)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.ouvrir('0', scolarite)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.cloturer('1; DROP TABLE', scolarite)).rejects.toBeInstanceOf(BadRequestException);
     expect(campagnes.trouver).not.toHaveBeenCalled();
   });
 
   it('ouvre et cloture avec un identifiant numerique', async () => {
     campagnes.ouvrir.mockResolvedValue({ id: 5 });
     campagnes.cloturer.mockResolvedValue({ id: 5 });
-    await controller.ouvrir('5', admin);
-    await controller.cloturer('5', admin);
-    expect(campagnes.ouvrir).toHaveBeenCalledWith(5, null);
-    expect(campagnes.cloturer).toHaveBeenCalledWith(5, null);
+    await controller.ouvrir('5', scolarite);
+    await controller.cloturer('5', scolarite);
+    expect(campagnes.ouvrir).toHaveBeenCalledWith(5, 6);
+    expect(campagnes.cloturer).toHaveBeenCalledWith(5, 6);
   });
 });

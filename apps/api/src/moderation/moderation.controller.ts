@@ -28,9 +28,23 @@ export class ModerationController {
     private readonly campusScope: CampusScopeService,
   ) {}
 
+  @Get('campagnes')
+  @Acces('scolarite', 'direction_etudes')
+  async campagnes(@Req() requete: RequeteAuthentifiee) {
+    const utilisateur = requete.utilisateur;
+    if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
+    const campusId =
+      utilisateur.activeRole === 'scolarite'
+        ? await this.campusScope.forScolarite(utilisateur.id, [
+            utilisateur.activeRole,
+          ])
+        : null;
+    return this.moderation.campagnes(campusId);
+  }
+
   @Get('commentaires')
   @Header('Cache-Control', 'no-store')
-  @Acces('scolarite')
+  @Acces('scolarite', 'direction_etudes')
   async lister(
     @Query('campagneId') campagneIdBrut: string | undefined,
     @Query('statut') statutBrut: string | undefined,
@@ -40,7 +54,12 @@ export class ModerationController {
     if (campagneId === null) throw new BadRequestException('campagneId : entier positif obligatoire');
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId =
+      utilisateur.activeRole === 'scolarite'
+        ? await this.campusScope.forScolarite(utilisateur.id, [
+            utilisateur.activeRole,
+          ])
+        : null;
     return this.moderation.lister(campagneId, validerFiltreStatut(statutBrut), campusId);
   }
 
@@ -59,7 +78,10 @@ export class ModerationController {
     if (!ref) throw new BadRequestException('Identifiant de commentaire invalide');
     const decision = validerDecision(corps);
 
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     const resultat = await this.moderation.decider(ref, decision, utilisateur.id, campusId);
     // Journal : qui decide quoi, jamais le texte du commentaire
     this.logger.log(

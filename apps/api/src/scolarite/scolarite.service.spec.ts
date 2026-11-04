@@ -16,7 +16,7 @@ describe('ScolariteService', () => {
     const departements = [{ id: 4, nom: 'Informatique', campus: 'Lome' }];
     db.query.mockResolvedValueOnce(departements);
 
-    await expect(service.departements(1, ['admin'])).resolves.toEqual(departements);
+    await expect(service.departements(1, ['scolarite'])).resolves.toEqual(departements);
     expect(db.query.mock.calls[0][0]).toContain('JOIN ref.campus');
   });
 
@@ -118,7 +118,7 @@ describe('ScolariteService', () => {
         deliberee_le: new Date(),
       }])
       .mockResolvedValueOnce([]);
-    await expect(service.delibererExamen(12, ['admin'], 15)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.delibererExamen(12, ['scolarite'], 15)).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('compose les compteurs et les campagnes du tableau de bord', async () => {
@@ -144,7 +144,7 @@ describe('ScolariteService', () => {
       .mockResolvedValueOnce([{ inscriptions: 20, participations: 12 }]);
     resultsDb.lire.mockResolvedValueOnce([{ bulletins: 10, commentaires: 2 }]);
 
-    await expect(service.tableauDeBord(1, ['admin'])).resolves.toEqual({
+    await expect(service.tableauDeBord(1, ['scolarite'])).resolves.toEqual({
       campagnesOuvertes: 1,
       comptesSansMotDePasse: 3,
       commentairesAModerer: 2,
@@ -173,7 +173,7 @@ describe('ScolariteService', () => {
       .mockResolvedValueOnce([{ nombre: 0 }])
       .mockResolvedValueOnce([{ inscriptions: 0, participations: 0 }]);
 
-    await expect(service.tableauDeBord(1, ['admin'])).resolves.toMatchObject({
+    await expect(service.tableauDeBord(1, ['scolarite'])).resolves.toMatchObject({
       campagnesOuvertes: 0,
       participation: { inscriptions: 0, participations: 0, bulletins: 0 },
     });

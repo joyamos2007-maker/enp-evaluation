@@ -64,7 +64,12 @@ export class CahierTexteService {
     private readonly exports: ExportService,
   ) {}
 
-  async mesUes(userId: number, roles: string[]) {
+  async mesUes(
+    userId: number,
+    roles: string[],
+    campusId: number | null = null,
+    departmentId: number | null = null,
+  ) {
     const rows = await this.db.query<LigneUe>(
       `SELECT co.id AS ue_id, ue.code, ue.intitule,
               COALESCE(
@@ -74,6 +79,8 @@ export class CahierTexteService {
               ) AS enseignants
        FROM ref.course co
        JOIN ref.ue ue ON ue.id = co.ue_id
+       JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        LEFT JOIN ref.course_teacher ct ON ct.course_id = co.id
        LEFT JOIN identity.users u ON u.id = ct.teacher_id
        WHERE (
@@ -91,6 +98,8 @@ export class CahierTexteService {
            SELECT 1 FROM ref.enrollment e
            WHERE e.course_id = co.id AND e.student_id = $1
          ))
+         OR ($5::int IS NOT NULL AND d.campus_id = $5)
+         OR ($6::int IS NOT NULL AND p.department_id = $6)
        )
        GROUP BY co.id, ue.code, ue.intitule
        ORDER BY ue.code`,
@@ -99,6 +108,8 @@ export class CahierTexteService {
         roles.includes('delegue'),
         roles.includes('enseignant'),
         roles.includes('etudiant'),
+        campusId,
+        departmentId,
       ],
     );
     return rows.map((row) => ({
@@ -114,6 +125,8 @@ export class CahierTexteService {
     roles: string[],
     ueId?: number,
     statutVisa?: StatutVisa,
+    campusId: number | null = null,
+    departmentId: number | null = null,
   ) {
     const rows = await this.db.query<LigneSeance>(
       `SELECT s.id, co.id AS ue_id, ue.code AS ue_code, ue.intitule AS ue_intitule,
@@ -134,6 +147,8 @@ export class CahierTexteService {
        FROM academic.class_sessions s
        JOIN ref.course co ON co.id = s.course_id
        JOIN ref.ue ue ON ue.id = co.ue_id
+       JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        WHERE ($2::int IS NULL OR co.id = $2)
          AND ($3::text IS NULL OR s.visa_statut = $3)
          AND (
@@ -151,6 +166,8 @@ export class CahierTexteService {
              SELECT 1 FROM ref.enrollment e
              WHERE e.course_id = co.id AND e.student_id = $1
            ))
+           OR ($7::int IS NOT NULL AND d.campus_id = $7)
+           OR ($8::int IS NOT NULL AND p.department_id = $8)
          )
        ORDER BY s.date DESC, s.debut DESC, s.id DESC`,
       [
@@ -160,6 +177,8 @@ export class CahierTexteService {
         roles.includes('delegue'),
         roles.includes('enseignant'),
         roles.includes('etudiant'),
+        campusId,
+        departmentId,
       ],
     );
     return rows.map((row) => this.formaterSeance(row));
@@ -322,7 +341,13 @@ export class CahierTexteService {
     return visee;
   }
 
-  async historique(userId: number, roles: string[], id: number) {
+  async historique(
+    userId: number,
+    roles: string[],
+    id: number,
+    campusId: number | null = null,
+    departmentId: number | null = null,
+  ) {
     const rows = await this.db.query<{
       id: number;
       snapshot: Record<string, unknown>;
@@ -333,6 +358,8 @@ export class CahierTexteService {
        FROM academic.class_session_versions v
        JOIN academic.class_sessions s ON s.id = v.session_id
        JOIN ref.course co ON co.id = s.course_id
+       JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        WHERE s.id = $1 AND (
          ($2::boolean AND EXISTS (
            SELECT 1 FROM ref.class_delegate cd
@@ -348,6 +375,8 @@ export class CahierTexteService {
            SELECT 1 FROM ref.enrollment e
            WHERE e.course_id = co.id AND e.student_id = $3
          ))
+         OR ($6::int IS NOT NULL AND d.campus_id = $6)
+         OR ($7::int IS NOT NULL AND p.department_id = $7)
        )
        ORDER BY v.id DESC`,
       [
@@ -356,6 +385,8 @@ export class CahierTexteService {
         userId,
         roles.includes('enseignant'),
         roles.includes('etudiant'),
+        campusId,
+        departmentId,
       ],
     );
     if (rows.length) {
@@ -372,7 +403,13 @@ export class CahierTexteService {
     }));
   }
 
-  async listerPieces(userId: number, roles: string[], id: number) {
+  async listerPieces(
+    userId: number,
+    roles: string[],
+    id: number,
+    campusId: number | null = null,
+    departmentId: number | null = null,
+  ) {
     const rows = await this.db.query<{
       id: number;
       file_name: string;
@@ -384,6 +421,8 @@ export class CahierTexteService {
        FROM academic.class_session_attachments a
        JOIN academic.class_sessions s ON s.id = a.session_id
        JOIN ref.course co ON co.id = s.course_id
+       JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        WHERE s.id = $1 AND (
          ($2::boolean AND EXISTS (
            SELECT 1 FROM ref.class_delegate cd
@@ -399,6 +438,8 @@ export class CahierTexteService {
            SELECT 1 FROM ref.enrollment e
            WHERE e.course_id = co.id AND e.student_id = $3
          ))
+         OR ($6::int IS NOT NULL AND d.campus_id = $6)
+         OR ($7::int IS NOT NULL AND p.department_id = $7)
        )
        ORDER BY a.cree_le, a.id`,
       [
@@ -407,6 +448,8 @@ export class CahierTexteService {
         userId,
         roles.includes('enseignant'),
         roles.includes('etudiant'),
+        campusId,
+        departmentId,
       ],
     );
     if (rows.length) {
@@ -461,7 +504,13 @@ export class CahierTexteService {
     return { id: rows[0].id, nom: fichier.nom, mime: fichier.mime };
   }
 
-  async telechargerPiece(userId: number, roles: string[], pieceId: number) {
+  async telechargerPiece(
+    userId: number,
+    roles: string[],
+    pieceId: number,
+    campusId: number | null = null,
+    departmentId: number | null = null,
+  ) {
     const rows = await this.db.query<{
       id: number;
       file_name: string;
@@ -473,6 +522,8 @@ export class CahierTexteService {
        FROM academic.class_session_attachments a
        JOIN academic.class_sessions s ON s.id = a.session_id
        JOIN ref.course co ON co.id = s.course_id
+       JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        WHERE a.id = $1 AND (
          ($2::boolean AND EXISTS (
            SELECT 1 FROM ref.class_delegate cd
@@ -488,6 +539,8 @@ export class CahierTexteService {
            SELECT 1 FROM ref.enrollment e
            WHERE e.course_id = co.id AND e.student_id = $3
          ))
+         OR ($6::int IS NOT NULL AND d.campus_id = $6)
+         OR ($7::int IS NOT NULL AND p.department_id = $7)
        )`,
       [
         pieceId,
@@ -495,6 +548,8 @@ export class CahierTexteService {
         userId,
         roles.includes('enseignant'),
         roles.includes('etudiant'),
+        campusId,
+        departmentId,
       ],
     );
     if (!rows[0]) throw new NotFoundException('Pièce jointe introuvable');
@@ -515,8 +570,17 @@ export class CahierTexteService {
     roles: string[],
     format: FormatExport,
     ueId?: number,
+    campusId: number | null = null,
+    departmentId: number | null = null,
   ) {
-    const seances = await this.seances(userId, roles, ueId);
+    const seances = await this.seances(
+      userId,
+      roles,
+      ueId,
+      undefined,
+      campusId,
+      departmentId,
+    );
     await this.audit.enregistrer({
       userId,
       action: 'cahier_export',

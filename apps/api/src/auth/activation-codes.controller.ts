@@ -29,7 +29,7 @@ export class ActivationCodesController {
       throw new BadRequestException('Précisez tousSansMotDePasse ou une liste d’identifiants');
     }
     return this.campusScope
-      .forScolarite(requete.utilisateur.id, requete.utilisateur.roles)
+      .forScolarite(requete.utilisateur.id, [requete.utilisateur.activeRole])
       .then((campusId) => this.identity.genererCodesActivation(campusId, body));
   }
 }

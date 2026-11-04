@@ -29,11 +29,14 @@ export class CampagnesController {
   ) {}
 
   @Post()
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   async creer(@Body() corps: unknown, @Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     const resultat = validerCampagne(corps);
     if (!resultat.ok) throw new BadRequestException(resultat.erreur);
     await this.campusScope.verifierDepartement(resultat.valeur.departmentId, campusId);
@@ -41,40 +44,52 @@ export class CampagnesController {
   }
 
   @Get()
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   async lister(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     return this.campagnes.lister(campusId);
   }
 
   @Get(':id')
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   async detail(@Param('id') id: string, @Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     return this.campagnes.trouver(idOuErreur(id), campusId);
   }
 
   @Post(':id/ouvrir')
   @HttpCode(200)
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   async ouvrir(@Param('id') id: string, @Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     return this.campagnes.ouvrir(idOuErreur(id), campusId);
   }
 
   @Post(':id/cloturer')
   @HttpCode(200)
-  @Acces('scolarite', 'admin')
+  @Acces('scolarite')
   async cloturer(@Param('id') id: string, @Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId = await this.campusScope.forScolarite(utilisateur.id, utilisateur.roles);
+    const campusId = await this.campusScope.forScolarite(
+      utilisateur.id,
+      [utilisateur.activeRole],
+    );
     return this.campagnes.cloturer(idOuErreur(id), campusId);
   }
 }

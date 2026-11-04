@@ -24,6 +24,12 @@ export interface CommentaireAModererDto {
   statut: StatutModeration;
 }
 
+export interface CampagneCommentaireDto {
+  id: number;
+  libelle: string;
+  statut: 'close' | 'restituee';
+}
+
 interface LigneCommentaire {
   ballot_id: string;
   type: TypeCommentaire;
@@ -53,6 +59,19 @@ export class ModerationService {
     private readonly db: DatabaseService,
     private readonly urne: ResultsDatabaseService,
   ) {}
+
+  async campagnes(campusId: number | null = null): Promise<CampagneCommentaireDto[]> {
+    return this.db.query<CampagneCommentaireDto>(
+      `SELECT c.id, c.libelle, c.statut
+       FROM evaluation.campaigns c
+       JOIN ref.department d ON d.id = c.department_id
+       WHERE c.statut IN ('close', 'restituee')
+         AND c.urne_melangee_le IS NOT NULL
+         AND ($1::int IS NULL OR d.campus_id = $1)
+       ORDER BY c.id DESC`,
+      [campusId],
+    );
+  }
 
   async lister(
     campagneId: number,

@@ -17,6 +17,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Acces } from '../auth/acces.decorator';
 import type { RequeteAuthentifiee } from '../auth/auth.types';
+import { CampusScopeService } from '../database/campus-scope.service';
 import { lireId } from '../evaluation/campagnes.validation';
 import {
   CahierTexteService,
@@ -139,18 +140,23 @@ function utilisateur(requete: RequeteAuthentifiee) {
 
 @Controller('cahier-texte')
 export class CahierTexteController {
-  constructor(private readonly cahier: CahierTexteService) {}
+  constructor(
+    private readonly cahier: CahierTexteService,
+    private readonly campusScope: CampusScopeService,
+  ) {}
 
   @Get('mes-ues')
-  @Acces('delegue', 'enseignant', 'etudiant')
-  mesUes(@Req() requete: RequeteAuthentifiee) {
+  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
+  async mesUes(@Req() requete: RequeteAuthentifiee) {
     const user = utilisateur(requete);
-    return this.cahier.mesUes(user.id, user.roles);
+    const roles = [user.activeRole];
+    const { campusId, departmentId } = await this.perimetreLecture(user);
+    return this.cahier.mesUes(user.id, roles, campusId, departmentId);
   }
 
   @Get('seances')
-  @Acces('delegue', 'enseignant', 'etudiant')
-  seances(
+  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
+  async seances(
     @Req() requete: RequeteAuthentifiee,
     @Query('ueId') ueIdBrut?: string,
     @Query('statutVisa') visaBrut?: string,
@@ -163,11 +169,14 @@ export class CahierTexteController {
       throw new BadRequestException('statutVisa invalide');
     }
     const user = utilisateur(requete);
+    const { campusId, departmentId } = await this.perimetreLecture(user);
     return this.cahier.seances(
       user.id,
-      user.roles,
+      [user.activeRole],
       ueId ?? undefined,
       visaBrut as StatutVisa,
+      campusId,
+      departmentId,
     );
   }
 
@@ -245,11 +254,11 @@ export class CahierTexteController {
     if (ueId === null)
       throw new BadRequestException('ueId doit être un entier positif');
     const user = utilisateur(requete);
-    return this.cahier.avancement(user.id, user.roles, ueId);
+    return this.cahier.avancement(user.id, [user.activeRole], ueId);
   }
 
   @Get('export')
-  @Acces('delegue', 'enseignant', 'etudiant')
+  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
   async exporter(
     @Req() requete: RequeteAuthentifiee,
     @QueryParam('format') formatBrut: string,
@@ -263,11 +272,14 @@ export class CahierTexteController {
     if (ueIdBrut !== undefined && ueId === null) {
       throw new BadRequestException('ueId doit être un entier positif');
     }
+    const { campusId, departmentId } = await this.perimetreLecture(user);
     const fichier = await this.cahier.exporter(
       user.id,
-      user.roles,
+      [user.activeRole],
       formatBrut as FormatExport,
       ueId ?? undefined,
+      campusId,
+      departmentId,
     );
     const nom = `cahier-texte.${fichier.extension}`;
     return new StreamableFile(fichier.contenu, {
@@ -277,23 +289,37 @@ export class CahierTexteController {
   }
 
   @Get('seances/:id/historique')
-  @Acces('delegue', 'enseignant', 'etudiant')
-  historique(@Req() requete: RequeteAuthentifiee, @Param('id') idBrut: string) {
+  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
+  async historique(@Req() requete: RequeteAuthentifiee, @Param('id') idBrut: string) {
     const id = lireId(idBrut);
     if (id === null)
       throw new BadRequestException('id doit être un entier positif');
     const user = utilisateur(requete);
-    return this.cahier.historique(user.id, user.roles, id);
+    const { campusId, departmentId } = await this.perimetreLecture(user);
+    return this.cahier.historique(
+      user.id,
+      [user.activeRole],
+      id,
+      campusId,
+      departmentId,
+    );
   }
 
   @Get('seances/:id/pieces')
-  @Acces('delegue', 'enseignant', 'etudiant')
-  pieces(@Req() requete: RequeteAuthentifiee, @Param('id') idBrut: string) {
+  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
+  async pieces(@Req() requete: RequeteAuthentifiee, @Param('id') idBrut: string) {
     const id = lireId(idBrut);
     if (id === null)
       throw new BadRequestException('id doit être un entier positif');
     const user = utilisateur(requete);
-    return this.cahier.listerPieces(user.id, user.roles, id);
+    const { campusId, departmentId } = await this.perimetreLecture(user);
+    return this.cahier.listerPieces(
+      user.id,
+      [user.activeRole],
+      id,
+      campusId,
+      departmentId,
+    );
   }
 
   @Post('seances/:id/pieces')
@@ -347,7 +373,7 @@ export class CahierTexteController {
   }
 
   @Get('pieces/:id')
-  @Acces('delegue', 'enseignant', 'etudiant')
+  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
   async telechargerPiece(
     @Req() requete: RequeteAuthentifiee,
     @Param('id') idBrut: string,
@@ -356,11 +382,41 @@ export class CahierTexteController {
     if (id === null)
       throw new BadRequestException('id doit être un entier positif');
     const user = utilisateur(requete);
-    const fichier = await this.cahier.telechargerPiece(user.id, user.roles, id);
+    const { campusId, departmentId } = await this.perimetreLecture(user);
+    const fichier = await this.cahier.telechargerPiece(
+      user.id,
+      [user.activeRole],
+      id,
+      campusId,
+      departmentId,
+    );
     const nomEncode = encodeURIComponent(fichier.nom);
     return new StreamableFile(fichier.contenu, {
       type: fichier.mime,
       disposition: `attachment; filename*=UTF-8''${nomEncode}`,
     });
+  }
+
+  private async perimetreLecture(user: {
+    id: number;
+    activeRole: string;
+  }): Promise<{ campusId: number | null; departmentId: number | null }> {
+    if (user.activeRole === 'scolarite') {
+      return {
+        campusId: await this.campusScope.forScolarite(user.id, [
+          user.activeRole,
+        ]),
+        departmentId: null,
+      };
+    }
+    if (user.activeRole === 'chef_departement') {
+      return {
+        campusId: null,
+        departmentId: await this.campusScope.forChefDepartement(user.id, [
+          user.activeRole,
+        ]),
+      };
+    }
+    return { campusId: null, departmentId: null };
   }
 }

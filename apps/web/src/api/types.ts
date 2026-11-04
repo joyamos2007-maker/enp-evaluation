@@ -476,6 +476,12 @@ export interface CampagneGestion {
   statut: StatutCampagne;
 }
 
+export interface CampagneCommentaire {
+  id: number;
+  libelle: string;
+  statut: Extract<StatutCampagne, "close" | "restituee">;
+}
+
 export interface CampagneEntreeGestion {
   libelle: string;
   departmentId: number;

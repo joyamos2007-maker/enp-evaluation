@@ -45,15 +45,31 @@ export class AuditService {
     );
   }
 
-  async lister(limit: number) {
+  async lister(limit: number, campusId: number | null = null) {
     const rows = await this.db.query<LigneAudit>(
       `SELECT id,
               to_char(cree_le AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS cree_le,
               user_id, action, campaign_id, course_id, objet, detail
        FROM audit.journal
+       WHERE $2::int IS NULL OR (
+         (course_id IS NOT NULL OR campaign_id IS NOT NULL)
+         AND (course_id IS NULL OR EXISTS (
+           SELECT 1
+           FROM ref.course co
+           JOIN ref.program p ON p.id = co.program_id
+           JOIN ref.department d ON d.id = p.department_id
+           WHERE co.id = audit.journal.course_id AND d.campus_id = $2
+         ))
+         AND (campaign_id IS NULL OR EXISTS (
+           SELECT 1
+           FROM evaluation.campaigns c
+           JOIN ref.department d ON d.id = c.department_id
+           WHERE c.id = audit.journal.campaign_id AND d.campus_id = $2
+         ))
+       )
        ORDER BY cree_le DESC, id DESC
        LIMIT $1`,
-      [limit],
+      [limit, campusId],
     );
     return rows.map((row) => ({
       id: row.id,

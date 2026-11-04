@@ -6,11 +6,14 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { construireSections, type LigneCritere } from './calcul';
-import { DELAI_PREPARATION_SECONDES, SEUIL_ANONYMAT } from './resultats.constants';
+import {
+  DELAI_PREPARATION_SECONDES,
+  SEUIL_ANONYMAT,
+} from './resultats.constants';
 import type { ResultatUe, ResultatUeResume } from './resultats.types';
 import { ResultsDatabaseService } from './results-database.service';
 
-const ROLES_COMPLETS = ['scolarite', 'admin'];
+const ROLES_COMPLETS = ['scolarite', 'direction_etudes'];
 
 interface LigneMesUes {
   ue_id: number;
@@ -46,22 +49,42 @@ export class ResultatsService {
 
   // Les droits et les referentiels viennent de la base principale ; les chiffres
   // viennent de l'urne, par un role en lecture seule.
-  async mesUes(enseignantId: number): Promise<ResultatUeResume[]> {
+  async mesUes(
+    utilisateurId: number,
+    roles: string[] = ['enseignant'],
+    campusId: number | null = null,
+    departmentId: number | null = null,
+  ): Promise<ResultatUeResume[]> {
     const lignes = await this.db.query<LigneMesUes>(
       `SELECT co.id AS ue_id, ue.code, ue.intitule, c.id AS campagne_id,
               c.libelle AS libelle_campagne,
               (SELECT COUNT(*)::int FROM ref.enrollment e WHERE e.course_id = co.id) AS inscrits
-       FROM ref.course_teacher ct
-       JOIN ref.course co ON co.id = ct.course_id
+       FROM ref.course co
        JOIN ref.ue ue ON ue.id = co.ue_id
        JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        JOIN evaluation.campaigns c
          ON c.department_id = p.department_id
         AND c.annee_universitaire = co.annee_universitaire
         AND c.semestre = co.semestre
-       WHERE ct.teacher_id = $1 AND c.statut IN ('close', 'restituee')
+       WHERE c.statut IN ('close', 'restituee')
+         AND (
+           ($2::boolean AND EXISTS (
+             SELECT 1 FROM ref.course_teacher ct
+             WHERE ct.course_id = co.id AND ct.teacher_id = $1
+           ))
+           OR ($3::int IS NOT NULL AND p.department_id = $3)
+           OR ($4::int IS NOT NULL AND d.campus_id = $4)
+           OR $5::boolean
+         )
        ORDER BY c.id DESC, ue.code`,
-      [enseignantId],
+      [
+        utilisateurId,
+        roles.includes('enseignant'),
+        departmentId,
+        campusId,
+        roles.includes('direction_etudes'),
+      ],
     );
     if (lignes.length === 0) return [];
 
@@ -73,7 +96,11 @@ export class ResultatsService {
     const retenues = lignes.filter((l) => pretes.has(l.campagne_id));
     if (retenues.length === 0) return [];
 
-    const comptes = await this.urne.lire<{ campagne_id: number; course_id: number; n: number }>(
+    const comptes = await this.urne.lire<{
+      campagne_id: number;
+      course_id: number;
+      n: number;
+    }>(
       `SELECT b.campaign_id AS campagne_id, b.course_id, COUNT(*)::int AS n
        FROM ballot.ballots b
        ${CAMPAGNE_LISIBLE}
@@ -82,7 +109,8 @@ export class ResultatsService {
       [retenues.map((l) => l.campagne_id), retenues.map((l) => l.ue_id)],
     );
     const nombres = new Map<string, number>();
-    for (const c of comptes) nombres.set(c.campagne_id + ':' + c.course_id, c.n);
+    for (const c of comptes)
+      nombres.set(c.campagne_id + ':' + c.course_id, c.n);
 
     return retenues.map((l) => {
       const repondants = nombres.get(l.campagne_id + ':' + l.ue_id) ?? 0;
@@ -128,16 +156,22 @@ export class ResultatsService {
     const l = lignes[0];
     if (!l) throw new NotFoundException('UE ou campagne introuvable');
 
-    const accesComplet = utilisateur.roles.some((r) => ROLES_COMPLETS.includes(r));
+    const accesComplet = utilisateur.roles.some((r) =>
+      ROLES_COMPLETS.includes(r),
+    );
     const dirigeDepartement =
       utilisateur.roles.includes('chef_departement') &&
       departmentId !== null &&
       l.department_id === departmentId;
     if (!accesComplet && !dirigeDepartement && !l.enseigne) {
-      throw new ForbiddenException('Acces refuse : cette UE n est pas la votre');
+      throw new ForbiddenException(
+        'Acces refuse : cette UE n est pas la votre',
+      );
     }
     if (l.statut !== 'close' && l.statut !== 'restituee') {
-      throw new ConflictException('Les resultats ne sont disponibles qu apres la cloture de la campagne');
+      throw new ConflictException(
+        'Les resultats ne sont disponibles qu apres la cloture de la campagne',
+      );
     }
     const etat = await this.preparer(campagneId);
     if (etat !== 'prete') {
@@ -213,7 +247,9 @@ export class ResultatsService {
       repondants,
       detailDisponible: true,
       sections: construireSections(criteres),
-      pointsForts: commentaires.filter((c) => c.type === 'points_forts').map((c) => c.texte),
+      pointsForts: commentaires
+        .filter((c) => c.type === 'points_forts')
+        .map((c) => c.texte),
       pointsAAmeliorer: commentaires
         .filter((c) => c.type === 'points_a_ameliorer')
         .map((c) => c.texte),

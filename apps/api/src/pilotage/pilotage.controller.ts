@@ -28,7 +28,7 @@ export class PilotageController {
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
     const departmentId = await this.campusScope.forChefDepartement(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
     );
     return this.pilotage.campagnes(departmentId);
   }
@@ -44,7 +44,7 @@ export class PilotageController {
     if (campagneId === null) throw new BadRequestException('Identifiant de campagne invalide');
     const departmentId = await this.campusScope.forChefDepartement(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
     );
     return this.pilotage.participation(campagneId, departmentId);
   }
@@ -60,7 +60,7 @@ export class PilotageController {
     if (campagneId === null) throw new BadRequestException('Identifiant de campagne invalide');
     const departmentId = await this.campusScope.forChefDepartement(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
     );
     return this.pilotage.synthese(campagneId, departmentId);
   }
@@ -76,7 +76,7 @@ export class PilotageController {
     if (campagneId === null) throw new BadRequestException('Identifiant de campagne invalide');
     const departmentId = await this.campusScope.forChefDepartement(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
     );
     return this.pilotage.lireSuites(campagneId, departmentId);
   }
@@ -93,7 +93,7 @@ export class PilotageController {
     if (campagneId === null) throw new BadRequestException('Identifiant de campagne invalide');
     const departmentId = await this.campusScope.forChefDepartement(
       utilisateur.id,
-      utilisateur.roles,
+      [utilisateur.activeRole],
     );
     return this.pilotage.enregistrerSuites(
       campagneId,

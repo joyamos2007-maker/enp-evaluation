@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BarChart3, AlertCircle, ArrowRight, ShieldCheck, Search, Users, CheckCircle2 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { ResultatUeResume } from '@/api/types';
+import { useAuth } from '@/auth/AuthContext';
 import { PageHeader, Table, Button, Badge, ProgressBar, Input, Alert, EmptyState } from '@/components/ui';
 
 export function MesResultats() {
   const navigate = useNavigate();
+  const { aRole } = useAuth();
   const [resultats, setResultats] = useState<ResultatUeResume[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -39,12 +41,19 @@ export function MesResultats() {
         r.libelleCampagne.toLowerCase().includes(recherche.toLowerCase()),
     );
   }, [resultats, recherche]);
+  const perimetre = aRole('direction_etudes')
+    ? 'de tous les campus'
+    : aRole('scolarite')
+      ? 'de votre campus'
+      : aRole('chef_departement')
+        ? 'de votre département'
+        : 'de vos unités d’enseignement';
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
       <PageHeader
         title="Résultats d'Évaluation des Enseignements"
-        description="Fiches de synthèse officielles et bilans pédagogiques de vos unités d'enseignement"
+        description={`Fiches de synthèse officielles et bilans pédagogiques ${perimetre}`}
         breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Résultats des évaluations' }]}
       />
 
@@ -80,7 +89,7 @@ export function MesResultats() {
       ) : resultatsFiltres.length === 0 ? (
         <EmptyState
           title="Aucun résultat d'évaluation disponible"
-          description="Les résultats d'évaluation seront consultables dès la clôture des campagnes par la Scolarité et le dépouillement officiel de l'urne."
+          description="Les résultats d'évaluation seront consultables dès la clôture des campagnes et le dépouillement officiel de l'urne."
         />
       ) : (
         <>
