@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
-import { ShieldCheck, Smartphone, KeyRound, AlertCircle, CheckCircle2, Lock, Info } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Smartphone, KeyRound, Lock } from 'lucide-react';
 import { ApiError, api } from '@/api';
+import { useAuth } from '@/auth/AuthContext';
 import { PageHeader, Button, Input, Alert, Badge } from '@/components/ui';
 
 export function SecuriteCompte() {
+  const { deconnecter } = useAuth();
+  const navigate = useNavigate();
   const [totpActive, setTotpActive] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
-  const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [chargement, setChargement] = useState(true);
   const [enCours, setEnCours] = useState(false);
+  const [motDePasseActuel, setMotDePasseActuel] = useState('');
+  const [nouveauMotDePasse, setNouveauMotDePasse] = useState('');
+  const [confirmationMotDePasse, setConfirmationMotDePasse] = useState('');
 
   async function chargerStatut() {
     try {
@@ -19,8 +24,6 @@ export function SecuriteCompte() {
       setTotpActive(statut.totpActive);
     } catch (cause) {
       setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Impossible de charger le statut MFA.');
-    } finally {
-      setChargement(false);
     }
   }
 
@@ -35,7 +38,6 @@ export function SecuriteCompte() {
     try {
       const resultat = await api.preparerMfaTotp();
       setSecret(resultat.secret);
-      setOtpauthUrl(resultat.otpauthUrl);
     } catch (cause) {
       setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Configuration TOTP impossible.');
     } finally {
@@ -58,10 +60,32 @@ export function SecuriteCompte() {
       }
       setCode('');
       setSecret(null);
-      setOtpauthUrl(null);
     } catch (cause) {
       setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Le code TOTP saisi est invalide.');
     } finally {
+      setEnCours(false);
+    }
+  }
+
+  async function changerMotDePasse(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErreur(null);
+    setMessage(null);
+    if (nouveauMotDePasse !== confirmationMotDePasse) {
+      setErreur('La confirmation ne correspond pas au nouveau mot de passe.');
+      return;
+    }
+
+    setEnCours(true);
+    try {
+      await api.changerMotDePasse({ motDePasseActuel, nouveauMotDePasse });
+      await deconnecter();
+      navigate('/connexion', {
+        replace: true,
+        state: { message: 'Reconnectez-vous avec votre nouveau mot de passe.' },
+      });
+    } catch (cause) {
+      setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Impossible de modifier le mot de passe.');
       setEnCours(false);
     }
   }
@@ -120,7 +144,7 @@ export function SecuriteCompte() {
           <div className="space-y-4">
             <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed">
               Une application d’authentification est actuellement liée à votre compte.
-              Lors de vos connexions, un code à 6 chiffres vous sera demandé.
+              Un code sera demandé à chaque nouvelle connexion, sauf sur un appareil marqué comme fiable pendant 30 jours.
             </p>
 
             <div className="pt-2 max-w-sm space-y-3">
@@ -173,7 +197,6 @@ export function SecuriteCompte() {
                   className="w-full sm:w-auto justify-center"
                   onClick={() => {
                     setSecret(null);
-                    setOtpauthUrl(null);
                   }}
                 >
                   Annuler
@@ -207,6 +230,60 @@ export function SecuriteCompte() {
             </Button>
           </div>
         )}
+      </div>
+
+      <div className="bg-white border border-enp-border p-6 space-y-4">
+        <div className="flex items-center gap-3 pb-4 border-b border-enp-border">
+          <div className="p-3 bg-enp-blue-ice border border-enp-border text-enp-blue-primary">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-enp-blue-deep">Modifier le mot de passe</h2>
+            <p className="text-xs text-enp-gray-medium mt-0.5">
+              Le changement déconnectera les sessions et appareils de confiance existants.
+            </p>
+          </div>
+        </div>
+        <form className="max-w-md space-y-4" onSubmit={(event) => void changerMotDePasse(event)}>
+          <Input
+            label="Mot de passe actuel"
+            type="password"
+            autoComplete="current-password"
+            required
+            maxLength={200}
+            value={motDePasseActuel}
+            onChange={(event) => setMotDePasseActuel(event.target.value)}
+          />
+          <Input
+            label="Nouveau mot de passe"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={12}
+            maxLength={200}
+            helperText="12 caractères minimum."
+            value={nouveauMotDePasse}
+            onChange={(event) => setNouveauMotDePasse(event.target.value)}
+          />
+          <Input
+            label="Confirmer le nouveau mot de passe"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={12}
+            maxLength={200}
+            value={confirmationMotDePasse}
+            onChange={(event) => setConfirmationMotDePasse(event.target.value)}
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={enCours}
+            disabled={!motDePasseActuel || !nouveauMotDePasse || !confirmationMotDePasse}
+          >
+            Modifier le mot de passe
+          </Button>
+        </form>
       </div>
     </div>
   );

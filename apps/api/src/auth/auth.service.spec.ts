@@ -12,7 +12,13 @@ describe('AuthService', () => {
   const passwords = { verify: jest.fn(), hash: jest.fn() };
   const tokens = { signerAcces: jest.fn() };
   const sessions = { creer: jest.fn(), renouveler: jest.fn(), revoquer: jest.fn() };
-  const identity = { creerChallengeMfa: jest.fn(), totpDisponible: jest.fn(), verifierChallengeMfa: jest.fn() };
+  const identity = {
+    creerChallengeMfa: jest.fn(),
+    totpDisponible: jest.fn(),
+    verifierChallengeMfa: jest.fn(),
+    appareilMfaFiable: jest.fn(),
+    creerAppareilMfaFiable: jest.fn(),
+  };
   const service = new AuthService(
     users as never,
     passwords as never,
@@ -40,6 +46,11 @@ describe('AuthService', () => {
     tokens.signerAcces.mockReturnValue('jeton-signe');
     users.rolesDe.mockResolvedValue(['etudiant']);
     sessions.creer.mockResolvedValue({ jeton: 'refresh-1', expireLe });
+    identity.appareilMfaFiable.mockResolvedValue(false);
+    identity.creerAppareilMfaFiable.mockResolvedValue({
+      jeton: 'trusted-device-token',
+      expireLe,
+    });
   });
 
   it('connecte un utilisateur valide et ouvre une session', async () => {
@@ -122,6 +133,60 @@ describe('AuthService', () => {
     passwords.verify.mockResolvedValue(true);
     await service.connecter('TEST-0001', 'bon');
     expect(users.reinitialiserEchecs).toHaveBeenCalledWith(1);
+  });
+
+  it('demande le MFA aux comptes privilégiés sur un appareil non approuvé', async () => {
+    users.trouverParIdentifiant.mockResolvedValue({
+      ...utilisateur,
+      email: 'admin@enp.tg',
+    });
+    users.rolesDe.mockResolvedValue(['admin']);
+    passwords.verify.mockResolvedValue(true);
+    identity.totpDisponible.mockResolvedValue(false);
+    identity.creerChallengeMfa.mockResolvedValue({
+      mfaRequired: true,
+      challengeId: 'challenge-1',
+      methods: ['email'],
+    });
+
+    const resultat = await service.connecter('ADMIN-1', 'bon', 'cookie-device');
+
+    expect(resultat).toEqual({
+      mfaRequired: true,
+      challengeId: 'challenge-1',
+      methods: ['email'],
+    });
+    expect(identity.appareilMfaFiable).toHaveBeenCalledWith(1, 'cookie-device');
+  });
+
+  it('évite un nouveau challenge MFA sur un appareil approuvé', async () => {
+    users.trouverParIdentifiant.mockResolvedValue({
+      ...utilisateur,
+      email: 'admin@enp.tg',
+    });
+    users.rolesDe.mockResolvedValue(['admin']);
+    passwords.verify.mockResolvedValue(true);
+    identity.appareilMfaFiable.mockResolvedValue(true);
+
+    const resultat = await service.connecter('ADMIN-1', 'bon', 'cookie-device');
+
+    expect(resultat.accessToken).toBe('jeton-signe');
+    expect(sessions.creer).toHaveBeenCalledWith(1, 'admin');
+    expect(identity.creerChallengeMfa).not.toHaveBeenCalled();
+  });
+
+  it('crée un appareil de confiance uniquement après validation MFA demandée', async () => {
+    identity.verifierChallengeMfa.mockResolvedValue(1);
+    users.trouverParId.mockResolvedValue(utilisateur);
+    users.rolesDe.mockResolvedValue(['admin']);
+
+    const resultat = await service.verifierMfa('challenge-1', 'email', '123456', true);
+
+    expect(identity.creerAppareilMfaFiable).toHaveBeenCalledWith(1);
+    expect(resultat.appareilMfa).toEqual({
+      jeton: 'trusted-device-token',
+      expireLe,
+    });
   });
 
   it('rafraichit la session : nouveau jeton d acces et nouveau jeton de session', async () => {

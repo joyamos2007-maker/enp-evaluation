@@ -17,7 +17,7 @@ import {
 import { api, ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthContext';
 import { MockBanner } from '@/components/MockBanner';
-import { Button, Input, Alert } from '@/components/ui';
+import { Button, Input, Alert, Checkbox } from '@/components/ui';
 import type { ChallengeMfa } from '@/api/types';
 
 interface EtatConnexion {
@@ -39,6 +39,8 @@ export function Connexion() {
   const [challengeMfa, setChallengeMfa] = useState<ChallengeMfa | null>(null);
   const [methodeMfa, setMethodeMfa] = useState<'email' | 'totp'>('email');
   const [codeMfa, setCodeMfa] = useState('');
+  const [memoriserAppareil, setMemoriserAppareil] = useState(false);
+  const messageInfo = (location.state as { message?: string } | null)?.message;
 
   const isMock = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -61,6 +63,7 @@ export function Connexion() {
           challengeId: challengeMfa.challengeId,
           method: methodeMfa,
           code: codeMfa.trim(),
+          rememberDevice: memoriserAppareil,
         });
         connecter(rep);
         navigate(from, { replace: true });
@@ -205,6 +208,13 @@ export function Connexion() {
                   </Alert>
                 </div>
               )}
+              {messageInfo && (
+                <div className="mb-5">
+                  <Alert variant="success" title="Mot de passe modifié">
+                    {messageInfo}
+                  </Alert>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 {challengeMfa ? (
@@ -242,6 +252,13 @@ export function Connexion() {
                       placeholder="Ex: 849201"
                       startIcon={<KeyRound className="w-4 h-4" />}
                       helperText="Saisissez le code à usage unique généré pour cette session."
+                    />
+
+                    <Checkbox
+                      checked={memoriserAppareil}
+                      onChange={(event) => setMemoriserAppareil(event.target.checked)}
+                      label="Faire confiance à cet appareil pendant 30 jours"
+                      description="Le second facteur ne sera pas redemandé sur ce navigateur pendant cette période. Ne cochez pas cette option sur un appareil partagé."
                     />
 
                     <div className="flex gap-2">

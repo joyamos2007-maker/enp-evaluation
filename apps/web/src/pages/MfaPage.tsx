@@ -33,8 +33,8 @@ export function MfaPage() {
             </p>
 
             <Alert variant="institutional" title="Sécurité renforcée">
-              La vérification s’effectue automatiquement lors de votre connexion avec un code à 6 chiffres
-              envoyé par e-mail ou généré via votre application TOTP.
+              Lors d’une connexion sur un appareil non approuvé, la vérification s’effectue avec un code à 6 chiffres
+              envoyé par e-mail ou généré via votre application TOTP. Vous pouvez choisir de faire confiance à un appareil pendant 30 jours.
             </Alert>
 
             <div className="pt-2">
@@ -50,4 +50,3 @@ export function MfaPage() {
     </div>
   );
 }
-

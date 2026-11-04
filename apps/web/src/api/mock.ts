@@ -490,11 +490,32 @@ export async function activation(
   return { ok: true };
 }
 
-export async function verifierMfa(): Promise<ReponseConnexion> {
+export async function verifierMfa(_corps: {
+  challengeId: string;
+  method: "email" | "totp";
+  code: string;
+  rememberDevice?: boolean;
+}): Promise<ReponseConnexion> {
+  void _corps;
   throw new ApiError({
     message: "MFA indisponible en mode démonstration.",
     statusCode: 400,
   });
+}
+
+export async function changerMotDePasse(_corps: {
+  motDePasseActuel: string;
+  nouveauMotDePasse: string;
+}): Promise<ReponseSimple> {
+  await delai();
+  if (!_corps.motDePasseActuel || _corps.nouveauMotDePasse.length < 12) {
+    throw new ApiError({
+      message: "Vérifiez le mot de passe actuel et la longueur du nouveau.",
+      statusCode: 400,
+    });
+  }
+  sessionMemoire = null;
+  return { ok: true };
 }
 
 export async function demanderReinitialisation(): Promise<ReponseSimple> {

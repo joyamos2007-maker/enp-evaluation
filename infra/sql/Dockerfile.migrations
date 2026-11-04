@@ -1,0 +1,29 @@
+FROM postgres:16-alpine
+
+WORKDIR /migrations
+
+COPY infra/sql/run-migrations.sh /migrations/run-migrations.sh
+COPY infra/sql/000_init_schemas.sql /migrations/
+COPY infra/sql/01-schemas.sql /migrations/
+COPY infra/sql/02-identity.sql /migrations/
+COPY infra/sql/03-session.sql /migrations/
+COPY infra/sql/04-referentiels.sql /migrations/
+COPY infra/sql/05-evaluation.sql /migrations/
+COPY infra/sql/06-urne.sql /migrations/
+COPY infra/sql/07-resultats.sql /migrations/
+COPY infra/sql/08-moderation.sql /migrations/
+COPY infra/sql/008_step_a_multi_campus_imports.sql /migrations/
+COPY infra/sql/009_direction_etudes.sql /migrations/
+COPY infra/sql/010_cahier_texte.sql /migrations/
+COPY infra/sql/011_chef_departement_pilotage.sql /migrations/
+COPY infra/sql/012_notes_presences.sql /migrations/
+COPY infra/sql/013_deliberation_examens.sql /migrations/
+COPY infra/sql/014_auth_lifecycle.sql /migrations/
+COPY infra/sql/015_imports_affectations_archives.sql /migrations/
+COPY infra/sql/016_notifications_exports_cahier_audit.sql /migrations/
+COPY infra/sql/017_mfa_trusted_devices.sql /migrations/
+
+RUN sed -i 's/\r$//' /migrations/run-migrations.sh \
+    && chmod 0555 /migrations/run-migrations.sh
+
+ENTRYPOINT ["/bin/sh", "/migrations/run-migrations.sh"]

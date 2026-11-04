@@ -8,8 +8,8 @@ import { Secret, TOTP } from 'otpauth';
 import { IdentityService } from './identity.service';
 
 describe('IdentityService', () => {
-  const db = { query: jest.fn() };
-  const passwords = { hash: jest.fn() };
+  const db = { query: jest.fn(), transaction: jest.fn() };
+  const passwords = { hash: jest.fn(), verify: jest.fn() };
   const email = { envoyer: jest.fn(), enfiler: jest.fn() };
   const secret = 'c'.repeat(40);
   const config = {
@@ -29,6 +29,10 @@ describe('IdentityService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     passwords.hash.mockResolvedValue('argon-hash');
+    passwords.verify.mockResolvedValue(false);
+    db.transaction.mockImplementation(
+      async (work: (query: typeof db.query) => Promise<unknown>) => work(db.query),
+    );
   });
 
   it('consomme atomiquement le code d’activation et configure un mot de passe', async () => {
@@ -83,6 +87,70 @@ describe('IdentityService', () => {
       .mockResolvedValueOnce([]);
     await service.demanderReinitialisation('ETU-12');
     expect(email.enfiler).not.toHaveBeenCalled();
+  });
+
+  it('réinitialise le mot de passe et révoque sessions et appareils de confiance atomiquement', async () => {
+    db.query.mockResolvedValueOnce([{ user_id: 12 }]);
+
+    await service.reinitialiser('ETU-12', '123456', 'nouveau-mot-de-passe-long');
+
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).toContain('UPDATE identity.account_tokens');
+    expect(db.query.mock.calls[1][0]).toContain('UPDATE identity.refresh_tokens');
+    expect(db.query.mock.calls[2][0]).toContain('DELETE FROM identity.mfa_trusted_devices');
+    expect(passwords.hash).toHaveBeenCalledWith('nouveau-mot-de-passe-long');
+  });
+
+  it('change le mot de passe après vérification de l’ancien et invalide les sessions', async () => {
+    db.query.mockResolvedValueOnce([{ mot_de_passe_hash: 'ancien-hash' }]);
+    passwords.verify.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    await service.changerMotDePasse(12, 'ancien-mot-de-passe', 'nouveau-mot-de-passe-long');
+
+    expect(db.query.mock.calls[0]).toEqual([
+      'SELECT mot_de_passe_hash FROM identity.users WHERE id = $1 AND actif',
+      [12],
+    ]);
+    expect(passwords.verify).toHaveBeenNthCalledWith(1, 'ancien-hash', 'ancien-mot-de-passe');
+    expect(passwords.verify).toHaveBeenNthCalledWith(2, 'ancien-hash', 'nouveau-mot-de-passe-long');
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[1][0]).toContain('SET mot_de_passe_hash = $2');
+    expect(db.query.mock.calls[2][0]).toContain('UPDATE identity.refresh_tokens');
+    expect(db.query.mock.calls[3][0]).toContain('DELETE FROM identity.mfa_trusted_devices');
+  });
+
+  it('refuse le changement si le mot de passe actuel est incorrect', async () => {
+    db.query.mockResolvedValueOnce([{ mot_de_passe_hash: 'ancien-hash' }]);
+    passwords.verify.mockResolvedValueOnce(false);
+
+    await expect(
+      service.changerMotDePasse(12, 'mauvais', 'nouveau-mot-de-passe-long'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('stocke uniquement le hash d’un jeton d’appareil de confiance', async () => {
+    db.query.mockResolvedValueOnce([]);
+
+    const appareil = await service.creerAppareilMfaFiable(12);
+
+    expect(appareil.jeton).toHaveLength(43);
+    expect(db.query.mock.calls[0][0]).toContain('INSERT INTO identity.mfa_trusted_devices');
+    expect(db.query.mock.calls[0][1]).toEqual([
+      12,
+      expect.not.stringContaining(appareil.jeton),
+      appareil.expireLe,
+    ]);
+  });
+
+  it('accepte uniquement un jeton de confiance valide et non expiré', async () => {
+    db.query.mockResolvedValueOnce([{ user_id: 12 }]);
+
+    await expect(service.appareilMfaFiable(12, 'device-token')).resolves.toBe(true);
+
+    expect(db.query.mock.calls[0][0]).toContain('expires_at > NOW()');
+    expect(db.query.mock.calls[0][1]).toEqual([12, expect.any(String)]);
+    expect(db.query.mock.calls[0][1][1]).not.toBe('device-token');
   });
 
   it('chiffre le secret TOTP au repos et l’active après vérification du code', async () => {

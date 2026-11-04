@@ -280,6 +280,7 @@ export async function verifierMfa(corps: {
   challengeId: string;
   method: "email" | "totp";
   code: string;
+  rememberDevice?: boolean;
 }): Promise<ReponseConnexion> {
   const data = await requete<ReponseConnexion>("/auth/mfa/verify", {
     method: "POST",
@@ -287,6 +288,18 @@ export async function verifierMfa(corps: {
     sansAuth: true,
   });
   setAccessToken(data.accessToken, data.expiresIn);
+  return data;
+}
+
+export async function changerMotDePasse(corps: {
+  motDePasseActuel: string;
+  nouveauMotDePasse: string;
+}): Promise<ReponseSimple> {
+  const data = await requete<ReponseSimple>("/auth/password/change", {
+    method: "POST",
+    body: corps,
+  });
+  clearAccessToken();
   return data;
 }
 

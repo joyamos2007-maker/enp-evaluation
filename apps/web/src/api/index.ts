@@ -20,6 +20,7 @@ export const api = {
   deconnexion: impl.deconnexion,
   activation: impl.activation,
   verifierMfa: impl.verifierMfa,
+  changerMotDePasse: impl.changerMotDePasse,
   demanderReinitialisation: impl.demanderReinitialisation,
   confirmerReinitialisation: impl.confirmerReinitialisation,
   changerProfil: impl.changerProfil,
