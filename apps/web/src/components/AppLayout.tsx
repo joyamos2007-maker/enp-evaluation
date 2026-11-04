@@ -228,7 +228,7 @@ export function AppLayout() {
           className={({ isActive }) => classeLienNavigation(isActive)}
         >
           <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span className="font-medium">Tableau de bord</span>
+          <span className="font-medium">Accueil</span>
         </NavLink>
       </div>
 
@@ -321,7 +321,7 @@ export function AppLayout() {
               <Link
                 to="/"
                 className="flex items-center gap-2 sm:gap-3 focus:outline-none focus:ring-1 focus:ring-white/40 py-1"
-                title="Retour au tableau de bord institutionnel"
+                title="Retour à l’accueil"
               >
                 <ENPLogo variant="light" size="md" showSubtitle={false} showArmoiries={false} />
               </Link>

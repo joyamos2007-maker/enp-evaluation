@@ -55,7 +55,7 @@ export function Accueil() {
         } else if (role === 'enseignant') {
           const seances = await api.cahierSeances(undefined, 'en_attente');
           if (actif) setSeancesAttente(seances);
-        } else if (role === 'scolarite' || role === 'admin') {
+        } else if (role === 'scolarite') {
           const tb = await api.scolariteTableauDeBord();
           if (actif) setTbScolarite(tb);
         }
@@ -961,35 +961,17 @@ export function Accueil() {
             <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-enp-blue-primary flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 shrink-0" />
-                Supervision Système
+                Administration système
               </span>
-              <InfoBubble
-                triggerVariant="pill"
-                triggerLabel="Cryptographie de l'urne"
-                title="Sécurité cryptographique et auditabilité"
-                badge="SÉCURITÉ SYSTÈME"
-                icon="shield"
-                duration={6000}
-                content={
-                  <div className="space-y-2 text-xs leading-relaxed">
-                    <p>
-                      La plateforme ENP garantit le secret absolu du scrutin par découplage cryptographique irréversible entre les jetons d'authentification et les bulletins chiffrés.
-                    </p>
-                    <p className="text-[11px] text-enp-gray-medium border-t border-enp-border pt-1.5">
-                      Chaque action sensible génère une empreinte immuable dans le journal d'audit administratif.
-                    </p>
-                  </div>
-                }
-              />
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-enp-blue-deep font-sans">
-                  2 450 comptes supervisés
+                  Outils d’administration
                 </h2>
                 <p className="text-xs text-enp-gray-medium mt-1">
-                  Urne électronique étanche • Journal d'audit actif
+                  Gérez les comptes et accédez aux fonctions de suivi de la plateforme.
                 </p>
               </div>
               <Button
@@ -1005,9 +987,10 @@ export function Accueil() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-            <div
+            <button
+              type="button"
               onClick={() => navigate('/scolarite/comptes')}
-              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+              className="text-left bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -1015,17 +998,15 @@ export function Accueil() {
                 </span>
                 <Users className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                2 450
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
+                Gérer les comptes
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Étudiants, corps enseignant
-              </p>
-            </div>
+            </button>
 
-            <div
+            <button
+              type="button"
               onClick={() => navigate('/journal-audit')}
-              className="bg-white border border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+              className="text-left bg-white border border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -1033,17 +1014,15 @@ export function Accueil() {
                 </span>
                 <ScrollText className="w-4 h-4 text-enp-green-valid shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-green-valid tracking-tight truncate">
-                Actif
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
+                Consulter le journal
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Traçabilité cryptographique
-              </p>
-            </div>
+            </button>
 
-            <div
+            <button
+              type="button"
               onClick={() => navigate('/archives-annuelles')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="text-left bg-white border border-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -1051,17 +1030,15 @@ export function Accueil() {
                 </span>
                 <Award className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Snapshots
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
+                Gérer les archives
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Clôtures d'années
-              </p>
-            </div>
+            </button>
 
-            <div
+            <button
+              type="button"
               onClick={() => navigate('/administration')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="text-left bg-white border border-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -1069,13 +1046,10 @@ export function Accueil() {
                 </span>
                 <ShieldCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Opérationnel
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
+                Paramètres
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Base urne étanche & API
-              </p>
-            </div>
+            </button>
           </div>
         </div>
       )}
