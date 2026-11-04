@@ -15,6 +15,7 @@ import {
   FileText,
   CheckCircle2,
   AlertTriangle,
+  Printer,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { PieceJointe, Seance, VersionSeance } from '@/api/types';
@@ -185,6 +186,16 @@ export function DetailSeance() {
         badge={<Badge variant={visaConf.variant}>{visaConf.label}</Badge>}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              leftIcon={<Printer className="w-4 h-4" />}
+              className="w-full sm:w-auto justify-center font-semibold bg-white text-[#0d3b66] border-[#0d3b66] hover:bg-[#f0f5ff]"
+              title="Imprimer la fiche officielle de séance"
+            >
+              Imprimer la fiche
+            </Button>
             {peutModifier && (
               <Link to={`/cahier-texte/${seance.id}/modifier`} className="w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center" leftIcon={<Pencil className="w-4 h-4" />}>

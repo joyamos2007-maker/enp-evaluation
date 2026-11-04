@@ -421,7 +421,7 @@ export function AppLayout() {
       </header>
 
       {/* Spacer opaque pour compenser exactement la hauteur du header fixe */}
-      <div className="h-16 sm:h-20 shrink-0 w-full pointer-events-none" aria-hidden="true" />
+      <div className="h-16 sm:h-20 shrink-0 w-full pointer-events-none no-print" aria-hidden="true" />
 
       {/* Message d'erreur de changement de profil si incident */}
       {erreurProfil && (

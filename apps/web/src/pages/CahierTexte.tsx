@@ -1,22 +1,16 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  BookOpen,
   Plus,
-  Calendar as CalendarIcon,
-  Clock,
-  Filter,
-  Download,
-  List,
-  Table as TableIcon,
-  ChevronLeft,
-  ChevronRight,
-  Stamp,
-  AlertCircle,
-  FileCheck2,
-  Paperclip,
+  Printer,
   Search,
+  Filter,
+  Clock,
   CheckCircle2,
+  AlertTriangle,
+  Stamp,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { Avancement, Seance, UeCahier, TypeSeance, StatutSeance, StatutVisa } from '@/api/types';
@@ -24,34 +18,28 @@ import { useAuth } from '@/auth/AuthContext';
 import {
   PageHeader,
   Button,
-  Table,
-  Badge,
-  ProgressBar,
   Input,
   Select,
   Alert,
-  EmptyState,
   InfoBubble,
 } from '@/components/ui';
 
-type ModeAffichage = 'chronologique' | 'tableau' | 'calendrier';
-
-const LIBELLES_VISA: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
-  en_attente: { label: 'En attente de visa', variant: 'warning' },
-  vise: { label: 'Visée par l’enseignant', variant: 'success' },
-  conteste: { label: 'Contestée', variant: 'danger' },
+const LIBELLES_STATUT: Record<string, { label: string; badgeClass: string }> = {
+  tenue: { label: 'Séance tenue', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  reportee: { label: 'Séance reportée', badgeClass: 'bg-amber-100 text-amber-800 border-amber-300' },
+  annulee: { label: 'Séance annulée', badgeClass: 'bg-rose-100 text-rose-800 border-rose-300' },
+  enseignant_absent: { label: 'Enseignant absent', badgeClass: 'bg-rose-100 text-rose-800 border-rose-300' },
+  planifiee: { label: 'Séance planifiée', badgeClass: 'bg-blue-100 text-blue-800 border-blue-300' },
 };
 
-const LIBELLES_STATUT: Record<string, string> = {
-  tenue: 'Séance tenue',
-  reportee: 'Reportée',
-  annulee: 'Annulée',
-  enseignant_absent: 'Enseignant absent',
-  planifiee: 'Planifiée',
+const LIBELLES_VISA: Record<string, { label: string; badgeClass: string }> = {
+  vise: { label: 'Visée par l’enseignant', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  en_attente: { label: 'En attente de visa', badgeClass: 'bg-amber-100 text-amber-800 border-amber-300' },
+  conteste: { label: 'Contestée par l’enseignant', badgeClass: 'bg-rose-100 text-rose-800 border-rose-300' },
 };
 
 export function CahierTexte() {
-  const { aRole, utilisateur } = useAuth();
+  const { aRole } = useAuth();
   const navigate = useNavigate();
 
   const peutSaisir = aRole('delegue');
@@ -61,8 +49,7 @@ export function CahierTexte() {
   const [seances, setSeances] = useState<Seance[]>([]);
   const [avancements, setAvancements] = useState<Map<number, Avancement>>(new Map());
 
-  // Vues & Filtres
-  const [mode, setMode] = useState<ModeAffichage>('chronologique');
+  // Filtres
   const [recherche, setRecherche] = useState('');
   const [filtreUe, setFiltreUe] = useState<string>('all');
   const [filtreType, setFiltreType] = useState<string>('all');
@@ -89,7 +76,7 @@ export function CahierTexte() {
         const avancees = await Promise.all(uesData.map((u) => api.avancementUe(u.ueId)));
         avancees.forEach((av) => avMap.set(av.ueId, av));
       } catch {
-        // En cas de droits limités sur avancement, on ignore
+        // ignorer si droits restreints
       }
       setAvancements(avMap);
     } catch (err) {
@@ -104,21 +91,70 @@ export function CahierTexte() {
     void charger();
   }, [charger]);
 
-  // Séances filtrées
+  // Séances filtrées et triées chronologiquement
   const seancesFiltrees = useMemo(() => {
-    return seances.filter((s) => {
-      const matchUe = filtreUe === 'all' || String(s.ueId) === filtreUe;
-      const matchType = filtreType === 'all' || s.type === filtreType;
-      const matchVisa = filtreVisa === 'all' || s.visa.statut === filtreVisa;
-      const matchSearch =
-        !recherche ||
-        (s.intitule && s.intitule.toLowerCase().includes(recherche.toLowerCase())) ||
-        s.ueCode.toLowerCase().includes(recherche.toLowerCase()) ||
-        (s.contenu && s.contenu.toLowerCase().includes(recherche.toLowerCase()));
+    return seances
+      .filter((s) => {
+        const matchUe = filtreUe === 'all' || String(s.ueId) === filtreUe;
+        const matchType = filtreType === 'all' || s.type === filtreType;
+        const matchVisa = filtreVisa === 'all' || s.visa.statut === filtreVisa;
+        const matchSearch =
+          !recherche ||
+          (s.intitule && s.intitule.toLowerCase().includes(recherche.toLowerCase())) ||
+          s.ueCode.toLowerCase().includes(recherche.toLowerCase()) ||
+          (s.contenu && s.contenu.toLowerCase().includes(recherche.toLowerCase()));
 
-      return matchUe && matchType && matchVisa && matchSearch;
-    });
+        return matchUe && matchType && matchVisa && matchSearch;
+      })
+      .sort((a, b) => {
+        const diffDate = a.date.localeCompare(b.date);
+        if (diffDate !== 0) return diffDate;
+        return a.debut.localeCompare(b.debut);
+      });
   }, [seances, filtreUe, filtreType, filtreVisa, recherche]);
+
+  // UE actuellement filtrée
+  const ueCiblee = useMemo(() => {
+    if (filtreUe === 'all') return null;
+    return ues.find((u) => String(u.ueId) === filtreUe) ?? null;
+  }, [ues, filtreUe]);
+
+  // Synthèse des séances affichées
+  const synthese = useMemo(() => {
+    let totalMinutes = 0;
+    let tenues = 0;
+    let visees = 0;
+    let enAttente = 0;
+    let contestees = 0;
+
+    seancesFiltrees.forEach((s) => {
+      if (s.statut === 'tenue') {
+        tenues++;
+        try {
+          const [dh, dm] = s.debut.split(':').map(Number);
+          const [fh, fm] = s.fin.split(':').map(Number);
+          const min = fh * 60 + fm - (dh * 60 + dm);
+          if (min > 0) totalMinutes += min;
+        } catch {
+          // ignore parsing error
+        }
+      }
+      if (s.visa.statut === 'vise') visees++;
+      else if (s.visa.statut === 'en_attente') enAttente++;
+      else if (s.visa.statut === 'conteste') contestees++;
+    });
+
+    const totalHeures = (totalMinutes / 60).toFixed(1);
+
+    return {
+      totalSeances: seancesFiltrees.length,
+      tenues,
+      totalHeures,
+      visees,
+      enAttente,
+      contestees,
+    };
+  }, [seancesFiltrees]);
 
   async function telechargerExport(format: 'pdf' | 'xlsx' | 'docx') {
     setExportEnCours(true);
@@ -140,13 +176,28 @@ export function CahierTexte() {
     }
   }
 
-  function formaterDateFr(dateIso: string) {
+  function calculerDuree(debut: string, fin: string): string {
+    try {
+      const [dh, dm] = debut.split(':').map(Number);
+      const [fh, fm] = fin.split(':').map(Number);
+      const diffMinutes = fh * 60 + fm - (dh * 60 + dm);
+      if (diffMinutes <= 0) return '';
+      const h = Math.floor(diffMinutes / 60);
+      const m = diffMinutes % 60;
+      if (m === 0) return `${h}h00`;
+      return `${h}h${m < 10 ? '0' : ''}${m}`;
+    } catch {
+      return '';
+    }
+  }
+
+  function formaterDateFr(dateIso: string): string {
     try {
       const d = new Date(dateIso + 'T00:00:00');
       return d.toLocaleDateString('fr-FR', {
-        weekday: 'short',
+        weekday: 'long',
         day: '2-digit',
-        month: 'short',
+        month: 'long',
         year: 'numeric',
       });
     } catch {
@@ -154,415 +205,569 @@ export function CahierTexte() {
     }
   }
 
+  const dateDuJour = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const heureEdition = new Date().toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
-      <PageHeader
-        title="Cahier de Texte Numérique Officiel"
-        description="Traçabilité des cours magistraux, travaux dirigés et pratiques • Visas des enseignants"
-        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Cahier de texte' }]}
-        badge={
-          <InfoBubble
-            triggerVariant="pill"
-            triggerLabel="Cadre du visa"
-            title="Réglementation officielle du visa pédagogique"
-            badge="TRAÇABILITÉ ACADÉMIQUE"
-            icon="book"
-            duration={7000}
-            content={
-              <div className="space-y-2 text-xs leading-relaxed font-sans">
-                <p>
-                  Chaque séance consignée engage la responsabilité académique. L'enseignant dispose d'un délai réglementaire pour viser la séance ou émettre une réserve motivée.
-                </p>
-                <p>
-                  Les volumes horaires consolidés servent d'assiette aux états de service officiels et au suivi des maquettes pédagogiques par la Direction des Études.
-                </p>
-              </div>
-            }
-          />
-        }
-        actions={
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {peutSaisir && (
-              <Link to="/cahier-texte/nouvelle" className="w-full sm:w-auto">
-                <Button variant="primary" size="md" className="w-full sm:w-auto justify-center font-bold min-h-[42px]" leftIcon={<Plus className="w-4 h-4" />}>
-                  Nouvelle séance
-                </Button>
-              </Link>
-            )}
-            <div className="flex items-center border border-enp-border bg-white w-full sm:w-auto justify-center">
-              <button
-                type="button"
-                disabled={exportEnCours}
-                onClick={() => void telechargerExport('pdf')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
-                title="Exporter au format PDF officiel"
-              >
-                PDF
-              </button>
-              <button
-                type="button"
-                disabled={exportEnCours}
-                onClick={() => void telechargerExport('xlsx')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
-                title="Exporter au format Excel"
-              >
-                Excel
-              </button>
-              <button
-                type="button"
-                disabled={exportEnCours}
-                onClick={() => void telechargerExport('docx')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice transition-colors text-center font-sans"
-                title="Exporter au format Word"
-              >
-                Word
-              </button>
-            </div>
-          </div>
-        }
-      />
-
-      {/* Cartes d'avancement horaire adaptées au mobile en grille 2 colonnes */}
-      {ues.length > 0 && avancements.size > 0 && (
-        <div className="bg-white border border-enp-border p-3 sm:p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep mb-2.5 font-sans">
-            Avancement horaire des Unités d'Enseignement
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-            {ues.map((u) => {
-              const av = avancements.get(u.ueId);
-              const heuresRealisees = av
-                ? av.heuresEffectuees.cm + av.heuresEffectuees.td + av.heuresEffectuees.tp
-                : 0;
-              const volumePrevu = av
-                ? av.heuresPrevues.cm + av.heuresPrevues.td + av.heuresPrevues.tp
-                : 45;
-              const pct = volumePrevu > 0 ? Math.min(100, Math.round((heuresRealisees / volumePrevu) * 100)) : 0;
-
-              return (
-                <div key={u.ueId} className="p-2.5 sm:p-3 border border-enp-border/80 bg-enp-blue-ice/30 space-y-1.5 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-bold font-mono text-enp-blue-deep truncate">{u.code}</span>
-                    <span className="text-xs font-bold text-enp-black shrink-0 font-sans">{pct}%</span>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-enp-gray-medium truncate font-sans" title={u.intitule}>
-                    {u.intitule}
+    <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto animate-fade-in pb-8">
+      {/* ============================================================= */}
+      {/* BARRE D'ACTION SUPÉRIEURE (Masquée à l'impression)           */}
+      {/* ============================================================= */}
+      <div className="no-print">
+        <PageHeader
+          title="Cahier de Texte Numérique Officiel"
+          subtitle="Registre certifié des enseignements, suivi des volumes horaires et visas académiques."
+          breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Cahier de texte' }]}
+          badge={
+            <InfoBubble
+              triggerVariant="pill"
+              triggerLabel="Cadre du visa"
+              title="Réglementation officielle du visa pédagogique"
+              badge="TRAÇABILITÉ ACADÉMIQUE"
+              icon="book"
+              duration={7000}
+              content={
+                <div className="space-y-2 text-xs leading-relaxed font-sans">
+                  <p>
+                    Chaque séance consignée engage la responsabilité académique. L'enseignant dispose d'un délai réglementaire pour viser la séance ou émettre une réserve motivée.
                   </p>
-                  <ProgressBar
-                    value={pct}
-                    showPercent={false}
-                    size="sm"
-                    variant={pct >= 80 ? 'success' : 'primary'}
-                  />
-                  <p className="text-[10px] sm:text-[11px] text-enp-gray-medium font-sans truncate">
-                    {heuresRealisees}h / {volumePrevu}h prévues
+                  <p>
+                    Les volumes horaires consolidés servent d'assiette aux états de service officiels et au suivi des maquettes pédagogiques par la Direction des Études.
                   </p>
                 </div>
-              );
-            })}
-          </div>
+              }
+            />
+          }
+          actions={
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {peutSaisir && (
+                <Link to="/cahier-texte/nouvelle" className="w-full sm:w-auto">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full sm:w-auto justify-center font-bold min-h-[40px] bg-[#0d3b66] hover:bg-[#072440] text-white"
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Nouvelle séance
+                  </Button>
+                </Link>
+              )}
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => window.print()}
+                leftIcon={<Printer className="w-4 h-4" />}
+                className="w-full sm:w-auto font-semibold justify-center min-h-[40px] whitespace-nowrap bg-white text-[#0d3b66] border-[#0d3b66] hover:bg-[#f0f5ff]"
+                title="Imprimer ou enregistrer le cahier de texte en PDF A4"
+              >
+                Imprimer le cahier de texte
+              </Button>
+              <div className="flex items-center border border-enp-border bg-white w-full sm:w-auto justify-center">
+                <button
+                  type="button"
+                  disabled={exportEnCours}
+                  onClick={() => void telechargerExport('pdf')}
+                  className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
+                  title="Télécharger fichier PDF officiel généré par le serveur"
+                >
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  disabled={exportEnCours}
+                  onClick={() => void telechargerExport('xlsx')}
+                  className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
+                  title="Exporter au format Excel"
+                >
+                  Excel
+                </button>
+                <button
+                  type="button"
+                  disabled={exportEnCours}
+                  onClick={() => void telechargerExport('docx')}
+                  className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice transition-colors text-center font-sans"
+                  title="Exporter au format Word"
+                >
+                  Word
+                </button>
+              </div>
+            </div>
+          }
+        />
+      </div>
+
+      {erreur && (
+        <div className="no-print">
+          <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+            {erreur}
+          </Alert>
         </div>
       )}
 
-      {/* Barre de contrôle ergonomique mobile : Recherche, Filtres & Bascule de vue */}
-      <div className="bg-white border border-enp-border p-3 sm:p-4 space-y-2.5 sm:space-y-3">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3">
-          <div className="w-full lg:max-w-sm lg:flex-1">
+      {/* ============================================================= */}
+      {/* BARRE DE FILTRES ET RECHERCHE ERGONOMIQUE (Masquée à l'impression) */}
+      {/* ============================================================= */}
+      <div className="no-print bg-white border border-slate-300 p-3 sm:p-4 shadow-xs space-y-3 font-sans">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          <div className="w-full lg:max-w-xs">
             <Input
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Rechercher séance, contenu..."
+              placeholder="Rechercher séance, contenu, thème..."
               startIcon={<Search className="w-4 h-4" />}
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
-            <div className="col-span-2 sm:w-44">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
+            {/* Sélection UE */}
+            <div>
               <Select
                 value={filtreUe}
                 onChange={(e) => setFiltreUe(e.target.value)}
                 aria-label="Filtrer par unité d'enseignement"
               >
-                <option value="all">Toutes les UE</option>
+                <option value="all">Toutes les UE ({ues.length})</option>
                 {ues.map((u) => (
-                  <option key={u.ueId} value={u.ueId}>
+                  <option key={u.ueId} value={String(u.ueId)}>
                     {u.code} : {u.intitule}
                   </option>
                 ))}
               </Select>
             </div>
 
-            <div className="col-span-1 sm:w-28">
+            {/* Type */}
+            <div>
               <Select
                 value={filtreType}
                 onChange={(e) => setFiltreType(e.target.value)}
                 aria-label="Filtrer par type de séance"
               >
-                <option value="all">Tous types</option>
-                <option value="CM">CM</option>
-                <option value="TD">TD</option>
-                <option value="TP">TP</option>
-                <option value="AUTRE">Autre</option>
+                <option value="all">Tous types (CM, TD, TP)</option>
+                <option value="CM">Cours Magistral (CM)</option>
+                <option value="TD">Travaux Dirigés (TD)</option>
+                <option value="TP">Travaux Pratiques (TP)</option>
+                <option value="AUTRE">Autre format</option>
               </Select>
             </div>
 
-            <div className="col-span-1 sm:w-36">
+            {/* Statut Visa */}
+            <div>
               <Select
                 value={filtreVisa}
                 onChange={(e) => setFiltreVisa(e.target.value)}
                 aria-label="Filtrer par statut de visa"
               >
-                <option value="all">Tous visas</option>
-                <option value="en_attente">En attente</option>
-                <option value="vise">Visées</option>
+                <option value="all">Tous statuts de visa</option>
+                <option value="vise">Séances visées</option>
+                <option value="en_attente">En attente de visa</option>
                 <option value="conteste">Contestées</option>
               </Select>
-            </div>
-
-            {/* Sélecteur de mode d'affichage */}
-            <div className="col-span-2 sm:col-span-auto flex items-center border border-enp-border sm:ml-auto justify-end">
-              <button
-                type="button"
-                onClick={() => setMode('chronologique')}
-                className={`flex-1 sm:flex-none p-2 transition-colors flex items-center justify-center ${
-                  mode === 'chronologique'
-                    ? 'bg-enp-blue-primary text-white'
-                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
-                }`}
-                aria-label="Vue chronologique"
-                title="Vue chronologique"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('tableau')}
-                className={`flex-1 sm:flex-none p-2 border-l border-enp-border transition-colors flex items-center justify-center ${
-                  mode === 'tableau'
-                    ? 'bg-enp-blue-primary text-white'
-                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
-                }`}
-                aria-label="Vue tableau"
-                title="Vue tableau structuré"
-              >
-                <TableIcon className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('calendrier')}
-                className={`flex-1 sm:flex-none p-2 border-l border-enp-border transition-colors flex items-center justify-center ${
-                  mode === 'calendrier'
-                    ? 'bg-enp-blue-primary text-white'
-                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
-                }`}
-                aria-label="Vue calendrier"
-                title="Vue calendrier"
-              >
-                <CalendarIcon className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Contenu selon le mode sélectionné */}
       {chargement ? (
-        <div className="py-12 text-center text-enp-gray-medium text-sm">
-          Chargement des séances officielles…
-        </div>
-      ) : erreur ? (
-        <Alert variant="danger" title="Erreur">{erreur}</Alert>
-      ) : seancesFiltrees.length === 0 ? (
-        <EmptyState
-          title="Aucune séance trouvée"
-          description={
-            peutSaisir
-              ? "Aucune séance ne correspond aux filtres appliqués. Cliquez sur « Nouvelle séance » pour consigner une heure de cours."
-              : "Aucune séance consignée pour ces critères."
-          }
-          actionLabel={peutSaisir ? "Nouvelle séance" : undefined}
-          onAction={peutSaisir ? () => navigate('/cahier-texte/nouvelle') : undefined}
-        />
-      ) : mode === 'tableau' ? (
-        // VUE 1 : TABLEAU STRUCTURÉ
-        <Table<Seance>
-          columns={[
-            {
-              key: 'date',
-              header: 'Date & Horaires',
-              render: (s) => (
-                <div>
-                  <span className="font-semibold text-enp-blue-deep block">
-                    {formaterDateFr(s.date)}
-                  </span>
-                  <span className="text-xs text-enp-gray-medium">
-                    {s.debut} - {s.fin}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              key: 'ue',
-              header: 'UE',
-              render: (s) => (
-                <div>
-                  <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-1.5 py-0.5 border border-enp-blue-primary/20">
-                    {s.ueCode}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              key: 'type',
-              header: 'Type',
-              render: (s) => (
-                <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
-                  {s.type}
-                </span>
-              ),
-            },
-            {
-              key: 'intitule',
-              header: 'Intitulé & Contenu',
-              render: (s) => (
-                <div className="max-w-md">
-                  <p className="font-bold text-enp-black truncate">{s.intitule}</p>
-                  <p className="text-xs text-enp-gray-medium line-clamp-1">{s.contenu}</p>
-                </div>
-              ),
-            },
-            {
-              key: 'visa',
-              header: 'Visa enseignant',
-              render: (s) => {
-                const conf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
-                return <Badge variant={conf.variant}>{conf.label}</Badge>;
-              },
-            },
-            {
-              key: 'actions',
-              header: 'Détails',
-              align: 'right',
-              render: (s) => (
-                <Link to={`/cahier-texte/${s.id}`}>
-                  <Button variant="outline" size="sm">
-                    Consulter
-                  </Button>
-                </Link>
-              ),
-            },
-          ]}
-          data={seancesFiltrees}
-          keyExtractor={(s) => s.id}
-          onRowClick={(s) => navigate(`/cahier-texte/${s.id}`)}
-        />
-      ) : mode === 'calendrier' ? (
-        // VUE 2 : CALENDRIER HEBDOMADAIRE / MENSUEL RECTILIGNE
-        <div className="bg-white border border-enp-border p-5">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-enp-border">
-            <span className="text-sm font-bold text-enp-blue-deep">
-              Vue Calendaire des Enseignements
-            </span>
-            <span className="text-xs text-enp-gray-medium">
-              {seancesFiltrees.length} séance(s) répertoriée(s)
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {seancesFiltrees.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => navigate(`/cahier-texte/${s.id}`)}
-                className="p-3.5 border border-enp-border hover:border-enp-blue-primary bg-white cursor-pointer transition-colors space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-enp-blue-deep">
-                    {formaterDateFr(s.date)}
-                  </span>
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
-                    {s.type}
-                  </span>
-                </div>
-                <p className="text-sm font-bold text-enp-black truncate">{s.intitule}</p>
-                <p className="text-xs text-enp-gray-medium line-clamp-2">{s.contenu}</p>
-                <div className="pt-2 border-t border-enp-border flex items-center justify-between text-xs">
-                  <span className="text-enp-gray-medium">{s.debut} - {s.fin}</span>
-                  <Badge variant={LIBELLES_VISA[s.visa.statut]?.variant || 'neutral'}>
-                    {LIBELLES_VISA[s.visa.statut]?.label || s.visa.statut}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="p-12 text-center bg-white border border-enp-border shadow-xs">
+          <div className="inline-block w-8 h-8 border-2 border-enp-blue-ice border-t-enp-blue-primary animate-spin mb-2" />
+          <p className="text-sm text-enp-gray-medium font-sans">Chargement du registre officiel des enseignements…</p>
         </div>
       ) : (
-        // VUE 3 : CHRONOLOGIQUE ÉLÉGANTE (PAR DÉFAUT)
-        <div className="space-y-3">
-          {seancesFiltrees.map((s) => {
-            const visaConf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
-            const bordureStatut =
-              s.visa.statut === 'vise'
-                ? 'border-l-4 border-l-enp-green-valid'
-                : s.visa.statut === 'conteste'
-                ? 'border-l-4 border-l-enp-red-error'
-                : 'border-l-4 border-l-[#D97706]';
+        /* ============================================================= */
+        /* NOUVEAU FORMAT : REGISTRE OFFICIEL DU CAHIER DE TEXTE DIRECT  */
+        /* ============================================================= */
+        <div className="cahier-document print-area bg-white border border-slate-300 p-5 sm:p-8 md:p-10 max-w-5xl mx-auto shadow-md print:shadow-none print:border-none print:p-0 print:max-w-none font-sans text-slate-900">
+          
+          {/* ========================================================= */}
+          {/* 1. EN-TÊTE INSTITUTIONNEL OFFICIEL                        */}
+          {/* ========================================================= */}
+          {/* Logo ENP en haut à gauche | Nom école en haut au milieu | Armoiries Togo en haut à droite */}
+          <div className="grid grid-cols-12 gap-3 sm:gap-4 items-center border-b-2 border-[#0d3b66] pb-4 sm:pb-5">
+            {/* En haut à gauche : Logo ENP officiel */}
+            <div className="col-span-12 sm:col-span-3 print:col-span-3 flex flex-col items-center sm:items-start print:items-start justify-center">
+              <img
+                src="/logo-enp-transparent.png"
+                alt="Logo École Nationale Polytechnique"
+                className="h-16 sm:h-20 w-auto object-contain"
+              />
+            </div>
 
-            return (
-              <div
-                key={s.id}
-                className={`bg-white border border-enp-border hover:border-enp-blue-primary/80 transition-colors p-3.5 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 ${bordureStatut}`}
-              >
-                <div className="space-y-2 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
-                      {s.ueCode}
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border font-sans">
-                      {s.type}
-                    </span>
-                    <Badge variant={visaConf.variant}>{visaConf.label}</Badge>
-                    <span className="text-xs text-enp-gray-medium font-sans">
-                      {LIBELLES_STATUT[s.statut] || s.statut}
-                    </span>
-                  </div>
+            {/* En haut au milieu : Nom de l'école & Direction */}
+            <div className="col-span-12 sm:col-span-6 print:col-span-6 flex flex-col items-center justify-center text-center">
+              <h1 className="text-base sm:text-lg md:text-xl font-bold uppercase tracking-wider text-[#0d3b66] font-sans">
+                ÉCOLE NATIONALE POLYTECHNIQUE
+              </h1>
+              <p className="text-[11px] sm:text-xs font-semibold text-slate-700 font-sans mt-0.5">
+                Direction des Affaires Académiques & de la Scolarité Centrale
+              </p>
+              <p className="text-[10px] text-slate-600 font-sans">
+                Registre Pédagogique Officiel • Cahier de Texte Numérique Certifié
+              </p>
+              <p className="text-[9px] text-slate-500 font-sans">
+                BP 1515 Lomé • Lomé - République Togolaise
+              </p>
+            </div>
 
-                  <h3 className="text-sm sm:text-base font-bold text-enp-black font-sans break-words">
-                    {s.intitule}
-                  </h3>
+            {/* En haut à droite : Armoiries et devise de la République Togolaise */}
+            <div className="col-span-12 sm:col-span-3 print:col-span-3 flex flex-col items-center sm:items-end print:items-end justify-center text-center sm:text-right print:text-right">
+              <img
+                src="/armoiries-togo.svg"
+                alt="Armoiries de la République Togolaise"
+                className="w-12 h-14 object-contain mb-1"
+              />
+              <div className="text-[10px] leading-tight text-slate-700 uppercase font-sans">
+                <p className="font-bold text-[#0d3b66]">RÉPUBLIQUE TOGOLAISE</p>
+                <p className="italic text-[9px] text-slate-600">Travail - Liberté - Patrie</p>
+                <p className="text-[8px] text-slate-500 mt-0.5">Ministère de l'Enseignement Supérieur & de la Recherche</p>
+              </div>
+            </div>
+          </div>
 
-                  <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed line-clamp-2 font-sans">
-                    {s.contenu}
+          {/* ========================================================= */}
+          {/* 2. TITRE & BANNIÈRE DU REGISTRE                          */}
+          {/* ========================================================= */}
+          <div className="text-center my-4 sm:my-5 py-2 sm:py-2.5 bg-[#f0f5ff] border-y border-[#d8dee5]">
+            <h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-[#0d3b66] font-sans">
+              REGISTRE OFFICIEL DU CAHIER DE TEXTE NUMÉRIQUE
+            </h2>
+            <p className="text-xs text-slate-700 font-sans mt-0.5">
+              Année Universitaire <strong>2026-2027</strong> • Semestre 1 (Harmattan) • Session Normale
+            </p>
+          </div>
+
+          {/* ========================================================= */}
+          {/* 3. CARTOUCHE DE L'UE ET DE LA PROMOTION                   */}
+          {/* ========================================================= */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-3 p-3.5 bg-slate-50 print:bg-slate-50/50 border border-slate-300 text-xs mb-5 font-sans">
+            <div className="space-y-1.5">
+              <div className="flex">
+                <span className="w-36 text-slate-500 font-medium">Unité d'Enseignement :</span>
+                <span className="font-bold text-[#0d3b66]">
+                  {ueCiblee ? `${ueCiblee.code} - ${ueCiblee.intitule}` : 'Ensemble des Unités d\'Enseignement'}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-36 text-slate-500 font-medium">Enseignant(s) titulaire(s) :</span>
+                <span className="font-semibold text-slate-800">
+                  {ueCiblee && ueCiblee.enseignants.length > 0
+                    ? ueCiblee.enseignants.join(', ')
+                    : 'Corps Professoral de l\'ENP'}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-36 text-slate-500 font-medium">Régime d'études :</span>
+                <span className="text-slate-800">Formation Initiale d'Ingénieurs Polytech</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex">
+                <span className="w-36 text-slate-500 font-medium">Promotion / Filière :</span>
+                <span className="font-semibold text-slate-800">Cycle Ingénieur • Promotion 2026-2027</span>
+              </div>
+              <div className="flex">
+                <span className="w-36 text-slate-500 font-medium">Date d'édition certifiée :</span>
+                <span className="text-slate-800">{dateDuJour} à {heureEdition}</span>
+              </div>
+              <div className="flex">
+                <span className="w-36 text-slate-500 font-medium">Référence d'archivage :</span>
+                <span className="font-mono text-slate-700">
+                  ENP-CDT-2026-{ueCiblee ? ueCiblee.code : 'GLOBAL'}-REG
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* 4. SUIVI DES VOLUMES HORAIRES RÉGLEMENTAIRES (Si UE)      */}
+          {/* ========================================================= */}
+          {ueCiblee && avancements.get(ueCiblee.ueId) && (
+            <div className="border border-slate-300 bg-slate-50 p-3.5 mb-5 text-xs">
+              <h3 className="font-bold uppercase tracking-wider text-[#0d3b66] text-[11px] mb-2.5 flex items-center justify-between">
+                <span>Suivi de l'avancement horaire réglementaire (Maquette vs Réalisé)</span>
+                <span className="font-mono text-xs font-semibold text-slate-600">
+                  Volume global : {avancements.get(ueCiblee.ueId)!.heuresEffectuees.cm + avancements.get(ueCiblee.ueId)!.heuresEffectuees.td + avancements.get(ueCiblee.ueId)!.heuresEffectuees.tp}h effectives
+                </span>
+              </h3>
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-2 bg-white border border-slate-200">
+                  <p className="text-[10px] text-slate-500 uppercase font-semibold">Cours Magistraux (CM)</p>
+                  <p className="text-sm font-bold font-mono text-[#0d3b66] mt-0.5">
+                    {avancements.get(ueCiblee.ueId)!.heuresEffectuees.cm}h / {avancements.get(ueCiblee.ueId)!.heuresPrevues.cm}h
                   </p>
-
-                  <div className="flex items-center gap-3 sm:gap-4 text-xs text-enp-gray-medium pt-0.5 font-sans flex-wrap">
-                    <span className="flex items-center gap-1 font-medium text-enp-blue-deep">
-                      <CalendarIcon className="w-3.5 h-3.5" />
-                      {formaterDateFr(s.date)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      {s.debut} à {s.fin}
-                    </span>
-                  </div>
                 </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 pt-2 lg:pt-0 w-full lg:w-auto">
-                  <Link to={`/cahier-texte/${s.id}`} className="w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center font-semibold min-h-[40px] whitespace-nowrap">
-                      Détail & Historique
-                    </Button>
-                  </Link>
-                  {peutViser && s.visa.statut === 'en_attente' && (
-                    <Link to="/visas" className="w-full sm:w-auto">
-                      <Button variant="primary" size="sm" className="w-full sm:w-auto justify-center font-bold min-h-[40px] whitespace-nowrap" leftIcon={<Stamp className="w-4 h-4" />}>
-                        Viser
-                      </Button>
-                    </Link>
-                  )}
+                <div className="p-2 bg-white border border-slate-200">
+                  <p className="text-[10px] text-slate-500 uppercase font-semibold">Travaux Dirigés (TD)</p>
+                  <p className="text-sm font-bold font-mono text-[#0d3b66] mt-0.5">
+                    {avancements.get(ueCiblee.ueId)!.heuresEffectuees.td}h / {avancements.get(ueCiblee.ueId)!.heuresPrevues.td}h
+                  </p>
+                </div>
+                <div className="p-2 bg-white border border-slate-200">
+                  <p className="text-[10px] text-slate-500 uppercase font-semibold">Travaux Pratiques (TP)</p>
+                  <p className="text-sm font-bold font-mono text-[#0d3b66] mt-0.5">
+                    {avancements.get(ueCiblee.ueId)!.heuresEffectuees.tp}h / {avancements.get(ueCiblee.ueId)!.heuresPrevues.tp}h
+                  </p>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* 5. BILAN GLOBAL DU PÉRIMÈTRE                              */}
+          {/* ========================================================= */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 print:grid-cols-4 gap-2.5 sm:gap-3 text-center mb-6">
+            <div className="p-2.5 bg-slate-50 border border-slate-300">
+              <p className="text-[10px] text-slate-500 uppercase font-medium">Séances au registre</p>
+              <p className="text-base font-bold font-mono text-[#0d3b66] mt-0.5">
+                {synthese.totalSeances}
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border border-slate-300">
+              <p className="text-[10px] text-slate-500 uppercase font-medium">Séances tenues</p>
+              <p className="text-base font-bold font-mono text-emerald-700 mt-0.5">
+                {synthese.tenues} ({synthese.totalHeures}h)
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border border-slate-300">
+              <p className="text-[10px] text-slate-500 uppercase font-medium">Séances visées</p>
+              <p className="text-base font-bold font-mono text-emerald-700 mt-0.5">
+                {synthese.visees}
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border border-slate-300">
+              <p className="text-[10px] text-slate-500 uppercase font-medium">En attente de visa</p>
+              <p className="text-base font-bold font-mono text-amber-700 mt-0.5">
+                {synthese.enAttente}
+              </p>
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* 6. REGISTRE CHRONOLOGIQUE DES SÉANCES                     */}
+          {/* ========================================================= */}
+          <div className="space-y-4 mb-8">
+            <div className="flex items-center justify-between border-b-2 border-slate-800 pb-1.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 font-sans">
+                Fiches chronologiques des séances enregistrées ({seancesFiltrees.length})
+              </h3>
+              <span className="text-[11px] text-slate-500 italic">
+                Chaque séance fait l'objet d'un visa académique individuel
+              </span>
+            </div>
+
+            {seancesFiltrees.length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-slate-300 text-slate-500 text-xs italic">
+                Aucune séance n'est enregistrée pour ce périmètre.
+              </div>
+            ) : (
+              seancesFiltrees.map((seance, index) => {
+                const statutInfo = LIBELLES_STATUT[seance.statut] ?? {
+                  label: seance.statut,
+                  badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+                };
+                const visaInfo = LIBELLES_VISA[seance.visa.statut] ?? {
+                  label: seance.visa.statut,
+                  badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+                };
+                const duree = calculerDuree(seance.debut, seance.fin);
+
+                return (
+                  <div
+                    key={seance.id}
+                    className="cahier-seance-card border border-slate-300 bg-white overflow-hidden shadow-xs print:shadow-none break-inside-avoid"
+                  >
+                    {/* Bandeau supérieur de la séance */}
+                    <div className="bg-[#0d3b66] text-white p-2.5 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-xs uppercase font-mono bg-white/15 px-2 py-0.5 border border-white/20">
+                          Séance N° {index + 1}
+                        </span>
+                        <span className="text-xs font-semibold capitalize">
+                          {formaterDateFr(seance.date)}
+                        </span>
+                        <span className="text-xs text-slate-200">
+                          • {seance.debut} - {seance.fin} {duree && `(${duree})`}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold uppercase px-2 py-0.5 bg-white text-[#0d3b66] border border-white">
+                          {seance.type}
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 bg-white/15 border border-white/20 text-white font-medium">
+                          {statutInfo.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Sous-bandeau d'identification */}
+                    <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[#0d3b66]">{seance.ueCode}</span>
+                        <span className="text-slate-700 font-medium">{seance.ueIntitule}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-slate-600 text-[11px]">
+                        <span>
+                          Groupe : <strong>{seance.groupe || 'Promotion entière'}</strong>
+                        </span>
+                        {seance.effectif !== undefined && seance.effectif !== null && (
+                          <span>
+                            Effectif présent : <strong>{seance.effectif} étudiants</strong>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Corps pédagogique de la séance */}
+                    <div className="p-3.5 space-y-3 text-xs">
+                      {/* Intitulé du cours / Chapitre */}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Thème / Intitulé de la séance :
+                        </p>
+                        <p className="font-bold text-slate-900 text-sm">
+                          {seance.intitule || 'Séance pédagogique régulière'}
+                        </p>
+                      </div>
+
+                      {/* Contenu pédagogique développé */}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Contenu pédagogique développé :
+                        </p>
+                        <div className="bg-slate-50 p-2.5 border border-slate-200 text-slate-800 leading-relaxed whitespace-pre-line text-xs font-sans">
+                          {seance.contenu || 'Aucun descriptif de contenu renseigné.'}
+                        </div>
+                      </div>
+
+                      {/* Travail prescrit & Devoirs */}
+                      {seance.travailAFaire && (
+                        <div className="bg-amber-50/60 p-2.5 border-l-3 border-amber-500 border-t border-r border-b border-amber-200 text-slate-800">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900 mb-0.5">
+                            Travail prescrit & Devoirs à préparer :
+                          </p>
+                          <p className="leading-relaxed whitespace-pre-line text-xs">
+                            {seance.travailAFaire}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Observations & Incidents */}
+                      {seance.observations && (
+                        <div className="bg-slate-100 p-2 border-l-2 border-slate-400 text-slate-700 text-[11px]">
+                          <span className="font-bold text-slate-800">Observations / Incidents : </span>
+                          {seance.observations}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bandeau de Visa officiel de l'enseignant + Liens d'action */}
+                    <div className="px-3.5 py-2.5 bg-slate-50/80 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          Visa de l'enseignant titulaire :
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 border ${visaInfo.badgeClass}`}>
+                          {visaInfo.label}
+                        </span>
+                        {seance.visa.date && (
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            (le {new Date(seance.visa.date).toLocaleDateString('fr-FR')} à {new Date(seance.visa.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })})
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Boutons d'action rapides (Masqués à l'impression) */}
+                      <div className="no-print flex items-center gap-2">
+                        <Link to={`/cahier-texte/${seance.id}`}>
+                          <Button variant="outline" size="sm" className="text-xs h-7 px-2">
+                            Détail & Historique
+                          </Button>
+                        </Link>
+                        {peutViser && seance.visa.statut === 'en_attente' && (
+                          <Link to="/visas">
+                            <Button variant="primary" size="sm" className="text-xs h-7 px-2 bg-emerald-700 hover:bg-emerald-800" leftIcon={<Stamp className="w-3 h-3" />}>
+                              Viser
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+
+                      {seance.visa.commentaire && (
+                        <div className="w-full text-[11px] text-slate-700 italic bg-white p-2 border border-slate-200 mt-1">
+                          <span className="font-semibold text-slate-900 not-italic">Remarque de visa : </span>
+                          {seance.visa.commentaire}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* 7. CLÔTURE DU REGISTRE & SIGNATURES TRIPARTITES          */}
+          {/* ========================================================= */}
+          <div className="pt-2 text-[10px] text-slate-600 space-y-4 break-inside-avoid">
+            <p className="italic text-center text-[9px] text-slate-500">
+              Le présent registre officiel du Cahier de Texte Numérique est certifié conforme par le Système Pédagogique Intégré de l'École Nationale Polytechnique (ENP).
+              Toute falsification ou rature entraîne de plein droit l'annulation du document et des poursuites disciplinaires.
+            </p>
+
+            <div className="grid grid-cols-3 print:grid-cols-3 gap-4 pt-3">
+              {/* 1. Délégué de promotion */}
+              <div className="border border-slate-300 p-2.5 text-center h-28 flex flex-col justify-between bg-slate-50/50">
+                <p className="font-bold text-[10px] text-[#0d3b66] uppercase">
+                  Le Délégué de Promotion
+                </p>
+                <p className="text-[8px] text-slate-500 leading-tight">
+                  Rédacteur des séances
+                </p>
+                <p className="text-[8px] text-slate-400 italic">Visa & Signature</p>
+              </div>
+
+              {/* 2. Enseignant Titulaire */}
+              <div className="border border-slate-300 p-2.5 text-center h-28 flex flex-col justify-between bg-slate-50/50">
+                <p className="font-bold text-[10px] text-[#0d3b66] uppercase">
+                  L'Enseignant Titulaire
+                </p>
+                <p className="text-[8px] text-slate-500 leading-tight">
+                  Coordonnateur de l'UE
+                </p>
+                <p className="text-[8px] text-slate-400 italic">Visa Pédagogique & Signature</p>
+              </div>
+
+              {/* 3. Direction des Études */}
+              <div className="border border-slate-300 p-2.5 text-center h-28 flex flex-col justify-between bg-slate-50/50">
+                <p className="font-bold text-[10px] text-[#0d3b66] uppercase">
+                  Pour la Direction des Études
+                </p>
+                <p className="text-[8px] text-slate-500 leading-tight">
+                  Chef de Département & Scolarité
+                </p>
+                <p className="text-[8px] text-slate-400 italic">Sceau officiel ENP & Signature</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[9px] text-slate-400 pt-2 border-t border-slate-200">
+              <span>Identifiant de conformité numérique : ENP-CERT-CDT-2026-{filtreUe}-{Date.now().toString().slice(-6)}</span>
+              <span>Fait à Lomé, le {dateDuJour}</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
