@@ -25,6 +25,7 @@ import { LoginDto } from './dto/login.dto';
 import { Public } from './public.decorator';
 
 export const NOM_COOKIE_SESSION = 'refresh_token';
+export const NOM_COOKIE_APPAREIL_MFA = 'mfa_trusted_device';
 const CHEMIN_COOKIE = '/api/v1/auth';
 
 @ApiTags('Auth')
@@ -44,6 +45,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Connexion réussie.' })
   @ApiResponse({ status: 400, description: 'Identifiant ou mot de passe invalide.' })
   async login(
+    @Req() requete: RequeteAuthentifiee,
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) reponse: ReponseHttp,
   ) {
@@ -63,6 +65,7 @@ export class AuthController {
     const resultat = await this.auth.connecter(
       identifiant.trim(),
       motDePasse,
+      lireCookie(requete.headers['cookie'], NOM_COOKIE_APPAREIL_MFA),
     );
     if ('mfaRequired' in resultat) return resultat;
     const { refresh, ...corpsReponse } = resultat;
@@ -117,25 +120,62 @@ export class AuthController {
     return { ok: true };
   }
 
+  @Post('password/change')
+  @HttpCode(200)
+  async changerMotDePasse(
+    @Req() requete: RequeteAuthentifiee,
+    @Body() body: { motDePasseActuel?: string; nouveauMotDePasse?: string },
+    @Res({ passthrough: true }) reponse: ReponseHttp,
+  ) {
+    if (!requete.utilisateur) throw new UnauthorizedException('Jeton manquant');
+    if (
+      typeof body?.motDePasseActuel !== 'string' ||
+      body.motDePasseActuel.length < 1 ||
+      body.motDePasseActuel.length > 200 ||
+      typeof body.nouveauMotDePasse !== 'string'
+    ) {
+      throw new BadRequestException('Les mots de passe actuel et nouveau sont obligatoires');
+    }
+    await this.identity.changerMotDePasse(
+      requete.utilisateur.id,
+      body.motDePasseActuel,
+      body.nouveauMotDePasse,
+    );
+    this.effacerCookie(reponse);
+    this.effacerCookieAppareilMfa(reponse);
+    return { ok: true };
+  }
+
   @Public()
   @Post('mfa/verify')
   @HttpCode(200)
   async verifierMfa(
-    @Body() body: { challengeId?: string; method?: string; code?: string },
+    @Body() body: {
+      challengeId?: string;
+      method?: string;
+      code?: string;
+      rememberDevice?: boolean;
+    },
     @Res({ passthrough: true }) reponse: ReponseHttp,
   ) {
     if (
       typeof body?.challengeId !== 'string' ||
       typeof body.method !== 'string' ||
-      typeof body.code !== 'string'
+      typeof body.code !== 'string' ||
+      (body.rememberDevice !== undefined && typeof body.rememberDevice !== 'boolean')
     ) {
       throw new BadRequestException('Challenge, méthode et code MFA sont obligatoires');
     }
-    const { refresh, ...corpsReponse } = await this.auth.verifierMfa(
+    const resultat = await this.auth.verifierMfa(
       body.challengeId,
       body.method,
       body.code.trim(),
+      body.rememberDevice === true,
     );
+    const { refresh, appareilMfa, ...corpsReponse } = resultat;
+    if (appareilMfa) {
+      this.poserCookieAppareilMfa(reponse, appareilMfa.jeton, appareilMfa.expireLe);
+    }
     this.poserCookie(reponse, refresh.jeton, refresh.expireLe);
     return corpsReponse;
   }
@@ -245,6 +285,29 @@ export class AuthController {
 
   private effacerCookie(reponse: ReponseHttp): void {
     reponse.clearCookie(NOM_COOKIE_SESSION, {
+      httpOnly: true,
+      secure: this.enProduction(),
+      sameSite: 'strict',
+      path: CHEMIN_COOKIE,
+    });
+  }
+
+  private poserCookieAppareilMfa(
+    reponse: ReponseHttp,
+    jeton: string,
+    expireLe: Date,
+  ): void {
+    reponse.cookie(NOM_COOKIE_APPAREIL_MFA, jeton, {
+      httpOnly: true,
+      secure: this.enProduction(),
+      sameSite: 'strict',
+      path: CHEMIN_COOKIE,
+      expires: expireLe,
+    });
+  }
+
+  private effacerCookieAppareilMfa(reponse: ReponseHttp): void {
+    reponse.clearCookie(NOM_COOKIE_APPAREIL_MFA, {
       httpOnly: true,
       secure: this.enProduction(),
       sameSite: 'strict',

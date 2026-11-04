@@ -245,44 +245,123 @@ export class IdentityService {
   ): Promise<void> {
     this.validerMotDePasse(motDePasse);
     const passwordHash = await this.passwords.hash(motDePasse);
-    const rows = await this.db.query<{ user_id: number }>(
-      `WITH token AS (
-         UPDATE identity.account_tokens t
-         SET used_at = NOW()
-         FROM identity.users u
-         WHERE t.user_id = u.id
-           AND t.type = $1
-           AND t.token_hash = $2
-           AND t.used_at IS NULL
-           AND t.expires_at > NOW()
-           AND u.actif
-           AND (u.matricule = $3 OR LOWER(u.email) = LOWER($3))
-         RETURNING t.user_id
-       )
-       UPDATE identity.users u
-       SET mot_de_passe_hash = $4,
-           tentatives_echouees = 0,
-           verrouille_jusqua = NULL
-       FROM token
-       WHERE u.id = token.user_id
-       RETURNING u.id AS user_id`,
-      [
-        TOKEN_REINITIALISATION,
-        this.hashChallenge(code),
-        identifiant.trim(),
-        passwordHash,
-      ],
-    );
+    const rows = await this.db.transaction(async (query) => {
+      const users = await query<{ user_id: number }>(
+        `WITH token AS (
+           UPDATE identity.account_tokens t
+           SET used_at = NOW()
+           FROM identity.users u
+           WHERE t.user_id = u.id
+             AND t.type = $1
+             AND t.token_hash = $2
+             AND t.used_at IS NULL
+             AND t.expires_at > NOW()
+             AND u.actif
+             AND (u.matricule = $3 OR LOWER(u.email) = LOWER($3))
+           RETURNING t.user_id
+         )
+         UPDATE identity.users u
+         SET mot_de_passe_hash = $4,
+             tentatives_echouees = 0,
+             verrouille_jusqua = NULL
+         FROM token
+         WHERE u.id = token.user_id
+         RETURNING u.id AS user_id`,
+        [
+          TOKEN_REINITIALISATION,
+          this.hashChallenge(code),
+          identifiant.trim(),
+          passwordHash,
+        ],
+      );
+      if (users.length > 0) {
+        await query(
+          'UPDATE identity.refresh_tokens SET revoque_le = NOW() WHERE user_id = $1 AND revoque_le IS NULL',
+          [users[0].user_id],
+        );
+        await query(
+          'DELETE FROM identity.mfa_trusted_devices WHERE user_id = $1',
+          [users[0].user_id],
+        );
+      }
+      return users;
+    });
     if (rows.length === 0) {
       await this.comptabiliserEchec(TOKEN_REINITIALISATION, identifiant);
       throw new BadRequestException(
         'Identifiant ou code de réinitialisation invalide ou expiré',
       );
     }
-    await this.db.query(
-      'UPDATE identity.refresh_tokens SET revoque_le = NOW() WHERE user_id = $1 AND revoque_le IS NULL',
-      [rows[0].user_id],
+  }
+
+  async changerMotDePasse(
+    userId: number,
+    motDePasseActuel: string,
+    nouveauMotDePasse: string,
+  ): Promise<void> {
+    this.validerMotDePasse(nouveauMotDePasse);
+    const rows = await this.db.query<{ mot_de_passe_hash: string | null }>(
+      'SELECT mot_de_passe_hash FROM identity.users WHERE id = $1 AND actif',
+      [userId],
     );
+    const passwordHash = rows[0]?.mot_de_passe_hash;
+    if (
+      !passwordHash ||
+      !(await this.passwords.verify(passwordHash, motDePasseActuel))
+    ) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+    if (await this.passwords.verify(passwordHash, nouveauMotDePasse)) {
+      throw new BadRequestException(
+        'Le nouveau mot de passe doit être différent de l’actuel',
+      );
+    }
+
+    const nouveauHash = await this.passwords.hash(nouveauMotDePasse);
+    await this.db.transaction(async (query) => {
+      await query(
+        `UPDATE identity.users
+         SET mot_de_passe_hash = $2, tentatives_echouees = 0, verrouille_jusqua = NULL
+         WHERE id = $1`,
+        [userId, nouveauHash],
+      );
+      await query(
+        'UPDATE identity.refresh_tokens SET revoque_le = NOW() WHERE user_id = $1 AND revoque_le IS NULL',
+        [userId],
+      );
+      await query(
+        'DELETE FROM identity.mfa_trusted_devices WHERE user_id = $1',
+        [userId],
+      );
+    });
+  }
+
+  async appareilMfaFiable(
+    userId: number,
+    jeton: string | null | undefined,
+  ): Promise<boolean> {
+    if (!jeton || jeton.length > 128) return false;
+    const rows = await this.db.query<{ user_id: number }>(
+      `UPDATE identity.mfa_trusted_devices
+       SET last_used_at = NOW()
+       WHERE user_id = $1 AND token_hash = $2 AND expires_at > NOW()
+       RETURNING user_id`,
+      [userId, this.hashChallenge(jeton)],
+    );
+    return rows.length > 0;
+  }
+
+  async creerAppareilMfaFiable(
+    userId: number,
+  ): Promise<{ jeton: string; expireLe: Date }> {
+    const jeton = randomBytes(32).toString('base64url');
+    const expireLe = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.db.query(
+      `INSERT INTO identity.mfa_trusted_devices (user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [userId, this.hashChallenge(jeton), expireLe],
+    );
+    return { jeton, expireLe };
   }
 
   async creerChallengeMfa(

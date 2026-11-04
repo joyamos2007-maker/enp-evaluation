@@ -12,7 +12,13 @@ describe('AuthService', () => {
   const passwords = { verify: jest.fn(), hash: jest.fn() };
   const tokens = { signerAcces: jest.fn() };
   const sessions = { creer: jest.fn(), renouveler: jest.fn(), revoquer: jest.fn() };
-  const identity = { creerChallengeMfa: jest.fn(), totpDisponible: jest.fn(), verifierChallengeMfa: jest.fn() };
+  const identity = {
+    creerChallengeMfa: jest.fn(),
+    totpDisponible: jest.fn(),
+    verifierChallengeMfa: jest.fn(),
+    appareilMfaFiable: jest.fn(),
+    creerAppareilMfaFiable: jest.fn(),
+  };
   const service = new AuthService(
     users as never,
     passwords as never,
@@ -40,6 +46,7 @@ describe('AuthService', () => {
     tokens.signerAcces.mockReturnValue('jeton-signe');
     users.rolesDe.mockResolvedValue(['etudiant']);
     sessions.creer.mockResolvedValue({ jeton: 'refresh-1', expireLe });
+    identity.appareilMfaFiable.mockResolvedValue(false);
   });
 
   it('connecte un utilisateur valide et ouvre une session', async () => {
@@ -122,6 +129,35 @@ describe('AuthService', () => {
     passwords.verify.mockResolvedValue(true);
     await service.connecter('TEST-0001', 'bon');
     expect(users.reinitialiserEchecs).toHaveBeenCalledWith(1);
+  });
+
+  it('saute le challenge MFA uniquement avec un appareil de confiance valide', async () => {
+    users.trouverParIdentifiant.mockResolvedValue({ ...utilisateur, email: 'admin@enp.dz' });
+    users.rolesDe.mockResolvedValue(['admin']);
+    passwords.verify.mockResolvedValue(true);
+    identity.appareilMfaFiable.mockResolvedValue(true);
+
+    const res = await service.connecter('TEST-0001', 'bon', 'cookie-device');
+
+    expect(identity.appareilMfaFiable).toHaveBeenCalledWith(1, 'cookie-device');
+    expect(identity.creerChallengeMfa).not.toHaveBeenCalled();
+    expect(sessions.creer).toHaveBeenCalledWith(1, 'admin');
+    expect(res).not.toHaveProperty('mfaRequired');
+  });
+
+  it('crée un appareil de confiance uniquement après la validation du code MFA', async () => {
+    identity.verifierChallengeMfa.mockResolvedValue(1);
+    identity.creerAppareilMfaFiable.mockResolvedValue({
+      jeton: 'device-token',
+      expireLe,
+    });
+    users.trouverParId.mockResolvedValue(utilisateur);
+    users.rolesDe.mockResolvedValue(['admin']);
+
+    const res = await service.verifierMfa('challenge', 'email', '123456', true);
+
+    expect(identity.creerAppareilMfaFiable).toHaveBeenCalledWith(1);
+    expect(res.appareilMfa).toEqual({ jeton: 'device-token', expireLe });
   });
 
   it('rafraichit la session : nouveau jeton d acces et nouveau jeton de session', async () => {

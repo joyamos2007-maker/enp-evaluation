@@ -31,7 +31,7 @@ class FrontendErrorBoundary extends Component<
             Une erreur est survenue pendant le chargement. Rechargez l’application pour réessayer.
           </p>
           <button
-            className="rounded-lg bg-enp-primary px-4 py-2 text-sm font-semibold text-white hover:bg-enp-primary-dark"
+            className="bg-enp-primary px-4 py-2 text-sm font-semibold text-white hover:bg-enp-primary-dark transition-colors"
             onClick={() => window.location.reload()}
             type="button"
           >

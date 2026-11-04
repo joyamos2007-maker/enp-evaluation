@@ -79,6 +79,19 @@ az acr build --registry <NOM_ACR> --image enp-api:<TAG> --file apps/api/Dockerfi
 az acr build --registry <NOM_ACR> --image enp-web:<TAG> --file apps/web/Dockerfile.azure .
 ```
 
+Pour une base Azure de test deja migree jusqu'a `016`, la migration MFA `017`
+doit etre executee seule, jamais via l'image qui rejoue toute la chaine :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-mfa-migration:<TAG> --file infra/sql/Dockerfile.mfa-017 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-mfa-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+Verifier que l'execution du job finit avec le statut `Succeeded` avant de
+deployer l'API et le frontend. Cette image n'execute que `017_mfa_trusted_devices.sql`.
+Ne pas lancer `Dockerfile.migrations` sur une base deja migree.
+
 `Dockerfile.azure` construit le frontend avec `VITE_USE_MOCK=false` et
 `VITE_API_BASE_URL=/api/v1` : le mode maquette n'est donc pas embarque en
 production ; le module contenant les comptes de demonstration est remplace
@@ -97,6 +110,18 @@ Dans Container Apps, configurer les deux images dans la meme application :
   `127.0.0.1:3000` ;
 - configurer une sonde de disponibilite API sur `GET /api/v1/health` port 3000
   et une sonde web sur le port 8080.
+
+Apres validation de la migration, mettre a jour les deux conteneurs avec les
+images construites :
+
+```powershell
+az containerapp update --resource-group <RESOURCE_GROUP> --name <CONTAINER_APP> --container-name api --image <NOM_ACR>.azurecr.io/enp-api:<TAG>
+az containerapp update --resource-group <RESOURCE_GROUP> --name <CONTAINER_APP> --container-name web --image <NOM_ACR>.azurecr.io/enp-web:<TAG>
+```
+
+Le workflow GitHub Actions `ci.yml` execute les builds et tests, mais ne publie
+pas d'image et ne met pas a jour Azure : un push GitHub seul ne redeploie pas
+l'application.
 
 ## Configuration de l'API
 
@@ -144,11 +169,9 @@ l'historique.
 7. Examiner et corriger les avis de vulnerabilites de dependances avant la
    publication des images.
 
-## Ce qui reste a fournir pour le deploiement reel
+## Ce qui reste a fournir pour la production
 
-Cette preparation ne cree pas de ressources Azure et ne lance pas de publication.
-Il faudra encore choisir la region et les niveaux de service, creer/configurer
-ACR, Container Apps, PostgreSQL Flexible Server et Key Vault, puis fournir le
-domaine, l'abonnement et les identifiants de deploiement securises. Le choix du
-niveau de disponibilite, du budget et de la politique de sauvegarde doit etre
-valide par l'ENP avant la mise en production.
+La procedure de test ci-dessus ne configure pas un deploiement automatique. Pour
+la production, l'ENP devra valider la region et les niveaux de service, le domaine,
+les acces Azure securises, le niveau de disponibilite, le budget et la politique
+de sauvegarde avant la mise en production.

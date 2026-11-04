@@ -8,8 +8,8 @@ import { Secret, TOTP } from 'otpauth';
 import { IdentityService } from './identity.service';
 
 describe('IdentityService', () => {
-  const db = { query: jest.fn() };
-  const passwords = { hash: jest.fn() };
+  const db = { query: jest.fn(), transaction: jest.fn() };
+  const passwords = { hash: jest.fn(), verify: jest.fn() };
   const email = { envoyer: jest.fn(), enfiler: jest.fn() };
   const secret = 'c'.repeat(40);
   const config = {
@@ -29,6 +29,10 @@ describe('IdentityService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     passwords.hash.mockResolvedValue('argon-hash');
+    db.transaction.mockImplementation(
+      async (work: (query: typeof db.query) => Promise<unknown>) =>
+        work(db.query),
+    );
   });
 
   it('consomme atomiquement le code d’activation et configure un mot de passe', async () => {
@@ -151,5 +155,60 @@ describe('IdentityService', () => {
     ).rejects.toBeInstanceOf(HttpException);
     expect(email.envoyer).not.toHaveBeenCalled();
     expect(email.enfiler).not.toHaveBeenCalled();
+  });
+
+  it('stocke uniquement le hachage du jeton de confiance et le vérifie à la connexion', async () => {
+    db.query.mockResolvedValueOnce([]);
+    const appareil = await service.creerAppareilMfaFiable(12);
+    const [insertSql, insertParams] = db.query.mock.calls[0] as [string, unknown[]];
+
+    expect(insertSql).toContain('INSERT INTO identity.mfa_trusted_devices');
+    expect(appareil.jeton).toHaveLength(43);
+    expect(insertParams[1]).toBe(
+      createHmac('sha256', secret).update(appareil.jeton).digest('hex'),
+    );
+    expect(insertParams[1]).not.toBe(appareil.jeton);
+    expect(appareil.expireLe.getTime()).toBeGreaterThan(Date.now() + 29 * 24 * 60 * 60 * 1000);
+
+    db.query.mockResolvedValueOnce([{ user_id: 12 }]);
+    await expect(service.appareilMfaFiable(12, appareil.jeton)).resolves.toBe(true);
+    expect(db.query.mock.calls[1][0]).toContain('expires_at > NOW()');
+  });
+
+  it('refuse un jeton de confiance absent ou trop long sans accès à la base', async () => {
+    await expect(service.appareilMfaFiable(12, null)).resolves.toBe(false);
+    await expect(service.appareilMfaFiable(12, 'x'.repeat(129))).resolves.toBe(false);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('change le mot de passe et révoque sessions et appareils de confiance atomiquement', async () => {
+    db.query.mockResolvedValueOnce([{ mot_de_passe_hash: 'ancien-hash' }]);
+    passwords.verify.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    await service.changerMotDePasse(12, 'ancien-mot-de-passe', 'nouveau-mot-de-passe');
+
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('SET mot_de_passe_hash = $2'),
+      [12, 'argon-hash'],
+    );
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE identity.refresh_tokens'),
+      [12],
+    );
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM identity.mfa_trusted_devices'),
+      [12],
+    );
+  });
+
+  it('refuse le changement si le mot de passe actuel est incorrect', async () => {
+    db.query.mockResolvedValueOnce([{ mot_de_passe_hash: 'ancien-hash' }]);
+    passwords.verify.mockResolvedValueOnce(false);
+
+    await expect(
+      service.changerMotDePasse(12, 'incorrect', 'nouveau-mot-de-passe'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 });

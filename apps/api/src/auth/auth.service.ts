@@ -26,7 +26,11 @@ export class AuthService {
     private readonly identity: IdentityService,
   ) {}
 
-  async connecter(identifiant: string, motDePasse: string) {
+  async connecter(
+    identifiant: string,
+    motDePasse: string,
+    jetonAppareilMfa?: string | null,
+  ) {
     const utilisateur = await this.users.trouverParIdentifiant(identifiant);
 
     // Compte verrouille : on ne teste meme pas le mot de passe
@@ -59,6 +63,12 @@ export class AuthService {
     if (roles.some((role) => ['admin', 'scolarite', 'direction_etudes', 'chef_departement'].includes(role))) {
       if (!utilisateur.email) {
         throw new ForbiddenException('Une adresse e-mail institutionnelle doit etre configuree pour le MFA');
+      }
+      if (await this.identity.appareilMfaFiable(utilisateur.id, jetonAppareilMfa)) {
+        const roleActif = roles[0];
+        if (!roleActif) throw new UnauthorizedException(MESSAGE_ECHEC);
+        const refresh = await this.sessions.creer(utilisateur.id, roleActif);
+        return this.reponseAvec(utilisateur, refresh, roleActif);
       }
       const mfa = await this.identity.creerChallengeMfa(
         utilisateur.id,
@@ -98,7 +108,12 @@ export class AuthService {
     );
   }
 
-  async verifierMfa(challengeId: string, method: string, code: string) {
+  async verifierMfa(
+    challengeId: string,
+    method: string,
+    code: string,
+    rememberDevice = false,
+  ) {
     const userId = await this.identity.verifierChallengeMfa(challengeId, method, code);
     const utilisateur = await this.users.trouverParId(userId);
     if (!utilisateur || !utilisateur.actif || !utilisateur.mot_de_passe_hash) {
@@ -108,7 +123,14 @@ export class AuthService {
     const roleActif = roles[0];
     if (!roleActif) throw new UnauthorizedException(MESSAGE_ECHEC);
     const refresh = await this.sessions.creer(userId, roleActif);
-    return this.reponseAvec(utilisateur, refresh, roleActif);
+    const reponse = await this.reponseAvec(utilisateur, refresh, roleActif);
+    const appareilMfa = rememberDevice
+      ? await this.identity.creerAppareilMfaFiable(userId)
+      : undefined;
+    return {
+      ...reponse,
+      ...(appareilMfa ? { appareilMfa } : {}),
+    };
   }
 
   async selectionnerProfil(userId: number, role: string, refreshToken: string) {

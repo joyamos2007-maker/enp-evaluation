@@ -508,7 +508,12 @@ export async function activation(
   return { ok: true };
 }
 
-export async function verifierMfa(): Promise<ReponseConnexion> {
+export async function verifierMfa(_corps?: {
+  challengeId: string;
+  method: "email" | "totp";
+  code: string;
+  rememberDevice?: boolean;
+}): Promise<ReponseConnexion> {
   throw new ApiError({
     message: "MFA indisponible en mode démonstration.",
     statusCode: 400,
@@ -521,6 +526,14 @@ export async function demanderReinitialisation(): Promise<ReponseSimple> {
 }
 
 export async function confirmerReinitialisation(): Promise<ReponseSimple> {
+  await delai();
+  return { ok: true };
+}
+
+export async function changerMotDePasse(_corps: {
+  motDePasseActuel: string;
+  nouveauMotDePasse: string;
+}): Promise<ReponseSimple> {
   await delai();
   return { ok: true };
 }

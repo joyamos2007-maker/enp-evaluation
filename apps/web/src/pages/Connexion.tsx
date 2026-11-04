@@ -1,15 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-<<<<<<< Updated upstream
-import { Eye, EyeOff, LogIn, AlertCircle, GraduationCap } from 'lucide-react';
-import { api, ApiError } from '@/api';
-import { useAuth } from '@/auth/AuthContext';
-import { MockBanner } from '@/components/MockBanner';
-=======
 import {
   Eye,
   EyeOff,
   LogIn,
+  AlertCircle,
   ShieldCheck,
   CheckCircle2,
   Lock,
@@ -17,12 +12,12 @@ import {
   HelpCircle,
   KeyRound,
   ArrowRight,
+  GraduationCap,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthContext';
 import { MockBanner } from '@/components/MockBanner';
-import { Button, Input, Alert } from '@/components/ui';
->>>>>>> Stashed changes
+import { Button, Input, Alert, Checkbox } from '@/components/ui';
 import type { ChallengeMfa } from '@/api/types';
 
 interface EtatConnexion {
@@ -39,15 +34,15 @@ export function Connexion() {
   const [afficherMdp, setAfficherMdp] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
+
+  // Étape MFA conditionnelle renvoyée par le backend (roles admin, scolarite, chef dept, etc.)
   const [challengeMfa, setChallengeMfa] = useState<ChallengeMfa | null>(null);
   const [methodeMfa, setMethodeMfa] = useState<'email' | 'totp'>('email');
   const [codeMfa, setCodeMfa] = useState('');
-  const [reinitialisation, setReinitialisation] = useState(false);
-  const [codeEnvoye, setCodeEnvoye] = useState(false);
-  const [identifiantReset, setIdentifiantReset] = useState('');
-  const [codeReset, setCodeReset] = useState('');
-  const [nouveauMotDePasse, setNouveauMotDePasse] = useState('');
-  const [messageReset, setMessageReset] = useState<string | null>(null);
+  const [memoriserAppareil, setMemoriserAppareil] = useState(false);
+  const messageInfo = (location.state as { message?: string } | null)?.message;
+
+  const isMock = import.meta.env.VITE_USE_MOCK === 'true';
 
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/';
@@ -61,88 +56,62 @@ export function Connexion() {
     e.preventDefault();
     setEnCours(true);
     setErreur(null);
+
     try {
-      const rep = challengeMfa
-        ? await api.verifierMfa({
-            challengeId: challengeMfa.challengeId,
-            method: methodeMfa,
-            code: codeMfa,
-          })
-        : await api.connexion({
-            identifiant: form.identifiant.trim(),
-            motDePasse: form.motDePasse,
-          });
-      if ('mfaRequired' in rep) {
-        setChallengeMfa(rep);
-        setMethodeMfa(rep.methods[0]);
-        return;
+      if (challengeMfa) {
+        const rep = await api.verifierMfa({
+          challengeId: challengeMfa.challengeId,
+          method: methodeMfa,
+          code: codeMfa.trim(),
+          rememberDevice: memoriserAppareil,
+        });
+        connecter(rep);
+        navigate(from, { replace: true });
+      } else {
+        const rep = await api.connexion({
+          identifiant: form.identifiant.trim(),
+          motDePasse: form.motDePasse,
+        });
+
+        if ('mfaRequired' in rep) {
+          setChallengeMfa(rep);
+          setMethodeMfa(rep.methods[0] ?? 'email');
+          return;
+        }
+
+        connecter(rep);
+        navigate(from, { replace: true });
       }
-      connecter(rep);
-      navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setErreur(err.messages.join(' '));
       } else if (err instanceof TypeError) {
-        setErreur('Erreur réseau : impossible de joindre le serveur.');
+        setErreur('Erreur de communication : impossible de joindre le serveur API.');
       } else {
-        setErreur('Une erreur inattendue est survenue.');
+        setErreur('Identifiant ou mot de passe incorrect.');
       }
     } finally {
       setEnCours(false);
     }
   }
 
-  async function envoyerCodeReset() {
-    setEnCours(true);
+  // Raccourcis de connexion pour tester rapidement différents profils en mode maquette
+  function preRemplir(identifiant: string, mdp: string) {
+    setForm({ identifiant, motDePasse: mdp });
     setErreur(null);
-    try {
-      await api.demanderReinitialisation(identifiantReset.trim());
-      setCodeEnvoye(true);
-      setMessageReset('Si le compte est associé à cet identifiant, un code a été envoyé.');
-    } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Envoi du code impossible.');
-    } finally {
-      setEnCours(false);
-    }
-  }
-
-  async function confirmerReset() {
-    setEnCours(true);
-    setErreur(null);
-    try {
-      await api.confirmerReinitialisation({
-        identifiant: identifiantReset.trim(),
-        code: codeReset.trim(),
-        motDePasse: nouveauMotDePasse,
-      });
-      setReinitialisation(false);
-      setCodeEnvoye(false);
-      setMessageReset('Mot de passe modifié. Vous pouvez vous connecter.');
-    } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Réinitialisation impossible.');
-    } finally {
-      setEnCours(false);
-    }
+    setChallengeMfa(null);
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-enp-bg w-full max-w-full overflow-x-hidden">
       <MockBanner />
-<<<<<<< Updated upstream
-      <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md animate-fade-in">
-          {/* Branding */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-enp-primary shadow-card mb-4">
-              <GraduationCap size={36} className="text-white" aria-hidden="true" />
-=======
 
       <div className="flex-1 flex items-center justify-center p-3 sm:p-6 lg:p-12 w-full max-w-full">
         <div className="w-full max-w-5xl bg-white border border-enp-border shadow-elevated grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
           {/* ====================================================== */}
           {/* PANNEAU INSTITUTIONNEL GAUCHE (Desktop)                 */}
           {/* ====================================================== */}
-          <div className="lg:col-span-5 bg-enp-blue-deep text-white p-4 sm:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-[#00172E]">
+          <div className="lg:col-span-5 bg-enp-blue-deep text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-[#00172E]">
             {/* Arrière-plan décoratif géométrique sobre inspiré de l'ingénierie */}
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -152,67 +121,48 @@ export function Connexion() {
                   </pattern>
                 </defs>
                 <rect width="100%" height="100%" fill="url(#grid)" />
-                <circle cx="80%" cy="20%" r="120" fill="none" stroke="#6D28D9" strokeWidth="1.5" />
-                <circle cx="80%" cy="20%" r="80" fill="none" stroke="#6D28D9" strokeWidth="0.8" />
+                <circle cx="80%" cy="20%" r="120" fill="none" stroke="#B08D35" strokeWidth="1.5" />
+                <circle cx="80%" cy="20%" r="80" fill="none" stroke="#B08D35" strokeWidth="0.8" />
                 <line x1="0" y1="0" x2="100%" y2="100%" stroke="#FFFFFF" strokeWidth="0.5" strokeDasharray="4,4" />
               </svg>
             </div>
 
             <div className="relative z-10 space-y-4 lg:space-y-6">
-              {/* En haut : Logo officiel de l'ENP */}
-              <div className="pb-2 border-b border-white/10 flex items-center justify-between">
+              {/* En haut : Logo officiel de l'ENP grand format (seul élément visible sur mobile) */}
+              <div className="flex items-center justify-center lg:justify-start py-2 lg:py-0 lg:pb-3 lg:border-b lg:border-white/10">
                 <img
                   src="/logo-enp-white.png"
                   alt="Logo officiel École Nationale Polytechnique"
-                  className="h-10 sm:h-14 w-auto object-contain"
-                />
-                <img
-                  src="/armoiries-togo.svg"
-                  alt="Armoiries de la République Togolaise"
-                  className="h-9 w-auto object-contain lg:hidden"
+                  className="h-20 sm:h-24 lg:h-16 w-auto max-w-[280px] sm:max-w-[340px] object-contain drop-shadow-sm transition-all"
                 />
               </div>
 
-              <div className="space-y-1 sm:space-y-2">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-yellow-300 text-[10px] sm:text-xs font-semibold uppercase tracking-wider">
-                  <span>RÉPUBLIQUE TOGOLAISE</span>
-                  <span>•</span>
-                  <span>Travail, Liberté, Patrie</span>
-                </div>
-                <h2 className="text-lg sm:text-2xl font-bold font-serif text-white tracking-tight leading-snug">
+              {/* Présentation institutionnelle (Desktop uniquement : masquée sur mobile) */}
+              <div className="hidden lg:block space-y-2">
+                <h2 className="text-lg sm:text-2xl font-bold font-sans text-white tracking-tight leading-snug">
                   École Nationale Polytechnique
                 </h2>
-                <div className="w-12 h-1 bg-enp-violet" />
+                <div className="w-12 h-1 bg-enp-gold" />
               </div>
 
-              <div className="hidden lg:block space-y-3 pt-2">
-                <h3 className="text-sm font-semibold text-[#D8DEE5] uppercase tracking-wider">
-                  Système Pédagogique Intégré
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  Portail académique sécurisé de l'ENP garantissant l'évaluation anonyme et objective
-                  des unités d'enseignement, la tenue rigoureuse du cahier de texte et le pilotage de la formation polytechnique.
+              {/* Présentation sobre et épurée (Desktop) */}
+              <div className="hidden lg:block space-y-4 pt-2">
+                <p className="text-sm text-slate-300 leading-relaxed font-sans">
+                  Portail officiel dédié à l'évaluation des enseignements, au cahier de texte et au suivi des présences et des notes.
                 </p>
-              </div>
 
-              {/* 3 engagements institutionnels (Desktop) */}
-              <div className="hidden lg:block space-y-3 pt-4 border-t border-white/10 text-xs">
-                <div className="flex items-start gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-enp-violet shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-white">Anonymat garanti & strict :</span>
-                    <p className="text-slate-300">
-                      Les résultats ne sont déverrouillés qu’à partir d’un seuil réglementaire de 5 répondants.
-                    </p>
+                <div className="space-y-2 pt-3 border-t border-white/10 text-xs font-sans text-slate-200">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-enp-gold shrink-0" />
+                    <span>Évaluations anonymes et sécurisées</span>
                   </div>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-enp-green-valid shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-white">Cahier de texte certifié :</span>
-                    <p className="text-slate-300">
-                      Horodatage et traçabilité intégrale des séances et visas d’enseignements.
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-enp-green-valid shrink-0" />
+                    <span>Cahier de texte certifié</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-sky-300 shrink-0" />
+                    <span>Suivi des présences et des notes</span>
                   </div>
                 </div>
               </div>
@@ -227,40 +177,41 @@ export function Connexion() {
               />
               <div className="text-[11px] text-slate-300">
                 <p className="font-semibold text-white tracking-wide uppercase">RÉPUBLIQUE TOGOLAISE</p>
-                <p className="text-slate-400">Direction des Systèmes d'Information & Scolarité Centrale</p>
+                <p className="text-slate-300 italic font-sans">Travail, Liberté, Patrie</p>
               </div>
->>>>>>> Stashed changes
             </div>
-            <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-              ENP — Évaluation des enseignements
-            </h1>
-            <p className="text-sm text-enp-ink-soft mt-1.5">
-              École Nationale Polytechnique
-            </p>
           </div>
 
-          {/* Carte de connexion */}
-          <div className="bg-white rounded-2xl shadow-card border border-enp-border p-6 sm:p-8">
-            <h2 className="text-lg font-semibold text-enp-ink mb-1">
-              Connexion
-            </h2>
-            <p className="text-sm text-enp-ink-soft mb-5">
-              Accédez à votre espace avec vos identifiants institutionnels.
-            </p>
+          {/* ====================================================== */}
+          {/* FORMULAIRE DE CONNEXION DROITE                          */}
+          {/* ====================================================== */}
+          <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-between bg-white">
+            <div>
+              <div className="mb-6">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-enp-blue-primary block mb-1">
+                  Accès Institutionnel Sécurisé
+                </span>
+                <h1 className="text-2xl font-bold text-enp-black tracking-tight">
+                  {challengeMfa ? 'Vérification en deux étapes (MFA)' : 'Connexion à votre espace'}
+                </h1>
+                <p className="text-xs sm:text-sm text-enp-gray-medium mt-1">
+                  {challengeMfa
+                    ? 'Un code de confirmation temporaire vous a été transmis.'
+                    : 'Saisissez votre matricule ou votre e-mail officiel pour vous authentifier.'}
+                </p>
+              </div>
 
-<<<<<<< Updated upstream
-            {erreur && (
-              <div
-                className="mb-4 flex items-start gap-2.5 rounded-xl bg-enp-bordeaux-light border border-enp-bordeaux/15 p-3.5 text-enp-bordeaux text-sm"
-                role="alert"
-              >
-                <AlertCircle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{erreur}</span>
-=======
               {erreur && (
                 <div className="mb-5">
                   <Alert variant="danger" title="Échec de l'authentification">
                     {erreur}
+                  </Alert>
+                </div>
+              )}
+              {messageInfo && (
+                <div className="mb-5">
+                  <Alert variant="success" title="Mot de passe modifié">
+                    {messageInfo}
                   </Alert>
                 </div>
               )}
@@ -301,6 +252,13 @@ export function Connexion() {
                       placeholder="Ex: 849201"
                       startIcon={<KeyRound className="w-4 h-4" />}
                       helperText="Saisissez le code à usage unique généré pour cette session."
+                    />
+
+                    <Checkbox
+                      checked={memoriserAppareil}
+                      onChange={(event) => setMemoriserAppareil(event.target.checked)}
+                      label="Faire confiance à cet appareil pendant 30 jours"
+                      description="Le second facteur ne sera pas redemandé sur ce navigateur pendant cette période. Ne cochez pas cette option sur un appareil partagé."
                     />
 
                     <div className="flex gap-2">
@@ -416,230 +374,57 @@ export function Connexion() {
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-ETU', 'demo-etudiant-2026')}
+                    onClick={() => preRemplir('student1@enp.tg', 'Enp2026!Etudiant')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Étudiant
                   </button>
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-DEL', 'demo-delegue-2026')}
+                    onClick={() => preRemplir('delegue1@enp.tg', 'Enp2026!Delegue')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Délégué
                   </button>
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-ENS', 'demo-enseignant-2026')}
+                    onClick={() => preRemplir('prof.dupont@enp.tg', 'Enp2026!Prof')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Enseignant
                   </button>
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-CHEF', 'demo-chef-2026')}
+                    onClick={() => preRemplir('chef.gc@enp.tg', 'Enp2026!Chef')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Chef de Dept
                   </button>
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-SCO', 'demo-scolarite-2026')}
+                    onClick={() => preRemplir('scolarite@enp.tg', 'Enp2026!Scolarite')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Scolarité
                   </button>
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-DIR', 'demo-direction-2026')}
+                    onClick={() => preRemplir('direction@enp.tg', 'Enp2026!Direction')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Direction Études
                   </button>
                   <button
                     type="button"
-                    onClick={() => preRemplir('DEMO-ADMIN', 'demo-admin-2026')}
+                    onClick={() => preRemplir('admin@enp.tg', 'Enp2026!Admin')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
                     Admin
                   </button>
                 </div>
->>>>>>> Stashed changes
               </div>
             )}
-
-            <form onSubmit={(event) => {
-              if (reinitialisation) {
-                event.preventDefault();
-                if (codeEnvoye) void confirmerReset();
-                else void envoyerCodeReset();
-                return;
-              }
-              void handleSubmit(event);
-            }} className="space-y-5" noValidate>
-              {challengeMfa ? (
-                <>
-                  <p className="text-sm text-enp-ink-soft">
-                    Un code de sécurité a été envoyé à votre adresse institutionnelle.
-                  </p>
-                  {challengeMfa.methods.length > 1 && (
-                    <div>
-                      <label htmlFor="methodeMfa" className="block text-sm font-medium text-enp-ink mb-1.5">
-                        Méthode MFA
-                      </label>
-                      <select
-                        id="methodeMfa"
-                        value={methodeMfa}
-                        onChange={(event) => setMethodeMfa(event.target.value as 'email' | 'totp')}
-                        className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 min-h-[44px]"
-                      >
-                        <option value="email">Code par e-mail</option>
-                        <option value="totp">Application d’authentification</option>
-                      </select>
-                    </div>
-                  )}
-                  <label htmlFor="codeMfa" className="block text-sm font-medium text-enp-ink mb-1.5">
-                    Code à 6 chiffres
-                  </label>
-                  <input
-                    id="codeMfa"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    required
-                    value={codeMfa}
-                    onChange={(event) => setCodeMfa(event.target.value)}
-                    className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 min-h-[44px]"
-                  />
-                </>
-              ) : reinitialisation ? (
-                <>
-                  <label htmlFor="identifiantReset" className="block text-sm font-medium text-enp-ink mb-1.5">
-                    Matricule ou e-mail
-                  </label>
-                  <input
-                    id="identifiantReset"
-                    required
-                    value={identifiantReset}
-                    onChange={(event) => setIdentifiantReset(event.target.value)}
-                    className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 min-h-[44px]"
-                  />
-                  {codeEnvoye && (
-                    <>
-                      <label htmlFor="codeReset" className="block text-sm font-medium text-enp-ink mb-1.5">
-                        Code reçu par e-mail
-                      </label>
-                      <input
-                        id="codeReset"
-                        inputMode="numeric"
-                        required
-                        value={codeReset}
-                        onChange={(event) => setCodeReset(event.target.value)}
-                        className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 min-h-[44px]"
-                      />
-                      <label htmlFor="nouveauMotDePasse" className="block text-sm font-medium text-enp-ink mb-1.5">
-                        Nouveau mot de passe
-                      </label>
-                      <input
-                        id="nouveauMotDePasse"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        minLength={12}
-                        value={nouveauMotDePasse}
-                        onChange={(event) => setNouveauMotDePasse(event.target.value)}
-                        className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 min-h-[44px]"
-                      />
-                    </>
-                  )}
-                  {messageReset && <p className="text-sm text-enp-teal" role="status">{messageReset}</p>}
-                </>
-              ) : (
-                <>
-              <div>
-                <label htmlFor="identifiant" className="block text-sm font-medium text-enp-ink mb-1.5">
-                  Matricule ou e-mail
-                </label>
-                <input
-                  id="identifiant"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={form.identifiant}
-                  onChange={(e) => update('identifiant', e.target.value)}
-                  className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none transition-all min-h-[44px]"
-                  disabled={enCours}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="motDePasse" className="block text-sm font-medium text-enp-ink mb-1.5">
-                  Mot de passe
-                </label>
-                <div className="relative">
-                  <input
-                    id="motDePasse"
-                    type={afficherMdp ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={form.motDePasse}
-                    onChange={(e) => update('motDePasse', e.target.value)}
-                    className="w-full rounded-lg border border-enp-border px-3.5 py-2.5 pr-11 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none transition-all min-h-[44px]"
-                    disabled={enCours}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setAfficherMdp((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-enp-ink-soft hover:text-enp-ink hover:bg-enp-sky/60 transition-colors"
-                    aria-label={afficherMdp ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                    aria-pressed={afficherMdp}
-                    tabIndex={-1}
-                  >
-                    {afficherMdp ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-                </>
-              )}
-
-              <button
-                type="submit"
-                disabled={enCours}
-                className="w-full inline-flex items-center justify-center gap-2 bg-enp-primary text-white font-semibold px-4 py-3 rounded-lg hover:bg-enp-primary-dark transition-all disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] shadow-sm hover:shadow-card-hover"
-              >
-                <LogIn size={20} aria-hidden="true" />
-                {enCours ? 'Traitement…' : challengeMfa ? 'Vérifier le code' : reinitialisation ? (codeEnvoye ? 'Réinitialiser' : 'Envoyer le code') : 'Se connecter'}
-              </button>
-            </form>
-
-            <div className="mt-5 pt-5 border-t border-enp-border">
-              <div className="flex items-center justify-center gap-4 text-center">
-                <Link
-                  to="/activation"
-                  className="text-sm text-enp-primary font-medium hover:underline"
-                >
-                  Activer mon compte
-                </Link>
-                {!challengeMfa && (
-                  <button
-                    type="button"
-                    className="text-sm text-enp-primary font-medium hover:underline"
-                    onClick={() => {
-                      setReinitialisation((value) => !value);
-                      setCodeEnvoye(false);
-                      setMessageReset(null);
-                      setErreur(null);
-                    }}
-                  >
-                    {reinitialisation ? 'Retour à la connexion' : 'Mot de passe oublié ?'}
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
-
-          <p className="mt-6 text-center text-xs text-enp-ink-soft">
-            Plateforme officielle — École Nationale Polytechnique
-          </p>
         </div>
       </div>
     </div>

@@ -18,9 +18,9 @@ export function ENPLogo({
   const isLight = variant === 'light';
 
   const logoHeights = {
-    sm: 'h-10 sm:h-11',
-    md: 'h-12 sm:h-14',
-    lg: 'h-16 sm:h-20',
+    sm: 'h-10 sm:h-12 lg:h-14',
+    md: 'h-12 sm:h-14 lg:h-16',
+    lg: 'h-16 sm:h-20 lg:h-24',
   };
 
   const armoiriesHeights = {
@@ -49,7 +49,7 @@ export function ENPLogo({
 
       {showSubtitle && (
         <div className="hidden sm:block border-l border-white/20 pl-3">
-          <span className="text-[10px] tracking-wider font-semibold text-enp-violet uppercase block">
+          <span className="text-[10px] tracking-wider font-semibold text-enp-gold uppercase block">
             République Togolaise
           </span>
           <span className={`text-[10px] tracking-tight block ${isLight ? 'text-slate-300' : 'text-enp-gray-medium'}`}>

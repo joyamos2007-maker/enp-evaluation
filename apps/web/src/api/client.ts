@@ -280,6 +280,7 @@ export async function verifierMfa(corps: {
   challengeId: string;
   method: "email" | "totp";
   code: string;
+  rememberDevice?: boolean;
 }): Promise<ReponseConnexion> {
   const data = await requete<ReponseConnexion>("/auth/mfa/verify", {
     method: "POST",
@@ -309,6 +310,16 @@ export async function confirmerReinitialisation(corps: {
     method: "POST",
     body: corps,
     sansAuth: true,
+  });
+}
+
+export async function changerMotDePasse(corps: {
+  motDePasseActuel: string;
+  nouveauMotDePasse: string;
+}): Promise<ReponseSimple> {
+  return requete<ReponseSimple>("/auth/password/change", {
+    method: "POST",
+    body: corps,
   });
 }
 

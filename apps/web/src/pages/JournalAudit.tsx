@@ -29,7 +29,6 @@ export function JournalAudit() {
   }, [charger]);
 
   return (
-<<<<<<< Updated upstream
     <section className="space-y-5">
       <h1 className="flex items-center gap-2 text-2xl font-bold text-enp-ink">
         <ScrollText size={24} aria-hidden="true" /> Journal d’audit
@@ -44,48 +43,6 @@ export function JournalAudit() {
           className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux"
         >
           <AlertCircle size={18} aria-hidden="true" /> {erreur}
-=======
-    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
-      <PageHeader
-        title="Journal d'Audit & Traçabilité Sécurisée"
-        description="Historique immuable des opérations administratives et pédagogiques de l'École Nationale Polytechnique"
-        breadcrumbs={[
-          { label: 'Accueil', href: '/' },
-          { label: 'Administration', href: '/administration' },
-          { label: 'Journal d’audit' },
-        ]}
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void charger()}
-            leftIcon={<RefreshCw className="w-4 h-4" />}
-          >
-            Actualiser
-          </Button>
-        }
-      />
-
-      <Alert
-        variant="institutional"
-        title="Garantie de non-traçabilité des scrutins anonymes"
-        icon={<ShieldCheck className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
-      >
-        Conformément aux protocoles de vote anonyme, les bulletins électroniques, les choix exprimés et les adresses IP
-        ne font l'objet d'aucune écriture dans ce journal. Seules les actions administratives d'ouverture, de modération,
-        d'import et de visas y sont scellées.
-      </Alert>
-
-      {/* Barre de recherche */}
-      <div className="bg-white border border-enp-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex-1 w-full sm:max-w-sm">
-          <Input
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
-            placeholder="Rechercher par action, entité ou utilisateur..."
-            startIcon={<Search className="w-4 h-4" />}
-          />
->>>>>>> Stashed changes
         </div>
       )}
       {chargement ? (

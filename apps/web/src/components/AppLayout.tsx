@@ -1,127 +1,332 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Menu, X, GraduationCap } from 'lucide-react';
-import * as Lucide from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
+import {
+  LogOut,
+  Menu,
+  X,
+  Bell,
+  ShieldCheck,
+  ChevronDown,
+  Home,
+  ClipboardCheck,
+  FileText,
+  GraduationCap,
+  CalendarCheck,
+  BookOpen,
+  Users,
+  Stamp,
+  BarChart3,
+  ClipboardList,
+  CheckSquare,
+  LineChart,
+  LayoutDashboard,
+  Megaphone,
+  UserCog,
+  Upload,
+  Award,
+  FileCheck2,
+  Globe2,
+  Sliders,
+  Building2,
+  Archive,
+  ScrollText,
+  Circle,
+  type LucideIcon,
+} from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
-import { entreesPourRoles, LIBELLES_ROLES } from './menuConfig';
-import { MockBanner } from './MockBanner';
+import { entreesPourRoles, LIBELLES_ROLES, type EntreeMenu } from './menuConfig';
+import { ENPLogo } from './ENPLogo';
+import { api } from '@/api';
+import type { Notification, Role } from '@/api/types';
 
-type IconeLucide = Lucide.LucideIcon;
+const ICONES_MENU: Record<string, LucideIcon> = {
+  ClipboardCheck,
+  FileText,
+  GraduationCap,
+  CalendarCheck,
+  BookOpen,
+  Users,
+  Stamp,
+  BarChart3,
+  ClipboardList,
+  CheckSquare,
+  LineChart,
+  LayoutDashboard,
+  Megaphone,
+  UserCog,
+  Upload,
+  ShieldCheck,
+  Award,
+  FileCheck2,
+  Globe2,
+  Sliders,
+  Building2,
+  Archive,
+  ScrollText,
+  Home,
+  Bell,
+  Circle,
+};
 
-function iconePour(nom: string): IconeLucide {
-  const c = (Lucide as unknown as Record<string, IconeLucide>)[nom];
-  return c ?? Lucide.Circle;
+function iconePour(nom: string): LucideIcon {
+  return ICONES_MENU[nom] ?? Circle;
+}
+
+interface TabMobile {
+  chemin: string;
+  libelle: string;
+  icone: LucideIcon;
+  exact?: boolean;
+}
+
+function getTabsMobile(role: Role): TabMobile[] {
+  switch (role) {
+    case 'etudiant':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/evaluations', libelle: 'Évaluations', icone: ClipboardCheck },
+        { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
+        { chemin: '/mes-notes', libelle: 'Notes', icone: GraduationCap },
+      ];
+    case 'delegue':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
+        { chemin: '/evaluations', libelle: 'Évaluations', icone: ClipboardCheck },
+        { chemin: '/participation', libelle: 'Participation', icone: Users },
+      ];
+    case 'enseignant':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/visas', libelle: 'Visas', icone: Stamp },
+        { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
+        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
+      ];
+    case 'chef_departement':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/synthese', libelle: 'Synthèse', icone: LineChart },
+        { chemin: '/participation', libelle: 'Participation', icone: Users },
+        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
+      ];
+    case 'scolarite':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/scolarite/campagnes', libelle: 'Campagnes', icone: Megaphone },
+        { chemin: '/scolarite/comptes', libelle: 'Comptes', icone: UserCog },
+        { chemin: '/scolarite/moderation', libelle: 'Modération', icone: ShieldCheck },
+      ];
+    case 'direction_etudes':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/direction/statistiques', libelle: 'Stats', icone: Globe2 },
+        { chemin: '/direction/controles', libelle: 'Contrôles', icone: Sliders },
+        { chemin: '/administration', libelle: 'Gestion', icone: Building2 },
+      ];
+    case 'admin':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/administration', libelle: 'Gestion', icone: Building2 },
+        { chemin: '/journal-audit', libelle: 'Audit', icone: ScrollText },
+        { chemin: '/securite', libelle: 'Sécurité', icone: ShieldCheck },
+      ];
+    default:
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/notifications', libelle: 'Notifs', icone: Bell },
+        { chemin: '/securite', libelle: 'Sécurité', icone: ShieldCheck },
+      ];
+  }
 }
 
 export function AppLayout() {
   const { utilisateur, deconnecter, changerProfil } = useAuth();
   const navigate = useNavigate();
-  const [menuOuvert, setMenuOuvert] = useState(false);
+  const location = useLocation();
+
+  const [menuMobileOuvert, setMenuMobileOuvert] = useState(false);
+  const [sidebarDesktopOuverte, setSidebarDesktopOuverte] = useState(true);
   const [erreurProfil, setErreurProfil] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [menuProfilOuvert, setMenuProfilOuvert] = useState(false);
+
+  // Charger les notifications pour le badge compteur
+  useEffect(() => {
+    let actif = true;
+    async function chargerNotifs() {
+      if (!utilisateur) return;
+      try {
+        const notifs = await api.notifications();
+        if (actif) setNotifications(notifs);
+      } catch {
+        // En cas d'erreur de notif, on ne bloque pas l'UI
+      }
+    }
+    void chargerNotifs();
+    return () => {
+      actif = false;
+    };
+  }, [utilisateur, location.pathname]);
+
+  const nonLuesCount = useMemo(() => {
+    return notifications.filter((n) => !n.luLe).length;
+  }, [notifications]);
+
+  const tabsMobile = useMemo(() => {
+    if (!utilisateur) return [];
+    return getTabsMobile(utilisateur.activeRole);
+  }, [utilisateur]);
 
   if (!utilisateur) return null;
 
-  const utilisateurActif = utilisateur;
-  const entrees = entreesPourRoles([utilisateurActif.activeRole]);
-  const rolesTexte = LIBELLES_ROLES[utilisateurActif.activeRole];
+  const entrees = entreesPourRoles([utilisateur.activeRole]);
+  const roleActifLibelle = LIBELLES_ROLES[utilisateur.activeRole] ?? utilisateur.activeRole;
+
+  // Regroupement par section métier
+  const sectionsGroupes = useMemo(() => {
+    const map = new Map<string, EntreeMenu[]>();
+    for (const entree of entrees) {
+      const section = entree.section || 'Général';
+      if (!map.has(section)) {
+        map.set(section, []);
+      }
+      map.get(section)!.push(entree);
+    }
+    return Array.from(map.entries());
+  }, [entrees]);
 
   async function handleDeconnexion() {
     await deconnecter();
     navigate('/connexion', { replace: true });
   }
 
-  async function handleProfilChange(role: string) {
-    const profil = utilisateurActif.roles.find((roleConnu) => roleConnu === role);
-    if (!profil) return;
+  async function handleChangementRole(role: Role) {
+    if (role === utilisateur?.activeRole) return;
     setErreurProfil(null);
+    setMenuProfilOuvert(false);
+    setMenuMobileOuvert(false);
     try {
-      await changerProfil(profil);
+      await changerProfil(role);
       navigate('/', { replace: true });
     } catch {
-      setErreurProfil('Impossible de changer de profil. Réessayez.');
+      setErreurProfil('Le basculement de profil a échoué. Veuillez réessayer.');
     }
   }
 
-  function closeMenu() {
-    setMenuOuvert(false);
+  function fermerMenuMobile() {
+    setMenuMobileOuvert(false);
   }
 
-  const contenuMenu = (
-    <nav aria-label="Navigation principale" className="px-3 py-4 space-y-1">
-      <NavLink
-        to="/"
-        end
-        onClick={closeMenu}
-        className={({ isActive }) => classeLien(isActive)}
-      >
-        <Lucide.Home size={20} aria-hidden="true" />
-        <span>Accueil</span>
-      </NavLink>
-      {entrees.map((e) => {
-        const Icone = iconePour(e.icone);
-        return (
+  const navigationContenu = (
+    <div className="py-2 space-y-4">
+      {/* Lien Accueil persistant */}
+      <div className="px-3">
+        <NavLink
+          to="/"
+          end
+          onClick={fermerMenuMobile}
+          className={({ isActive }) => classeLienNavigation(isActive)}
+        >
+          <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span className="font-medium">Tableau de bord</span>
+        </NavLink>
+      </div>
+
+      {/* Groupes de menus par espace métier */}
+      {sectionsGroupes.map(([titreSection, items]) => (
+        <div key={titreSection} className="space-y-1">
+          <div className="px-4 py-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">{titreSection}</p>
+          </div>
+          <div className="px-3 space-y-0.5">
+            {items.map((item) => {
+              const Icone = iconePour(item.icone);
+              return (
+                <NavLink
+                  key={item.chemin}
+                  to={item.chemin}
+                  end={item.chemin === '/cahier-texte' || item.chemin === '/scolarite'}
+                  onClick={fermerMenuMobile}
+                  className={({ isActive }) => classeLienNavigation(isActive)}
+                >
+                  <Icone className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{item.libelle}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Espace Compte & Sécurité */}
+      <div className="space-y-1 pt-2 border-t border-white/10">
+        <div className="px-4 py-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+            Sécurité & Compte
+          </p>
+        </div>
+        <div className="px-3 space-y-0.5">
           <NavLink
-            key={e.chemin}
-            to={e.chemin}
-            end
-            onClick={closeMenu}
-            className={({ isActive }) => classeLien(isActive)}
+            to="/notifications"
+            onClick={fermerMenuMobile}
+            className={({ isActive }) => classeLienNavigation(isActive)}
           >
-            <Icone size={20} aria-hidden="true" />
-            <span>{e.libelle}</span>
+            <div className="relative">
+              <Bell className="w-4 h-4 shrink-0" aria-hidden="true" />
+              {nonLuesCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-enp-red-error" />
+              )}
+            </div>
+            <span className="flex-1 truncate">Notifications</span>
+            {nonLuesCount > 0 && (
+              <span className="px-1.5 py-0.2 bg-enp-red-error text-white text-[10px] font-bold">
+                {nonLuesCount}
+              </span>
+            )}
           </NavLink>
-        );
-      })}
-      <NavLink
-        to="/securite"
-        end
-        onClick={closeMenu}
-        className={({ isActive }) => classeLien(isActive)}
-      >
-        <Lucide.ShieldCheck size={20} aria-hidden="true" />
-        <span>Sécurité du compte</span>
-      </NavLink>
-    </nav>
+          <NavLink
+            to="/securite"
+            onClick={fermerMenuMobile}
+            className={({ isActive }) => classeLienNavigation(isActive)}
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">Sécurité & MFA</span>
+          </NavLink>
+        </div>
+      </div>
+    </div>
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <MockBanner />
+    <div className="min-h-screen flex flex-col bg-enp-bg text-enp-black font-sans antialiased w-full max-w-full">
+      {/* ======================================================== */}
+      {/* 1. EN-TÊTE FIXE INSTITUTIONNEL OPAQUE (IMMOBILE)         */}
+      {/* ======================================================== */}
+      <header className="fixed top-0 left-0 right-0 z-50 w-full h-16 sm:h-20 bg-[#0d3b66] text-white border-b border-[#00172E] shadow-elevated">
+        <div className="w-full px-3 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-2 sm:gap-4">
+            {/* Côté gauche : Bascule Hamburger PC + Logo officiel ENP agrandi */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              {/* Bouton Hamburger PC pour déplier / replier la bannière latérale */}
+              <button
+                type="button"
+                onClick={() => setSidebarDesktopOuverte((prev) => !prev)}
+                className="hidden lg:flex p-2 -ml-2 text-white/90 hover:text-white hover:bg-white/10 border border-transparent focus:outline-none focus:border-white/40 transition-colors items-center justify-center cursor-pointer min-h-[44px] min-w-[44px]"
+                aria-label={sidebarDesktopOuverte ? 'Masquer la barre latérale' : 'Afficher la barre latérale'}
+                aria-expanded={sidebarDesktopOuverte}
+                title={sidebarDesktopOuverte ? 'Replier le menu (plein écran)' : 'Déplier le menu'}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
 
-      {/* En-tête premium */}
-      <header className="bg-enp-teal-dark text-white sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              className="lg:hidden p-2 -ml-2 rounded-lg text-white hover:bg-white/10 transition-colors"
-              aria-label={menuOuvert ? 'Fermer le menu' : 'Ouvrir le menu'}
-              aria-expanded={menuOuvert}
-              aria-controls="menu-mobile"
-              onClick={() => setMenuOuvert((v) => !v)}
-            >
-              {menuOuvert ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="shrink-0 w-9 h-9 rounded-lg bg-enp-primary flex items-center justify-center">
-                <GraduationCap size={22} className="text-white" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-base sm:text-lg font-bold leading-tight truncate tracking-tight">
-                  ENP — Évaluation des enseignements
-                </h1>
-                <p className="text-xs text-slate-400 truncate hidden sm:block">
-                  École Nationale Polytechnique
-                </p>
-              </div>
+              <Link
+                to="/"
+                className="flex items-center gap-2 sm:gap-3 focus:outline-none focus:ring-1 focus:ring-white/40 py-1"
+                title="Retour au tableau de bord institutionnel"
+              >
+                <ENPLogo variant="light" size="md" showSubtitle={false} showArmoiries={false} />
+              </Link>
             </div>
-          </div>
 
-<<<<<<< Updated upstream
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {utilisateurActif.roles.length > 1 && (
-              <label className="sr-only" htmlFor="profil-actif">Profil actif</label>
-=======
           {/* Côté droit : Profil actif, notifications, sélecteur et déconnexion */}
           <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
             {/* Centre de notifications */}
@@ -149,7 +354,7 @@ export function AppLayout() {
                   aria-expanded={menuProfilOuvert}
                   aria-label="Changer de profil actif"
                 >
-                  <span className="hidden md:inline text-enp-violet font-medium">Profil :</span>
+                  <span className="hidden md:inline text-enp-gold font-medium">Profil :</span>
                   <span className="font-semibold truncate max-w-[120px]">
                     {roleActifLibelle}
                   </span>
@@ -187,127 +392,125 @@ export function AppLayout() {
                   </div>
                 )}
               </div>
->>>>>>> Stashed changes
             )}
-            {utilisateurActif.roles.length > 1 && (
-              <select
-                id="profil-actif"
-                value={utilisateurActif.activeRole}
-                onChange={(event) => void handleProfilChange(event.target.value)}
-                className="max-w-36 rounded-lg bg-white/10 border border-white/20 px-2 py-2 text-xs text-white"
-                aria-label="Choisir le profil actif"
-              >
-                {utilisateurActif.roles.map((role) => (
-                  <option key={role} value={role} className="text-enp-ink">
-                    {LIBELLES_ROLES[role]}
-                  </option>
-                ))}
-              </select>
-            )}
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold leading-tight">
-                {utilisateurActif.prenom} {utilisateurActif.nom}
-              </p>
-              <p className="text-xs text-slate-400 leading-tight">
-                {rolesTexte}
-              </p>
+
+            {/* Identité de l'agent / étudiant connecté */}
+            <div className="hidden md:flex flex-col items-end text-right">
+              <span className="text-xs font-bold leading-tight tracking-tight text-white">
+                {utilisateur.prenom} {utilisateur.nom}
+              </span>
+              <span className="text-[11px] text-[#A6C4DE] leading-tight flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-enp-green-valid inline-block" />
+                {roleActifLibelle}
+              </span>
             </div>
-            <div className="w-9 h-9 rounded-full bg-enp-violet/20 border border-yellow-400 flex items-center justify-center text-sm font-bold text-enp-violet-light shrink-0">
-              {utilisateurActif.prenom.charAt(0)}{utilisateurActif.nom.charAt(0)}
-            </div>
+
+            {/* Bouton Déconnexion institutionnel */}
             <button
               type="button"
               onClick={handleDeconnexion}
-              className="inline-flex items-center gap-2 bg-enp-bordeaux hover:bg-enp-bordeaux/90 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors min-h-[44px]"
-              aria-label="Se déconnecter"
+              className="inline-flex items-center gap-1.5 bg-enp-red-error hover:bg-enp-red-inst text-white text-xs font-semibold px-2.5 sm:px-3 py-1.5 border border-transparent shadow-subtle transition-colors min-h-[38px]"
+              aria-label="Se déconnecter de la plateforme"
+              title="Déconnexion sécurisée"
             >
-              <LogOut size={18} aria-hidden="true" />
-              <span className="hidden sm:inline">Déconnexion</span>
+              <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden md:inline">Déconnexion</span>
             </button>
           </div>
         </div>
       </header>
+
+      {/* Spacer opaque pour compenser exactement la hauteur du header fixe */}
+      <div className="h-16 sm:h-20 shrink-0 w-full pointer-events-none" aria-hidden="true" />
+
+      {/* Message d'erreur de changement de profil si incident */}
       {erreurProfil && (
-        <div className="bg-red-50 text-red-800 px-4 py-2 text-sm" role="alert">
+        <div className="bg-enp-red-light border-b border-enp-red-error text-enp-red-inst px-4 py-2 text-xs font-medium" role="alert">
           {erreurProfil}
         </div>
       )}
 
-      <div className="flex flex-1 max-w-7xl mx-auto w-full">
-        {/* Barre latérale — ordinateur */}
-        <aside className="hidden lg:block w-64 shrink-0 border-r border-enp-border bg-white scrollbar-thin">
-          <div className="px-5 pt-5 pb-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Navigation</p>
+      {/* ======================================================== */}
+      {/* 2. ZONE PRINCIPALE : SIDEBAR FLUSH GAUCHE + CONTENU       */}
+      {/* ======================================================== */}
+      <div className="flex flex-1 w-full min-w-0 relative">
+        {/* Navigation latérale Desktop rétractable, flush à gauche sans espace vide */}
+        <aside
+          aria-label="Menu institutionnel"
+          className={`hidden lg:flex flex-col shrink-0 border-r border-[#082642] bg-[#0d3b66] text-white sticky top-16 sm:top-20 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] transition-all duration-200 overflow-y-auto scrollbar-thin ${
+            sidebarDesktopOuverte
+              ? 'w-64 opacity-100'
+              : 'w-0 opacity-0 overflow-hidden border-r-0 pointer-events-none'
+          }`}
+        >
+          <div className="p-4 border-b border-white/10 bg-[#092b4a] shrink-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-enp-gold font-sans">
+              Portail Officiel ENP
+            </p>
+            <p className="text-xs text-slate-300 mt-0.5 font-sans">
+              Année 2026-2027 • Semestre actif
+            </p>
           </div>
-          {contenuMenu}
-          <div className="px-5 pt-2 pb-5 mt-2 border-t border-enp-border">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <GraduationCap size={16} aria-hidden="true" />
-              <span>Plateforme ENP v2.0</span>
-            </div>
+          <div className="flex-1 overflow-y-auto">
+            {navigationContenu}
           </div>
         </aside>
 
-        {/* Menu mobile — panneau coulissant */}
-        {menuOuvert && (
-          <div className="lg:hidden fixed inset-0 z-40" role="dialog" aria-modal="true">
+        {/* Navigation Mobile escamotable (Drawer) */}
+        {menuMobileOuvert && (
+          <div
+            id="navigation-mobile"
+            className="lg:hidden fixed inset-0 z-50 flex"
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Backdrop avec flou sobre */}
             <div
-              className="absolute inset-0 bg-enp-ink/50 backdrop-blur-sm animate-fade-in"
-              onClick={closeMenu}
+              className="fixed inset-0 bg-[#00172E]/75 transition-opacity animate-fade-in"
               aria-hidden="true"
+              onClick={fermerMenuMobile}
             />
-            <div className="absolute left-0 top-0 bottom-0 w-72 max-w-[80vw] bg-white shadow-elevated overflow-y-auto animate-slide-up">
-              <div className="h-16 bg-enp-teal-dark text-white flex items-center px-4 gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-enp-primary flex items-center justify-center">
-                  <GraduationCap size={20} className="text-white" aria-hidden="true" />
-                </div>
-                <span className="font-semibold text-sm">ENP — Menu</span>
+            <div className="relative w-80 max-w-[85vw] bg-enp-blue-deep text-white border-r border-[#082642] shadow-elevated flex flex-col h-full overflow-hidden animate-slide-up">
+              {/* En-tête tiroir mobile */}
+              <div className="h-16 bg-[#092b4a] text-white px-4 flex items-center justify-between shrink-0 border-b border-white/10">
+                <ENPLogo variant="light" size="sm" showSubtitle={false} />
                 <button
                   type="button"
-                  onClick={closeMenu}
-                  className="ml-auto p-2 -mr-2 rounded-lg hover:bg-white/10"
+                  onClick={fermerMenuMobile}
+                  className="p-2 hover:bg-white/10 text-white min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none"
                   aria-label="Fermer le menu"
                 >
-                  <X size={22} />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-<<<<<<< Updated upstream
-              <div className="px-4 py-3 border-b border-enp-border">
-                <p className="text-sm font-semibold text-enp-ink">
-                  {utilisateurActif.prenom} {utilisateurActif.nom}
-                </p>
-                <p className="text-xs text-enp-ink-soft">{rolesTexte}</p>
-=======
 
               {/* Fiche Profil Utilisateur dans le tiroir mobile */}
-              <div className="p-4 bg-enp-blue-ice border-b border-enp-border shrink-0 space-y-3">
+              <div className="p-4 bg-[#092b4a]/80 border-b border-white/10 shrink-0 space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-enp-blue-deep text-white font-bold text-sm flex items-center justify-center shrink-0 border border-[#00172E]">
+                  <div className="w-10 h-10 bg-white text-enp-blue-deep font-bold text-sm flex items-center justify-center shrink-0 border border-white/20">
                     {utilisateur.prenom?.[0] ?? ''}{utilisateur.nom?.[0] ?? ''}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-enp-blue-deep truncate">
+                    <p className="text-sm font-bold text-white truncate">
                       {utilisateur.prenom} {utilisateur.nom}
                     </p>
-                    {(utilisateur.email || utilisateur.identifiant) && (
-                      <p className="text-[11px] text-enp-gray-medium truncate">
-                        {utilisateur.email ?? utilisateur.identifiant}
-                      </p>
-                    )}
+                    <p className="text-[11px] text-slate-300 truncate">
+                      Compte certifié #{utilisateur.id}
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-enp-border/70 text-xs">
-                  <span className="text-enp-gray-medium font-medium">Rôle actif :</span>
-                  <span className="font-bold text-enp-blue-deep px-2 py-0.5 bg-white border border-enp-border">
+                <div className="flex items-center justify-between pt-1 border-t border-white/10 text-xs">
+                  <span className="text-slate-300 font-medium">Rôle actif :</span>
+                  <span className="font-bold text-white px-2 py-0.5 bg-white/15 border border-white/20">
                     {roleActifLibelle}
                   </span>
                 </div>
 
                 {/* Sélecteur de profil tactile pour comptes multi-rôles */}
                 {utilisateur.roles.length > 1 && (
-                  <div className="pt-2 border-t border-enp-border/70 space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-enp-gray-medium">
+                  <div className="pt-2 border-t border-white/10 space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
                       Basculer de profil actif
                     </p>
                     <div className="grid grid-cols-1 gap-1">
@@ -346,7 +549,7 @@ export function AppLayout() {
               </div>
 
               {/* Pied du tiroir mobile : Déconnexion rapide */}
-              <div className="p-3 bg-enp-bg border-t border-enp-border shrink-0">
+              <div className="p-3 bg-[#092b4a] border-t border-white/10 shrink-0">
                 <button
                   type="button"
                   onClick={handleDeconnexion}
@@ -355,20 +558,22 @@ export function AppLayout() {
                   <LogOut className="w-4 h-4" />
                   <span>Déconnexion sécurisée</span>
                 </button>
->>>>>>> Stashed changes
               </div>
-              {contenuMenu}
             </div>
           </div>
         )}
 
-        {/* Zone de contenu */}
-        <main className="flex-1 min-w-0 px-4 sm:px-8 py-6 sm:py-8 animate-fade-in">
-          <Outlet />
+        {/* Zone de contenu principale de l'application */}
+        <main
+          id="contenu-principal"
+          tabIndex={-1}
+          className="flex-1 min-w-0 max-w-full p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 transition-all duration-200"
+        >
+          <div className="max-w-7xl mx-auto w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
-<<<<<<< Updated upstream
-=======
 
       {/* ======================================================== */}
       {/* 3. DOCK / BARRE DE NAVIGATION MOBILE FIXE EN BAS         */}
@@ -400,18 +605,23 @@ export function AppLayout() {
         {/* Onglet Menu pour déplier le tiroir complet */}
         <button
           type="button"
-          onClick={() => setMenuMobileOuvert(true)}
+          onClick={() => setMenuMobileOuvert((v) => !v)}
           className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 text-center transition-colors select-none min-h-[56px] relative ${
             menuMobileOuvert
               ? 'text-enp-blue-deep font-bold border-t-2 border-enp-blue-primary bg-enp-blue-light/50'
               : 'text-enp-gray-medium hover:text-enp-black border-t-2 border-transparent'
           }`}
-          aria-label="Ouvrir le menu complet"
+          aria-label={menuMobileOuvert ? 'Fermer le menu' : 'Ouvrir le menu complet'}
+          aria-expanded={menuMobileOuvert}
         >
           <div className="relative">
-            <Menu className="w-5 h-5 shrink-0" aria-hidden="true" />
+            {menuMobileOuvert ? (
+              <X className="w-5 h-5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Menu className="w-5 h-5 shrink-0" aria-hidden="true" />
+            )}
             {nonLuesCount > 0 && (
-              <span className="absolute -top-1 -right-1.5 w-2 h-2 bg-enp-red-error rounded-full" />
+              <span className="absolute -top-1 -right-1.5 w-2 h-2 bg-enp-red-error" />
             )}
           </div>
           <span className="text-[10px] tracking-tight truncate max-w-[64px] mt-0.5">
@@ -421,10 +631,10 @@ export function AppLayout() {
       </nav>
 
       {/* ======================================================== */}
-      {/* 4. FOOTER INSTITUTIONNEL SOLEMNE ET ÉPURÉ                 */}
+      {/* 4. FOOTER INSTITUTIONNEL (Affiché uniquement sur desktop) */}
       {/* ======================================================== */}
-      <footer className="bg-[#00172E] text-white border-t-2 border-enp-teal mt-auto mb-14 lg:mb-0 w-full overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+      <footer className="hidden lg:block bg-enp-blue-deep text-white border-t-2 border-enp-blue-primary mt-auto w-full overflow-hidden">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Côté gauche : Armoiries officielles de la République Togolaise & Identité ENP */}
             <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
@@ -435,7 +645,7 @@ export function AppLayout() {
               />
               <div className="border-l border-white/15 pl-3 min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="font-bold text-[11px] tracking-wider text-enp-red-inst uppercase">
+                  <span className="font-bold text-[11px] tracking-wider text-enp-gold uppercase">
                     RÉPUBLIQUE TOGOLAISE
                   </span>
                   <span className="text-white/30 text-xs">•</span>
@@ -458,21 +668,20 @@ export function AppLayout() {
               </Link>
               <span className="text-white/20">|</span>
               <span className="text-[11px] text-slate-400">
-                © {new Date().getFullYear()} Pr Adekunle Akim SALAMI, Joy Amos KOUDASSE et Bienvenu OHONSSOU.
+                © {new Date().getFullYear()} ENP. Tous droits réservés.
               </span>
             </div>
           </div>
         </div>
       </footer>
->>>>>>> Stashed changes
     </div>
   );
 }
 
-function classeLien(actif: boolean): string {
+function classeLienNavigation(actif: boolean): string {
   const base =
-    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 min-h-[44px] group';
+    'flex items-center gap-3 px-3 py-2 text-xs sm:text-sm font-medium transition-colors border-l-4 select-none min-h-[38px]';
   return actif
-    ? `${base} bg-enp-primary text-white shadow-sm`
-    : `${base} text-enp-ink-soft hover:bg-enp-sky hover:text-enp-ink`;
+    ? `${base} bg-enp-blue-primary text-white font-bold border-l-white shadow-subtle`
+    : `${base} text-slate-200 hover:bg-white/10 hover:text-white border-l-transparent`;
 }

@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ApiError, api } from '@/api';
+import { useAuth } from '@/auth/AuthContext';
 
 export function SecuriteCompte() {
+  const { deconnecter } = useAuth();
+  const navigate = useNavigate();
   const [totpActive, setTotpActive] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
   const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null);
@@ -10,6 +14,9 @@ export function SecuriteCompte() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [chargement, setChargement] = useState(true);
   const [enCours, setEnCours] = useState(false);
+  const [motDePasseActuel, setMotDePasseActuel] = useState('');
+  const [nouveauMotDePasse, setNouveauMotDePasse] = useState('');
+  const [confirmationMotDePasse, setConfirmationMotDePasse] = useState('');
 
   async function chargerStatut() {
     try {
@@ -60,6 +67,26 @@ export function SecuriteCompte() {
     } catch (cause) {
       setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Vérification MFA impossible.');
     } finally {
+      setEnCours(false);
+    }
+  }
+
+  async function changerMotDePasse(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErreur(null);
+    setMessage(null);
+    if (nouveauMotDePasse !== confirmationMotDePasse) {
+      setErreur('La confirmation ne correspond pas au nouveau mot de passe.');
+      return;
+    }
+
+    setEnCours(true);
+    try {
+      await api.changerMotDePasse({ motDePasseActuel, nouveauMotDePasse });
+      await deconnecter();
+      navigate('/connexion', { replace: true });
+    } catch (cause) {
+      setErreur(cause instanceof ApiError ? cause.messages.join(' ') : 'Impossible de modifier le mot de passe.');
       setEnCours(false);
     }
   }
@@ -125,6 +152,55 @@ export function SecuriteCompte() {
         {message && <p className="text-sm text-enp-teal" role="status">{message}</p>}
         {erreur && <p className="text-sm text-enp-bordeaux" role="alert">{erreur}</p>}
       </div>
+
+      <form
+        className="rounded-xl border border-enp-border bg-white p-5 space-y-4"
+        onSubmit={(event) => void changerMotDePasse(event)}
+      >
+        <h2 className="font-semibold text-enp-ink">Modifier le mot de passe</h2>
+        <label className="block text-sm">
+          Mot de passe actuel
+          <input
+            type="password"
+            autoComplete="current-password"
+            required
+            value={motDePasseActuel}
+            onChange={(event) => setMotDePasseActuel(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-enp-border px-3 py-2"
+          />
+        </label>
+        <label className="block text-sm">
+          Nouveau mot de passe (12 caractères minimum)
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            required
+            value={nouveauMotDePasse}
+            onChange={(event) => setNouveauMotDePasse(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-enp-border px-3 py-2"
+          />
+        </label>
+        <label className="block text-sm">
+          Confirmer le nouveau mot de passe
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            required
+            value={confirmationMotDePasse}
+            onChange={(event) => setConfirmationMotDePasse(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-enp-border px-3 py-2"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={enCours}
+          className="rounded-lg bg-enp-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          Modifier le mot de passe
+        </button>
+      </form>
     </section>
   );
 }

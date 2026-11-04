@@ -22,6 +22,7 @@ export const api = {
   verifierMfa: impl.verifierMfa,
   demanderReinitialisation: impl.demanderReinitialisation,
   confirmerReinitialisation: impl.confirmerReinitialisation,
+  changerMotDePasse: impl.changerMotDePasse,
   changerProfil: impl.changerProfil,
   preparerMfaTotp: impl.preparerMfaTotp,
   statutMfa: impl.statutMfa,

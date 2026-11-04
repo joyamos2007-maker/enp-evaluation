@@ -10,7 +10,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
         <div
-          className="h-10 w-10 rounded-full border-4 border-enp-sky border-t-enp-primary animate-spin"
+          className="h-10 w-10 border-4 border-enp-sky border-t-enp-primary animate-spin"
           aria-hidden="true"
         />
         <p className="mt-4 text-enp-ink-soft" role="status">

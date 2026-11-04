@@ -1,14 +1,39 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, CalendarClock, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
+import {
+  ClipboardCheck,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  ShieldCheck,
+  Search,
+  Filter,
+  Check,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { UeAEvaluer } from '@/api/types';
-import { InfoCard } from '@/components/InfoCard';
+import {
+  PageHeader,
+  ProgressBar,
+  StatCard,
+  Alert,
+  Button,
+  Input,
+  Badge,
+  EmptyState,
+  SkeletonCard,
+  InfoBubble,
+} from '@/components/ui';
 
 export function ListeEvaluations() {
   const [ues, setUes] = useState<UeAEvaluer[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // Filtres
+  const [recherche, setRecherche] = useState('');
+  const [filtreEtat, setFiltreEtat] = useState<'tous' | 'a_faire' | 'terminee'>('tous');
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -18,7 +43,7 @@ export function ListeEvaluations() {
       setUes(data);
     } catch (err) {
       if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau : impossible de charger la liste des évaluations.');
+      else setErreur('Erreur de communication : impossible de charger la liste de vos UE.');
     } finally {
       setChargement(false);
     }
@@ -33,6 +58,18 @@ export function ListeEvaluations() {
   const aFaire = total - terminees;
   const pct = total > 0 ? Math.round((terminees / total) * 100) : 0;
 
+  const uesFiltrees = useMemo(() => {
+    return ues.filter((ue) => {
+      const matchRecherche =
+        !recherche ||
+        ue.code.toLowerCase().includes(recherche.toLowerCase()) ||
+        ue.intitule.toLowerCase().includes(recherche.toLowerCase());
+      const matchEtat =
+        filtreEtat === 'tous' || ue.etat === filtreEtat;
+      return matchRecherche && matchEtat;
+    });
+  }, [ues, recherche, filtreEtat]);
+
   function formaterDate(iso: string): string {
     try {
       const d = new Date(iso);
@@ -46,186 +83,208 @@ export function ListeEvaluations() {
     }
   }
 
-<<<<<<< Updated upstream
-  if (chargement) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes évaluations</h1>
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div
-            className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin"
-            aria-hidden="true"
-=======
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto animate-fade-in pb-4">
       <PageHeader
         title="Évaluations des Unités d'Enseignement"
-        description="Campagne officielle d'évaluation pédagogique anonyme de l'École Nationale Polytechnique"
+        description="Campagne officielle d'évaluation pédagogique anonyme • Session Harmattan"
+        badge={
+          <InfoBubble
+            triggerVariant="pill"
+            triggerLabel="Garantie d'anonymat"
+            title="Garantie institutionnelle d'anonymat et de neutralité"
+            badge="SÉCURITÉ DU SCRUTIN"
+            icon="shield"
+            duration={7000}
+            content={
+              <div className="space-y-2 text-xs leading-relaxed font-sans">
+                <p>
+                  Votre évaluation est <strong>strictement anonyme</strong>. Le bulletin est déposé dans l'urne numérique séparée sans aucun lien avec votre identité ou votre matricule.
+                </p>
+                <p>
+                  Une seule soumission définitive est autorisée par unité d'enseignement. Dépouillement sous contrôle du Conseil de Direction.
+                </p>
+              </div>
+            }
+          />
+        }
         breadcrumbs={[
           { label: 'Accueil', href: '/' },
           { label: 'Évaluations des UE' },
         ]}
       />
 
-      {/* Encart institutionnel certifiant l'anonymat intégral */}
-      <Alert
-        variant="institutional"
-        title="Garantie institutionnelle d'anonymat et de neutralité"
-        icon={<ShieldCheck className="w-5 h-5 text-enp-violet shrink-0 mt-0.5" />}
-      >
-        <p className="leading-relaxed">
-          Votre évaluation est <strong>strictement anonyme</strong>. Le bulletin est déposé dans l'urne numérique
-          séparée sans aucun lien avec votre identité ou votre matricule. Une seule soumission définitive est autorisée par unité d'enseignement.
-          Ces retours sont exploités par les Conseils de Département et la Direction des Études à des fins exclusives d'amélioration pédagogique.
-        </p>
-      </Alert>
-
-      {/* Indicateurs de progression globale */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Indicateurs de progression globale adaptés au mobile */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
         <StatCard
-          label="UE restantes à évaluer"
+          label="UE à évaluer"
           value={aFaire}
-          subtext={aFaire > 0 ? "Campagne active en cours" : "Toutes vos évaluations sont transmises"}
+          subtext={aFaire > 0 ? "Campagne active" : "Toutes transmises"}
           variant={aFaire > 0 ? 'warning' : 'success'}
-          icon={<Clock className="w-5 h-5" />}
+          icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5" />}
+          className="p-3 sm:p-5"
         />
         <StatCard
-          label="Évaluations validées"
+          label="Validées"
           value={terminees}
-          subtext={`Sur ${total} UE inscrites à votre cursus`}
+          subtext={`Sur ${total} UE`}
           variant="primary"
-          icon={<CheckCircle2 className="w-5 h-5" />}
+          icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />}
+          className="p-3 sm:p-5"
         />
-        <div className="bg-white border border-enp-border p-5 flex flex-col justify-center">
-          <span className="text-xs font-semibold uppercase tracking-wider text-enp-gray-medium mb-1">
-            Progression globale
-          </span>
+        <div className="col-span-2 sm:col-span-1 bg-white border border-enp-border p-3 sm:p-5 flex flex-col justify-center">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="font-semibold uppercase tracking-wider text-enp-gray-medium text-[11px] sm:text-xs font-sans">
+              Progression globale
+            </span>
+            <span className="font-bold text-enp-blue-deep font-sans">{pct}%</span>
+          </div>
           <ProgressBar
             value={pct}
-            label={`${terminees} sur ${total} complétée(s)`}
-            showPercent={true}
+            showPercent={false}
             size="md"
             variant={pct === 100 ? 'success' : 'primary'}
->>>>>>> Stashed changes
           />
-          <span>Chargement des évaluations…</span>
+          <span className="text-[11px] text-enp-gray-medium mt-1 font-sans">
+            {terminees} sur {total} complétée(s)
+          </span>
         </div>
       </div>
-    );
-  }
 
-  if (erreur) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes évaluations</h1>
-        <div
-          className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
-          role="alert"
-        >
-          <AlertCircle size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <div>
+      {/* Barre de filtres et recherche ergonomique mobile */}
+      <div className="bg-white border border-enp-border p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Input
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            placeholder="Rechercher (ex: MAT101)..."
+            startIcon={<Search className="w-4 h-4" />}
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-1.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setFiltreEtat('tous')}
+            className={`py-2 px-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-center border transition-colors select-none font-sans min-h-[38px] ${
+              filtreEtat === 'tous'
+                ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
+            }`}
+          >
+            Toutes ({total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltreEtat('a_faire')}
+            className={`py-2 px-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-center border transition-colors select-none font-sans min-h-[38px] ${
+              filtreEtat === 'a_faire'
+                ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
+            }`}
+          >
+            À faire ({aFaire})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltreEtat('terminee')}
+            className={`py-2 px-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-center border transition-colors select-none font-sans min-h-[38px] ${
+              filtreEtat === 'terminee'
+                ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice'
+            }`}
+          >
+            Terminées ({terminees})
+          </button>
+        </div>
+      </div>
+
+      {/* Liste des unités d'enseignement */}
+      {chargement ? (
+        <div className="grid grid-cols-1 gap-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : erreur ? (
+        <Alert variant="danger" title="Erreur lors du chargement">
+          <div className="space-y-3">
             <p>{erreur}</p>
-            <button
-              type="button"
-              onClick={() => void charger()}
-              className="mt-2 inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]"
-            >
+            <Button variant="outline" size="sm" onClick={() => void charger()}>
               Réessayer
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
-    );
-  }
+        </Alert>
+      ) : uesFiltrees.length === 0 ? (
+        <EmptyState
+          title="Aucune unité d'enseignement trouvée"
+          description={
+            recherche
+              ? "Aucune UE ne correspond à vos critères de recherche."
+              : "Vous n'avez aucune unité d'enseignement à évaluer pour cette session."
+          }
+        />
+      ) : (
+        <div className="space-y-3">
+          {uesFiltrees.map((ue) => {
+            const estAFaire = ue.etat === 'a_faire';
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes évaluations</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">
-          Évaluez les enseignements de votre semestre.
-        </p>
-      </div>
-
-      <InfoCard titre="Anonymat de vos réponses" icone={false}>
-        <p>
-          Vos réponses sont anonymes : elles ne sont reliées ni à votre nom ni
-          à votre matricule.
-        </p>
-      </InfoCard>
-
-      {/* Compteur et barre de progression */}
-      <div className="bg-enp-sky border border-enp-border rounded-lg p-4">
-        <div className="flex items-baseline justify-between mb-2">
-          <p className="text-enp-ink font-medium">
-            {terminees} UE évaluée{terminees > 1 ? 's' : ''} sur {total}
-          </p>
-          <p className="text-sm text-enp-ink-soft">{pct}%</p>
-        </div>
-        <div
-          className="h-2.5 w-full rounded-full bg-white border border-enp-border overflow-hidden"
-          aria-hidden="true"
-        >
-          <div
-            className="h-full bg-enp-primary transition-all duration-500"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        {aFaire > 0 && (
-          <p className="text-sm text-enp-ink-soft mt-2">
-            {aFaire} UE{aFaire > 1 ? 's' : ''} restante{aFaire > 1 ? 's' : ''} à évaluer.
-          </p>
-        )}
-      </div>
-
-      {/* Liste des UE */}
-      <div className="space-y-3">
-        {ues.map((ue) => {
-          const termine = ue.etat === 'terminee';
-          return (
-            <div
-              key={ue.ueId}
-              className="bg-white border border-enp-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="inline-flex items-center justify-center bg-enp-primary text-white text-xs font-semibold px-2 py-0.5 rounded">
-                    {ue.code}
-                  </span>
-                  {termine && (
-                    <span className="inline-flex items-center gap-1 text-enp-primary text-xs font-medium">
-                      <CheckCircle2 size={14} aria-hidden="true" />
-                      Terminée
+            return (
+              <div
+                key={ue.ueId}
+                className={`bg-white border transition-colors p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 ${
+                  estAFaire
+                    ? 'border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/20'
+                    : 'border-l-4 border-l-enp-green-valid border-t-enp-border/60 border-r-enp-border/60 border-b-enp-border/60 bg-[#FAFAFA]'
+                }`}
+              >
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
+                      {ue.code}
                     </span>
+                    <Badge variant={estAFaire ? 'warning' : 'success'}>
+                      {estAFaire ? 'À évaluer' : 'Transmise'}
+                    </Badge>
+                  </div>
+
+                  <h2 className="text-sm sm:text-base font-bold text-enp-black font-sans break-words">
+                    {ue.intitule}
+                  </h2>
+
+                  <div className="flex items-center gap-4 text-xs text-enp-gray-medium pt-0.5 font-sans">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Date limite : {formaterDate(ue.finCampagne)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 pt-1 sm:pt-0 w-full sm:w-auto">
+                  {estAFaire ? (
+                    <Link to={`/evaluations/${ue.ueId}`} className="block w-full sm:w-auto">
+                      <Button
+                        variant="primary"
+                        size="md"
+                        className="w-full sm:w-auto justify-center font-bold whitespace-nowrap min-h-[42px]"
+                        leftIcon={<ClipboardCheck className="w-4 h-4 shrink-0" />}
+                        rightIcon={<ArrowRight className="w-4 h-4 shrink-0" />}
+                      >
+                        Évaluer l'UE
+                      </Button>
+                    </Link>
+                  ) : (
+                    <div className="inline-flex items-center justify-center sm:justify-end gap-1.5 text-enp-green-valid text-xs font-bold py-1.5 px-3 bg-enp-green-light border border-enp-green-valid/20 w-full sm:w-auto font-sans">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-enp-green-valid" />
+                      Bulletin officiel scellé
+                    </div>
                   )}
                 </div>
-                <p className="text-enp-ink font-medium leading-snug">
-                  {ue.intitule}
-                </p>
-                <p className="text-sm text-enp-ink-soft mt-1 flex items-center gap-1.5">
-                  <CalendarClock size={15} aria-hidden="true" />
-                  Évaluer avant le {formaterDate(ue.finCampagne)}
-                </p>
               </div>
-
-              {termine ? (
-                <span className="inline-flex items-center gap-2 bg-enp-sky text-enp-ink-soft text-sm font-medium px-4 py-2.5 rounded-md cursor-default min-h-[44px] sm:self-center">
-                  <ClipboardCheck size={18} aria-hidden="true" />
-                  Terminée
-                </span>
-              ) : (
-                <Link
-                  to={`/evaluations/${ue.ueId}?campagne=${ue.campagneId}`}
-                  className="inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-4 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px] sm:self-center"
-                >
-                  Évaluer
-                  <ArrowRight size={18} aria-hidden="true" />
-                </Link>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
