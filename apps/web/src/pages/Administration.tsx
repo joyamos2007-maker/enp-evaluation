@@ -3,9 +3,11 @@ import type { FormEvent, ReactNode } from 'react';
 import { AlertCircle, Building2, Layers3, Plus, RefreshCw } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { ReferentielsAdministration } from '@/api/types';
+import { Tabs } from '@/components/ui';
 
 export function Administration() {
   const [data, setData] = useState<ReferentielsAdministration | null>(null);
+  const [onglet, setOnglet] = useState('campus');
   const [campusNom, setCampusNom] = useState('');
   const [departementNom, setDepartementNom] = useState('');
   const [campusId, setCampusId] = useState<number | ''>('');
@@ -184,23 +186,49 @@ export function Administration() {
             </Formulaire>
           </section>
 
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <ListeReferentiel
-              titre="Campus"
-              icone={<Building2 size={18} aria-hidden="true" />}
-              elements={data.campus.map((campus) => campus.nom)}
-            />
+          <Tabs
+            tabs={[
+              { id: 'campus', label: 'Campus institutionnels', count: data.campus.length },
+              { id: 'departements', label: 'Départements', count: data.departements.length },
+              { id: 'programmes', label: 'Programmes', count: data.programmes.length },
+            ]}
+            activeTab={onglet}
+            onChange={setOnglet}
+          />
+
+          {onglet === 'campus' ? (
+            <section className="overflow-hidden rounded-xl border border-enp-border bg-white shadow-card">
+              <h2 className="flex items-center gap-2 bg-enp-teal-dark px-4 py-3 font-semibold text-white">
+                <Building2 size={18} aria-hidden="true" />
+                Campus institutionnels
+                <span className="ml-auto text-xs font-normal">{data.campus.length}</span>
+              </h2>
+              {data.campus.length > 0 ? (
+                <ul className="divide-y divide-enp-border">
+                  {data.campus.map((campus) => (
+                    <li key={campus.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      <span className="text-enp-ink">{campus.nom}</span>
+                      <span className="shrink-0 font-mono text-enp-ink-soft">ID : {campus.id}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-4 py-5 text-sm text-enp-ink-soft">Aucun campus enregistré.</p>
+              )}
+            </section>
+          ) : onglet === 'departements' ? (
             <ListeReferentiel
               titre="Départements"
               icone={<Building2 size={18} aria-hidden="true" />}
               elements={data.departements.map((departement) => `${departement.nom} — ${departement.campus}`)}
             />
+          ) : (
             <ListeReferentiel
               titre="Programmes"
               icone={<Layers3 size={18} aria-hidden="true" />}
               elements={data.programmes.map((programme) => `${programme.nom} — ${programme.departement}`)}
             />
-          </section>
+          )}
         </>
       )}
     </div>
