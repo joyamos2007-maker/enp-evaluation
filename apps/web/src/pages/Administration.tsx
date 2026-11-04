@@ -220,13 +220,18 @@ export function Administration() {
             <ListeReferentiel
               titre="Départements"
               icone={<Building2 size={18} aria-hidden="true" />}
-              elements={data.departements.map((departement) => `${departement.nom} — ${departement.campus}`)}
+              elements={data.departements.map((departement) => ({
+                id: departement.id,
+                libelle: `${departement.nom} — ${departement.campus}`,
+              }))}
             />
           ) : (
             <ListeReferentiel
               titre="Programmes"
               icone={<Layers3 size={18} aria-hidden="true" />}
-              elements={data.programmes.map((programme) => `${programme.nom} — ${programme.departement}`)}
+              elements={data.programmes.map((programme) => ({
+                libelle: `${programme.nom} — ${programme.departement}`,
+              }))}
             />
           )}
         </>
@@ -302,7 +307,7 @@ function ListeReferentiel({
 }: {
   titre: string;
   icone: ReactNode;
-  elements: string[];
+  elements: { id?: number; libelle: string }[];
 }) {
   return (
     <section className="overflow-hidden rounded-xl border border-enp-border bg-white shadow-card">
@@ -312,7 +317,12 @@ function ListeReferentiel({
       {elements.length > 0 ? (
         <ul className="divide-y divide-enp-border">
           {elements.map((element, index) => (
-            <li key={`${element}-${index}`} className="px-4 py-3 text-sm text-enp-ink">{element}</li>
+            <li key={`${element.id ?? element.libelle}-${index}`} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+              <span className="text-enp-ink">{element.libelle}</span>
+              {element.id !== undefined && (
+                <span className="shrink-0 font-mono text-enp-ink-soft">ID : {element.id}</span>
+              )}
+            </li>
           ))}
         </ul>
       ) : (

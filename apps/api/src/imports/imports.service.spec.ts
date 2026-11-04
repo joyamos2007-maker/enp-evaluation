@@ -3,10 +3,12 @@ import { ImportsService } from './imports.service';
 
 describe('ImportsService', () => {
   const db = { query: jest.fn() };
-  const service = new ImportsService(db as never);
+  const identity = { genererCodesActivation: jest.fn() };
+  const service = new ImportsService(db as never, identity as never);
 
   beforeEach(() => {
     jest.resetAllMocks();
+    identity.genererCodesActivation.mockResolvedValue({ courrielsEnfiles: 1 });
   });
 
   it('importe une ligne avec le rôle accepté par le schéma d’identité', async () => {
@@ -20,6 +22,11 @@ describe('ImportsService', () => {
       successCount: 1,
       errorCount: 0,
       errors: [],
+      courrielsActivationEnfiles: 1,
+      erreurActivation: undefined,
+    });
+    expect(identity.genererCodesActivation).toHaveBeenCalledWith(null, {
+      identifiants: ['ETU-1'],
     });
     expect(db.query.mock.calls[0][0]).toContain(
       'INSERT INTO identity.user_roles (user_id, role, campus_id, department_id)',
@@ -41,6 +48,9 @@ describe('ImportsService', () => {
       'matricule,email,nom,prenom,role\nETU-2,etu2@example.test,DOE,John,etudiant\n',
     );
     await service.importUsers(csv, 7, ['scolarite']);
+    expect(identity.genererCodesActivation).toHaveBeenCalledWith(7, {
+      identifiants: ['ETU-2'],
+    });
     expect(db.query.mock.calls[0][1]).toEqual([
       'ETU-2',
       'etu2@example.test',
@@ -60,6 +70,7 @@ describe('ImportsService', () => {
     await expect(service.importUsers(csv, null, ['admin'])).resolves.toMatchObject({
       successCount: 1,
       errorCount: 0,
+      courrielsActivationEnfiles: 1,
     });
     expect(db.query.mock.calls[0][1]).toEqual([
       'SC-2',
@@ -82,6 +93,7 @@ describe('ImportsService', () => {
     await expect(service.importUsers(csv, null, ['admin'])).resolves.toMatchObject({
       successCount: 1,
       errorCount: 0,
+      courrielsActivationEnfiles: 1,
     });
     expect(db.query.mock.calls[1][1]).toEqual([
       'CD-1',
@@ -103,6 +115,7 @@ describe('ImportsService', () => {
       errorCount: 1,
     });
     expect(db.query).not.toHaveBeenCalled();
+    expect(identity.genererCodesActivation).not.toHaveBeenCalled();
   });
 
   it('rapporte les lignes invalides sans les envoyer à la base', async () => {

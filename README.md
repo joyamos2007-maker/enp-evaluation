@@ -122,6 +122,9 @@ Routes principales :
   `POST /api/v1/auth/password-reset/request` et
   `POST /api/v1/auth/password-reset/confirm`. Les codes sont expirables, à usage
   unique et stockés hachés. Le changement de mot de passe révoque les sessions.
+  L’import d’un compte sans mot de passe met son courriel d’activation en file ;
+  les codes peuvent aussi être renvoyés depuis la liste des comptes. La livraison
+  est traitée par la file de courriels configurée avec les paramètres SMTP.
 - Les profils privilégiés passent par `POST /api/v1/auth/mfa/verify` après le
   mot de passe. Le code e-mail est obligatoire ; TOTP peut être configuré dans
   l’espace **Sécurité du compte**. `POST /api/v1/auth/profil-actif` met à jour

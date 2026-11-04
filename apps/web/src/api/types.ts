@@ -509,6 +509,8 @@ export interface ResultatCodes {
   codes: CodeActivationGenere[];
   ignores: { identifiant: string; raison: string }[];
   restants: number;
+  courrielsEnfiles: number;
+  comptesSansEmail: string[];
 }
 
 export type TypeImport =
@@ -625,4 +627,6 @@ export interface ResultatImportUtilisateurs {
   successCount: number;
   errorCount: number;
   errors: { ligne: number; erreur: string }[];
+  courrielsActivationEnfiles: number;
+  erreurActivation?: string;
 }

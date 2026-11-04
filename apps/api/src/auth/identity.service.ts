@@ -31,7 +31,7 @@ export class IdentityService {
     private readonly db: DatabaseService,
     private readonly passwords: PasswordService,
     private readonly email: EmailService,
-    config: ConfigService,
+    private readonly config: ConfigService,
   ) {
     const secret =
       config.get<string>('MFA_CHALLENGE_SECRET') ??
@@ -74,12 +74,13 @@ export class IdentityService {
       identifiant: string;
       nom: string;
       prenom: string;
+      email: string | null;
       total: number;
     }>(
       `SELECT comptes.*, count(*) OVER () AS total
        FROM (
          SELECT DISTINCT u.id, COALESCE(u.matricule, u.email) AS identifiant,
-               u.nom, u.prenom
+               u.nom, u.prenom, u.email
          FROM identity.users u
          LEFT JOIN identity.user_roles r ON r.user_id = u.id
          WHERE u.actif AND u.mot_de_passe_hash IS NULL
@@ -107,9 +108,11 @@ export class IdentityService {
       expireLe: string;
     }[] = [];
     const tokens: { userId: number; hash: string }[] = [];
+    const codesParUtilisateur = new Map<number, string>();
     for (const compte of comptes) {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
       tokens.push({ userId: compte.id, hash: this.hashChallenge(code) });
+      codesParUtilisateur.set(compte.id, code);
       codes.push({
         identifiant: compte.identifiant,
         nom: compte.nom,
@@ -118,22 +121,79 @@ export class IdentityService {
         expireLe: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       });
     }
+    const sansEmail = comptes
+      .filter((compte) => !compte.email)
+      .map((compte) => compte.identifiant);
+    const courriels = comptes
+      .filter((compte): compte is typeof compte & { email: string } => Boolean(compte.email))
+      .map((compte) => {
+        const code = codesParUtilisateur.get(compte.id);
+        if (!code) throw new Error('Code d’activation introuvable pour un compte sélectionné');
+        const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
+        const instructions = appUrl
+          ? `Activez votre compte à l’adresse ${appUrl}/activation.`
+          : 'Ouvrez la page « Activer mon compte » de la plateforme ENP.';
+        return {
+          userId: compte.id,
+          email: compte.email,
+          expireLe: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          body: [
+            `Bonjour ${compte.prenom} ${compte.nom},`,
+            '',
+            'Votre compte ENP est prêt à être activé.',
+            instructions,
+            `Identifiant : ${compte.identifiant}`,
+            `Code d’activation : ${code}`,
+            '',
+            'Ce code est valable 14 jours et ne peut être utilisé qu’une seule fois.',
+          ].join('\n'),
+        };
+      });
+
     if (tokens.length > 0) {
-      await this.db.query(
-        `INSERT INTO identity.account_tokens (user_id, type, token_hash, expires_at)
-         SELECT batch.user_id, $2, batch.token_hash, NOW() + INTERVAL '14 days'
-         FROM unnest($1::int[], $3::text[]) AS batch(user_id, token_hash)
-         ON CONFLICT (user_id, type) WHERE used_at IS NULL
-         DO UPDATE SET token_hash = EXCLUDED.token_hash,
-                       expires_at = EXCLUDED.expires_at,
-                       attempts = 0,
-                       created_at = NOW()`,
-        [
-          tokens.map((token) => token.userId),
-          TOKEN_ACTIVATION,
-          tokens.map((token) => token.hash),
-        ],
-      );
+      await this.db.transaction(async (query) => {
+        await query(
+          `INSERT INTO identity.account_tokens (user_id, type, token_hash, expires_at)
+           SELECT batch.user_id, $2, batch.token_hash, NOW() + INTERVAL '14 days'
+           FROM unnest($1::int[], $3::text[]) AS batch(user_id, token_hash)
+           ON CONFLICT (user_id, type) WHERE used_at IS NULL
+           DO UPDATE SET token_hash = EXCLUDED.token_hash,
+                         expires_at = EXCLUDED.expires_at,
+                         attempts = 0,
+                         created_at = NOW()`,
+          [
+            tokens.map((token) => token.userId),
+            TOKEN_ACTIVATION,
+            tokens.map((token) => token.hash),
+          ],
+        );
+        if (courriels.length > 0) {
+          await query(
+            `INSERT INTO system.email_outbox
+               (event_key, recipient, subject, body, expires_at)
+             SELECT 'account-activation:' || batch.user_id::text,
+                    batch.email, 'Activation de votre compte ENP',
+                    batch.body, batch.expires_at
+             FROM unnest($1::int[], $2::text[], $3::text[], $4::timestamptz[])
+               AS batch(user_id, email, body, expires_at)
+             ON CONFLICT (event_key) DO UPDATE
+             SET recipient = EXCLUDED.recipient,
+                 subject = EXCLUDED.subject,
+                 body = EXCLUDED.body,
+                 expires_at = EXCLUDED.expires_at,
+                 sent_at = NULL,
+                 failed_at = NULL,
+                 attempts = 0,
+                 available_at = NOW()`,
+            [
+              courriels.map((courriel) => courriel.userId),
+              courriels.map((courriel) => courriel.email),
+              courriels.map((courriel) => courriel.body),
+              courriels.map((courriel) => courriel.expireLe),
+            ],
+          );
+        }
+      });
     }
     const emis = new Set(
       codes.map((element) => element.identifiant.toLowerCase()),
@@ -151,6 +211,8 @@ export class IdentityService {
       codes,
       ignores,
       restants: Math.max(0, Number(comptes[0]?.total ?? 0) - codes.length),
+      courrielsEnfiles: courriels.length,
+      comptesSansEmail: sansEmail,
     };
   }
 

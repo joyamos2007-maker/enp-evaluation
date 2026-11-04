@@ -59,6 +59,59 @@ describe('IdentityService', () => {
     expect(db.query.mock.calls[1][0]).toContain('attempts = attempts + 1');
   });
 
+  it('met en file un courriel d’activation avec le nouveau code', async () => {
+    db.query.mockResolvedValueOnce([
+      {
+        id: 12,
+        identifiant: 'SC-12',
+        nom: 'DOE',
+        prenom: 'Jane',
+        email: 'jane@example.test',
+        total: 1,
+      },
+    ]);
+
+    const resultat = await service.genererCodesActivation(null, {
+      identifiants: ['SC-12'],
+    });
+
+    expect(resultat).toMatchObject({
+      courrielsEnfiles: 1,
+      comptesSansEmail: [],
+    });
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledTimes(3);
+    expect(db.query.mock.calls[1][0]).toContain('INSERT INTO identity.account_tokens');
+    expect(db.query.mock.calls[2][0]).toContain('INSERT INTO system.email_outbox');
+    expect(db.query.mock.calls[2][1]).toEqual([
+      [12],
+      ['jane@example.test'],
+      [expect.stringContaining(`Code d’activation : ${resultat.codes[0].code}`)],
+      [expect.any(Date)],
+    ]);
+  });
+
+  it('signale les comptes sans adresse e-mail', async () => {
+    db.query.mockResolvedValueOnce([
+      {
+        id: 13,
+        identifiant: 'SC-13',
+        nom: 'DOE',
+        prenom: 'Jo',
+        email: null,
+        total: 1,
+      },
+    ]);
+
+    const resultat = await service.genererCodesActivation(null, {
+      identifiants: ['SC-13'],
+    });
+
+    expect(resultat.courrielsEnfiles).toBe(0);
+    expect(resultat.comptesSansEmail).toEqual(['SC-13']);
+    expect(db.query).toHaveBeenCalledTimes(2);
+  });
+
   it('met en file le code de réinitialisation à l’adresse du compte trouvé', async () => {
     db.query
       .mockResolvedValueOnce([{ id: 12, email: 'utilisateur@enp.dz' }])

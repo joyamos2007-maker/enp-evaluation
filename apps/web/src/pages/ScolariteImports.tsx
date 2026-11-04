@@ -194,6 +194,14 @@ export function ScolariteImports() {
             {resultat.successCount} ligne(s) importée(s) sur {resultat.totalRows} ;
             {' '}{resultat.errorCount} erreur(s).
           </p>
+          {resultat.successCount > 0 && (
+            <p className="text-sm text-enp-ink-soft">
+              {resultat.courrielsActivationEnfiles} courriel(s) d’activation mis en file. L’envoi peut prendre jusqu’à une minute.
+            </p>
+          )}
+          {resultat.erreurActivation && (
+            <p className="text-sm text-enp-bordeaux" role="alert">{resultat.erreurActivation}</p>
+          )}
           {resultat.errors.length > 0 && (
             <ul className="space-y-1 text-sm text-enp-bordeaux">
               {resultat.errors.map((item, index) => (

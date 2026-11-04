@@ -9,6 +9,8 @@ export function ScolariteComptes() {
   const [recherche, setRecherche] = useState('');
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [envoiActivation, setEnvoiActivation] = useState<number | null>(null);
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -25,6 +27,33 @@ export function ScolariteComptes() {
 
   useEffect(() => { void charger(); }, [charger]);
 
+  async function envoyerActivation(compte: CompteAdministration) {
+    const identifiant = compte.matricule ?? compte.email;
+    if (!identifiant) {
+      setErreur('Ce compte ne possède ni matricule ni adresse e-mail.');
+      setConfirmation(null);
+      return;
+    }
+
+    setEnvoiActivation(compte.id);
+    setErreur(null);
+    setConfirmation(null);
+    try {
+      const resultat = await api.scolariteGenererCodes({ identifiants: [identifiant] });
+      if (resultat.courrielsEnfiles > 0) {
+        setConfirmation(`Le courriel d’activation de ${compte.prenom} ${compte.nom} est mis en file. L’envoi peut prendre jusqu’à une minute.`);
+      } else if (resultat.comptesSansEmail.length > 0) {
+        setErreur(`Aucune adresse e-mail n’est enregistrée pour ${compte.prenom} ${compte.nom}.`);
+      } else {
+        setErreur('Aucun code n’a été généré. Le compte est peut-être déjà activé ou hors de votre périmètre.');
+      }
+    } catch (err) {
+      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Erreur réseau lors de l’envoi du code d’activation.');
+    } finally {
+      setEnvoiActivation(null);
+    }
+  }
+
   const comptesFiltres = useMemo(() => {
     const rechercheNormalisee = recherche.trim().toLocaleLowerCase();
     if (!rechercheNormalisee) return comptes;
@@ -39,9 +68,11 @@ export function ScolariteComptes() {
       <div>
         <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Comptes</h1>
         <p className="mt-1 text-sm text-enp-ink-soft">
-          Consultez les comptes, leurs rôles et leur état d’activation.
+          Consultez les comptes, leurs rôles et leur état d’activation. Les comptes sans mot de passe peuvent recevoir un code par e-mail.
         </p>
       </div>
+
+      {confirmation && <p className="rounded-lg bg-enp-teal-light p-3 text-sm text-enp-teal" role="status">{confirmation}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative block w-full max-w-md">
@@ -83,6 +114,7 @@ export function ScolariteComptes() {
                 <th scope="col" className="px-4 py-3 font-semibold">Email</th>
                 <th scope="col" className="px-4 py-3 font-semibold">Rôles</th>
                 <th scope="col" className="px-4 py-3 font-semibold">État</th>
+                <th scope="col" className="px-4 py-3 font-semibold">Activation</th>
               </tr>
             </thead>
             <tbody>
@@ -105,11 +137,24 @@ export function ScolariteComptes() {
                       {compte.motDePasseConfigure ? 'Mot de passe défini' : 'À activer'}
                     </span>
                   </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {!compte.motDePasseConfigure && (
+                      <button
+                        type="button"
+                        onClick={() => void envoyerActivation(compte)}
+                        disabled={envoiActivation !== null || !compte.email}
+                        className="rounded-md border border-enp-border px-3 py-2 text-xs font-medium text-enp-primary hover:bg-enp-sky disabled:cursor-not-allowed disabled:opacity-50"
+                        title={!compte.email ? 'Aucune adresse e-mail enregistrée' : undefined}
+                      >
+                        {envoiActivation === compte.id ? 'Mise en file…' : 'Envoyer le code'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {comptesFiltres.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-enp-ink-soft">
+                  <td colSpan={6} className="px-4 py-8 text-center text-enp-ink-soft">
                     Aucun compte correspondant.
                   </td>
                 </tr>

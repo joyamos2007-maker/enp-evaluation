@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { parse } from 'csv-parse/sync';
+import { IdentityService } from '../auth/identity.service';
 
 interface ImportLigne {
   matricule: string;
@@ -40,7 +41,12 @@ const ROLES: ImportRole[] = [
 
 @Injectable()
 export class ImportsService {
-  constructor(private readonly db: DatabaseService) {}
+  private readonly logger = new Logger(ImportsService.name);
+
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly identity: IdentityService,
+  ) {}
 
   async importUsers(fileBuffer: Buffer, campusId: number | null = null, operatorRoles: string[] = ['admin']) {
     let records: string[][];
@@ -75,7 +81,10 @@ export class ImportsService {
       successCount: 0,
       errorCount: 0,
       errors: [] as ErreurImport[],
+      courrielsActivationEnfiles: 0,
+      erreurActivation: undefined as string | undefined,
     };
+    const comptesImportes: string[] = [];
 
     for (const [index, valeurs] of records.entries()) {
       try {
@@ -157,6 +166,7 @@ export class ImportsService {
             departmentAffectation,
           ],
         );
+        comptesImportes.push(row.matricule);
         report.successCount++;
       } catch (err) {
         report.errorCount++;
@@ -164,6 +174,24 @@ export class ImportsService {
           ligne: index + 2,
           erreur: err instanceof Error ? err.message : 'Erreur lors de l’import de cette ligne.',
         });
+      }
+    }
+
+    for (let debut = 0; debut < comptesImportes.length; debut += 500) {
+      try {
+        const resultatCodes = await this.identity.genererCodesActivation(
+          campusId,
+          { identifiants: comptesImportes.slice(debut, debut + 500) },
+        );
+        report.courrielsActivationEnfiles += resultatCodes.courrielsEnfiles;
+      } catch (error) {
+        this.logger.error(
+          'Les comptes ont été importés, mais la mise en file des courriels d’activation a échoué',
+          error instanceof Error ? error.stack : String(error),
+        );
+        report.erreurActivation =
+          'Les comptes ont été importés, mais la mise en file des courriels d’activation a échoué. Vous pouvez réessayer depuis la liste des comptes.';
+        break;
       }
     }
 

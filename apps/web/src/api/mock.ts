@@ -2844,6 +2844,7 @@ export async function scolariteImporterUtilisateurs(
     successCount: Math.max(0, lignes.length - 1),
     errorCount: 0,
     errors: [],
+    courrielsActivationEnfiles: Math.max(0, lignes.length - 1),
   };
 }
 
@@ -2994,7 +2995,13 @@ export async function scolariteGenererCodes(corps: {
 
   const restants = COMPTES_SANS_MDP.length - cibles.length;
 
-  return { codes, ignores, restants };
+  return {
+    codes,
+    ignores,
+    restants,
+    courrielsEnfiles: codes.length,
+    comptesSansEmail: [],
+  };
 }
 
 export async function scolariteVerifierImport(
