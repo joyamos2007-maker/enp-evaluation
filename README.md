@@ -174,6 +174,9 @@ compte propriétaire du schéma (pas le rôle applicatif `app_main`) :
    mandats de délégués et snapshots annuels immuables.
 9. `infra/sql/016_notifications_exports_cahier_audit.sql` : planification de
    séances, rappels, boîte d’envoi, pièces jointes et historique immuable.
+10. `infra/sql/017_mfa_trusted_devices.sql` : appareils MFA de confiance.
+11. `infra/sql/018_email_change_verification.sql` : vérification des changements
+    d’adresse e-mail.
 
 Avec `psql`, lancer chaque fichier séparément et attendre sa réussite avant de
 passer au suivant. `-W` demande le mot de passe sans l'inscrire dans la commande :
@@ -188,6 +191,8 @@ psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_S
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/014_auth_lifecycle.sql
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/015_imports_affectations_archives.sql
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/016_notifications_exports_cahier_audit.sql
+psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/017_mfa_trusted_devices.sql
+psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/018_email_change_verification.sql
 ```
 
 Après `014_auth_lifecycle.sql`, configurer les variables SMTP dans `.env`.

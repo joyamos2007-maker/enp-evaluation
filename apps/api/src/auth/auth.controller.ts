@@ -146,6 +146,51 @@ export class AuthController {
     return { ok: true };
   }
 
+  @Post('email/change/request')
+  @HttpCode(200)
+  async demanderChangementEmail(
+    @Req() requete: RequeteAuthentifiee,
+    @Body() body: { nouvelleAdresse?: string; motDePasseActuel?: string },
+  ) {
+    if (!requete.utilisateur) throw new UnauthorizedException('Jeton manquant');
+    if (
+      typeof body?.nouvelleAdresse !== 'string' ||
+      typeof body.motDePasseActuel !== 'string' ||
+      body.motDePasseActuel.length < 1 ||
+      body.motDePasseActuel.length > 200
+    ) {
+      throw new BadRequestException(
+        'Une adresse e-mail et le mot de passe actuel sont obligatoires',
+      );
+    }
+    await this.identity.demanderChangementEmail(
+      requete.utilisateur.id,
+      body.nouvelleAdresse,
+      body.motDePasseActuel,
+    );
+    return { ok: true };
+  }
+
+  @Post('email/change/confirm')
+  @HttpCode(200)
+  async confirmerChangementEmail(
+    @Req() requete: RequeteAuthentifiee,
+    @Body() body: { code?: string },
+    @Res({ passthrough: true }) reponse: ReponseHttp,
+  ) {
+    if (!requete.utilisateur) throw new UnauthorizedException('Jeton manquant');
+    if (typeof body?.code !== 'string') {
+      throw new BadRequestException('Code de vérification obligatoire');
+    }
+    await this.identity.confirmerChangementEmail(
+      requete.utilisateur.id,
+      body.code.trim(),
+    );
+    this.effacerCookie(reponse);
+    this.effacerCookieAppareilMfa(reponse);
+    return { ok: true };
+  }
+
   @Public()
   @Post('mfa/verify')
   @HttpCode(200)

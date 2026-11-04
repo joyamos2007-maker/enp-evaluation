@@ -149,6 +149,7 @@ const verrouillages: Map<string, number> = new Map();
 
 let sessionMemoire: ReponseConnexion | null = null;
 const archivesMemoire: ArchiveAnnuelle[] = [];
+let adresseEmailEnAttente: { userId: number; email: string } | null = null;
 
 /* ------------------------------------------------------------------ */
 /*  Données simulées : UE et questionnaire                             */
@@ -535,6 +536,49 @@ export async function changerMotDePasse(_corps: {
   nouveauMotDePasse: string;
 }): Promise<ReponseSimple> {
   await delai();
+  return { ok: true };
+}
+
+export async function demanderChangementEmail(corps: {
+  nouvelleAdresse: string;
+  motDePasseActuel: string;
+}): Promise<ReponseSimple> {
+  await delai();
+  const session = sessionMemoire;
+  if (!session) {
+    throw new ApiError({ message: "Session expirée.", statusCode: 401 });
+  }
+  const compte = COMPTES.find((c) => c.id === session.utilisateur.id);
+  if (!compte || compte.motDePasse !== corps.motDePasseActuel) {
+    throw new ApiError({
+      message: "Mot de passe actuel incorrect.",
+      statusCode: 401,
+    });
+  }
+  const email = corps.nouvelleAdresse.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ApiError({ message: "Adresse e-mail invalide.", statusCode: 400 });
+  }
+  adresseEmailEnAttente = { userId: compte.id, email };
+  return { ok: true };
+}
+
+export async function confirmerChangementEmail(
+  code: string,
+): Promise<ReponseSimple> {
+  await delai();
+  if (
+    !sessionMemoire ||
+    adresseEmailEnAttente?.userId !== sessionMemoire.utilisateur.id ||
+    code !== "123456"
+  ) {
+    throw new ApiError({
+      message: "Code de vérification invalide ou expiré.",
+      statusCode: 400,
+    });
+  }
+  adresseEmailEnAttente = null;
+  sessionMemoire = null;
   return { ok: true };
 }
 

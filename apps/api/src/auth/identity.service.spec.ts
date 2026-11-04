@@ -211,4 +211,92 @@ describe('IdentityService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(db.transaction).not.toHaveBeenCalled();
   });
+
+  it('envoie un code à la nouvelle adresse après vérification du mot de passe', async () => {
+    db.query
+      .mockResolvedValueOnce([
+        { email: 'ancien@enp.dz', mot_de_passe_hash: 'argon-hash' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'demande', expires_at: new Date() }]);
+    passwords.verify.mockResolvedValue(true);
+
+    await service.demanderChangementEmail(12, ' Nouveau@ENP.DZ ', 'mot-de-passe');
+
+    expect(db.query.mock.calls[0][0]).toContain('identity.users');
+    expect(email.enfiler).toHaveBeenCalledWith(
+      expect.stringMatching(/^email-change:/),
+      'nouveau@enp.dz',
+      'Vérification de votre adresse e-mail ENP',
+      expect.stringMatching(/Votre code de vérification est : \d{6}/),
+      expect.any(Date),
+    );
+    expect(db.query.mock.calls[3][1]).toEqual([
+      12,
+      'nouveau@enp.dz',
+      expect.any(String),
+    ]);
+  });
+
+  it('refuse une demande de changement e-mail si le mot de passe est incorrect', async () => {
+    db.query.mockResolvedValueOnce([
+      { email: 'ancien@enp.dz', mot_de_passe_hash: 'argon-hash' },
+    ]);
+    passwords.verify.mockResolvedValue(false);
+
+    await expect(
+      service.demanderChangementEmail(12, 'nouveau@enp.dz', 'incorrect'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(email.enfiler).not.toHaveBeenCalled();
+  });
+
+  it('limite les demandes répétées de changement e-mail', async () => {
+    db.query
+      .mockResolvedValueOnce([
+        { email: 'ancien@enp.dz', mot_de_passe_hash: 'argon-hash' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    passwords.verify.mockResolvedValue(true);
+
+    await expect(
+      service.demanderChangementEmail(12, 'nouveau@enp.dz', 'mot-de-passe'),
+    ).rejects.toMatchObject({ status: 429 });
+    expect(email.enfiler).not.toHaveBeenCalled();
+  });
+
+  it('change l’adresse e-mail après confirmation et révoque sessions et appareils fiables', async () => {
+    db.query
+      .mockResolvedValueOnce([{ pending_email: 'nouveau@enp.dz' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await service.confirmerChangementEmail(12, '123456');
+
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE identity.users SET email'),
+      [12, 'nouveau@enp.dz'],
+    );
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE identity.refresh_tokens'),
+      [12],
+    );
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM identity.mfa_trusted_devices'),
+      [12],
+    );
+  });
+
+  it('compte les erreurs de code de changement e-mail et refuse les codes invalides', async () => {
+    db.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    await expect(
+      service.confirmerChangementEmail(12, '000000'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.query.mock.calls[1][0]).toContain('attempts = attempts + 1');
+  });
 });

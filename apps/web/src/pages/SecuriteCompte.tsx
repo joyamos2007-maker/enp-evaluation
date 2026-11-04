@@ -17,6 +17,13 @@ export function SecuriteCompte() {
   const [motDePasseActuel, setMotDePasseActuel] = useState('');
   const [nouveauMotDePasse, setNouveauMotDePasse] = useState('');
   const [confirmationMotDePasse, setConfirmationMotDePasse] = useState('');
+  const [nouvelleAdresse, setNouvelleAdresse] = useState('');
+  const [motDePasseEmail, setMotDePasseEmail] = useState('');
+  const [codeChangementEmail, setCodeChangementEmail] = useState('');
+  const [verificationEmailEnCours, setVerificationEmailEnCours] = useState(false);
+  const [changementEmailEnCours, setChangementEmailEnCours] = useState(false);
+  const [messageEmail, setMessageEmail] = useState<string | null>(null);
+  const [erreurEmail, setErreurEmail] = useState<string | null>(null);
 
   async function chargerStatut() {
     try {
@@ -91,6 +98,52 @@ export function SecuriteCompte() {
     }
   }
 
+  async function demanderChangementEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErreurEmail(null);
+    setMessageEmail(null);
+    setChangementEmailEnCours(true);
+    try {
+      await api.demanderChangementEmail({
+        nouvelleAdresse,
+        motDePasseActuel: motDePasseEmail,
+      });
+      setVerificationEmailEnCours(true);
+      setMessageEmail(`Un code de vérification a été envoyé à ${nouvelleAdresse}.`);
+    } catch (cause) {
+      setErreurEmail(
+        cause instanceof ApiError
+          ? cause.messages.join(' ')
+          : 'Impossible d’envoyer le code de vérification.',
+      );
+    } finally {
+      setChangementEmailEnCours(false);
+    }
+  }
+
+  async function confirmerChangementEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErreurEmail(null);
+    setMessageEmail(null);
+    setChangementEmailEnCours(true);
+    try {
+      await api.confirmerChangementEmail(codeChangementEmail.trim());
+      await deconnecter();
+      navigate('/connexion', {
+        replace: true,
+        state: { message: 'Adresse e-mail modifiée. Reconnectez-vous avec votre nouvelle adresse.' },
+      });
+    } catch (cause) {
+      setErreurEmail(
+        cause instanceof ApiError
+          ? cause.messages.join(' ')
+          : 'Impossible de vérifier le code.',
+      );
+    } finally {
+      setChangementEmailEnCours(false);
+    }
+  }
+
   if (chargement) return <p role="status">Chargement des paramètres de sécurité…</p>;
 
   return (
@@ -152,6 +205,82 @@ export function SecuriteCompte() {
         {message && <p className="text-sm text-enp-teal" role="status">{message}</p>}
         {erreur && <p className="text-sm text-enp-bordeaux" role="alert">{erreur}</p>}
       </div>
+
+      <section className="rounded-xl border border-enp-border bg-white p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-enp-ink">Changer d’adresse e-mail</h2>
+          <p className="mt-1 text-sm text-enp-ink-soft">
+            Un code sera envoyé à la nouvelle adresse. Elle ne sera enregistrée qu’après vérification.
+            {import.meta.env.VITE_USE_MOCK === 'true' && ' En mode démo, utilisez le code 123456.'}
+          </p>
+        </div>
+        {!verificationEmailEnCours ? (
+          <form
+            className="space-y-4"
+            onSubmit={(event) => void demanderChangementEmail(event)}
+          >
+            <label className="block text-sm">
+              Nouvelle adresse e-mail
+              <input
+                type="email"
+                autoComplete="email"
+                maxLength={254}
+                required
+                value={nouvelleAdresse}
+                onChange={(event) => setNouvelleAdresse(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-enp-border px-3 py-2"
+              />
+            </label>
+            <label className="block text-sm">
+              Mot de passe actuel
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={motDePasseEmail}
+                onChange={(event) => setMotDePasseEmail(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-enp-border px-3 py-2"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={changementEmailEnCours}
+              className="rounded-lg bg-enp-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Envoyer le code de vérification
+            </button>
+          </form>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={(event) => void confirmerChangementEmail(event)}
+          >
+            <label className="block text-sm">
+              Code reçu à {nouvelleAdresse}
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                required
+                value={codeChangementEmail}
+                onChange={(event) => setCodeChangementEmail(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-enp-border px-3 py-2"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={changementEmailEnCours || codeChangementEmail.length !== 6}
+              className="rounded-lg bg-enp-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Vérifier et changer l’adresse
+            </button>
+          </form>
+        )}
+        {messageEmail && <p className="text-sm text-enp-teal" role="status">{messageEmail}</p>}
+        {erreurEmail && <p className="text-sm text-enp-bordeaux" role="alert">{erreurEmail}</p>}
+      </section>
 
       <form
         className="rounded-xl border border-enp-border bg-white p-5 space-y-4"

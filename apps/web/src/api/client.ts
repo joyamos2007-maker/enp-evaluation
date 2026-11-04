@@ -323,6 +323,25 @@ export async function changerMotDePasse(corps: {
   });
 }
 
+export async function demanderChangementEmail(corps: {
+  nouvelleAdresse: string;
+  motDePasseActuel: string;
+}): Promise<ReponseSimple> {
+  return requete<ReponseSimple>("/auth/email/change/request", {
+    method: "POST",
+    body: corps,
+  });
+}
+
+export async function confirmerChangementEmail(
+  code: string,
+): Promise<ReponseSimple> {
+  return requete<ReponseSimple>("/auth/email/change/confirm", {
+    method: "POST",
+    body: { code },
+  });
+}
+
 export async function changerProfil(role: Role): Promise<ReponseConnexion> {
   const data = await requete<ReponseConnexion>("/auth/profil-actif", {
     method: "POST",

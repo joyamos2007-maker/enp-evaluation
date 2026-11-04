@@ -23,6 +23,8 @@ export const api = {
   demanderReinitialisation: impl.demanderReinitialisation,
   confirmerReinitialisation: impl.confirmerReinitialisation,
   changerMotDePasse: impl.changerMotDePasse,
+  demanderChangementEmail: impl.demanderChangementEmail,
+  confirmerChangementEmail: impl.confirmerChangementEmail,
   changerProfil: impl.changerProfil,
   preparerMfaTotp: impl.preparerMfaTotp,
   statutMfa: impl.statutMfa,

@@ -631,9 +631,9 @@ export function AppLayout() {
       </nav>
 
       {/* ======================================================== */}
-      {/* 4. FOOTER INSTITUTIONNEL (Affiché uniquement sur desktop) */}
+      {/* 4. FOOTER INSTITUTIONNEL */}
       {/* ======================================================== */}
-      <footer className="hidden lg:block bg-enp-blue-deep text-white border-t-2 border-enp-blue-primary mt-auto w-full overflow-hidden">
+      <footer className="bg-enp-blue-deep text-white border-t-2 border-enp-blue-primary mt-auto w-full overflow-hidden">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Côté gauche : Armoiries officielles de la République Togolaise & Identité ENP */}
@@ -667,8 +667,8 @@ export function AppLayout() {
                 Notifications
               </Link>
               <span className="text-white/20">|</span>
-              <span className="text-[11px] text-slate-400">
-                © {new Date().getFullYear()} ENP. Tous droits réservés.
+              <span className="text-[11px] text-slate-400 text-center">
+                © {new Date().getFullYear()} — Copyright Pr Adekunle Akim SALAMI, KOUDASSE Joy Amos &amp; OHONSSOU Bienvenu
               </span>
             </div>
           </div>

@@ -9,7 +9,11 @@ describe('AuthController', () => {
     deconnecter: jest.fn(),
   };
   const config = { get: jest.fn() };
-  const identity = { changerMotDePasse: jest.fn() };
+  const identity = {
+    changerMotDePasse: jest.fn(),
+    demanderChangementEmail: jest.fn(),
+    confirmerChangementEmail: jest.fn(),
+  };
   const controller = new AuthController(auth as never, config as never, identity as never);
   const reponse = { cookie: jest.fn(), clearCookie: jest.fn() };
 
@@ -25,6 +29,8 @@ describe('AuthController', () => {
     jest.resetAllMocks();
     config.get.mockReturnValue('development');
     identity.changerMotDePasse.mockResolvedValue(undefined);
+    identity.demanderChangementEmail.mockResolvedValue(undefined);
+    identity.confirmerChangementEmail.mockResolvedValue(undefined);
   });
 
   it('login pose le cookie de session sans renvoyer le jeton dans le corps', async () => {
@@ -112,6 +118,42 @@ describe('AuthController', () => {
       21,
       'ancien-mot-de-passe',
       'nouveau-mot-de-passe',
+    );
+    expect(reponse.clearCookie).toHaveBeenCalledWith(
+      'mfa_trusted_device',
+      expect.objectContaining({ path: '/api/v1/auth' }),
+    );
+    expect(corps).toEqual({ ok: true });
+  });
+
+  it('demande un code de vérification pour la nouvelle adresse e-mail', async () => {
+    const corps = await controller.demanderChangementEmail(
+      { headers: {}, utilisateur: { id: 21, roles: ['admin'], activeRole: 'admin' } },
+      {
+        nouvelleAdresse: 'nouveau@enp.dz',
+        motDePasseActuel: 'ancien-mot-de-passe',
+      },
+    );
+
+    expect(identity.demanderChangementEmail).toHaveBeenCalledWith(
+      21,
+      'nouveau@enp.dz',
+      'ancien-mot-de-passe',
+    );
+    expect(corps).toEqual({ ok: true });
+  });
+
+  it('confirme le code et efface les cookies de session après le changement e-mail', async () => {
+    const corps = await controller.confirmerChangementEmail(
+      { headers: {}, utilisateur: { id: 21, roles: ['admin'], activeRole: 'admin' } },
+      { code: '123456' },
+      reponse as never,
+    );
+
+    expect(identity.confirmerChangementEmail).toHaveBeenCalledWith(21, '123456');
+    expect(reponse.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/api/v1/auth' }),
     );
     expect(reponse.clearCookie).toHaveBeenCalledWith(
       'mfa_trusted_device',

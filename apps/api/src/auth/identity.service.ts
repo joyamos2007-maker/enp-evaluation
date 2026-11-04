@@ -336,6 +336,155 @@ export class IdentityService {
     });
   }
 
+  async demanderChangementEmail(
+    userId: number,
+    nouvelleAdresse: string,
+    motDePasseActuel: string,
+  ): Promise<void> {
+    const email = nouvelleAdresse.trim().toLowerCase();
+    if (
+      email.length > 254 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      throw new BadRequestException('Adresse e-mail invalide');
+    }
+
+    const users = await this.db.query<{
+      email: string | null;
+      mot_de_passe_hash: string | null;
+    }>(
+      'SELECT email, mot_de_passe_hash FROM identity.users WHERE id = $1 AND actif',
+      [userId],
+    );
+    const compte = users[0];
+    if (
+      !compte?.mot_de_passe_hash ||
+      !(await this.passwords.verify(compte.mot_de_passe_hash, motDePasseActuel))
+    ) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+    if (compte.email?.toLowerCase() === email) {
+      throw new BadRequestException('Cette adresse e-mail est déjà associée au compte');
+    }
+
+    await this.db.query(
+      `UPDATE identity.email_change_requests
+       SET used_at = NOW()
+       WHERE used_at IS NULL AND expires_at <= NOW()`,
+    );
+    const codes = await this.db.query<{ code: string }>(
+      `SELECT code FROM (
+         SELECT 1 AS code
+         FROM identity.users
+         WHERE LOWER(email) = $1 AND id <> $2
+         UNION ALL
+         SELECT 1 AS code
+         FROM identity.email_change_requests
+         WHERE LOWER(pending_email) = $1 AND user_id <> $2 AND used_at IS NULL
+       ) adresses LIMIT 1`,
+      [email, userId],
+    );
+    if (codes.length > 0) {
+      throw new BadRequestException('Cette adresse e-mail est déjà utilisée');
+    }
+
+    const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const codeHash = this.hashChallenge(code);
+    let demandes: { id: string; expires_at: Date }[];
+    try {
+      demandes = await this.db.query<{ id: string; expires_at: Date }>(
+        `INSERT INTO identity.email_change_requests
+           (user_id, pending_email, token_hash, expires_at)
+         SELECT $1, $2, $3, NOW() + INTERVAL '15 minutes'
+         WHERE NOT EXISTS (
+           SELECT 1 FROM identity.email_change_requests
+           WHERE user_id = $1 AND created_at > NOW() - INTERVAL '2 minutes'
+         )
+         ON CONFLICT (user_id) WHERE used_at IS NULL
+         DO UPDATE SET pending_email = EXCLUDED.pending_email,
+                       token_hash = EXCLUDED.token_hash,
+                       attempts = 0,
+                       expires_at = EXCLUDED.expires_at,
+                       created_at = NOW()
+         WHERE identity.email_change_requests.created_at <= NOW() - INTERVAL '2 minutes'
+         RETURNING id, expires_at`,
+        [userId, email, codeHash],
+      );
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === '23505') {
+        throw new BadRequestException('Cette adresse e-mail est déjà utilisée');
+      }
+      throw error;
+    }
+    if (!demandes[0]) {
+      throw new HttpException(
+        'Un code vient déjà d’être envoyé. Réessayez dans quelques minutes.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    await this.email.enfiler(
+      `email-change:${randomUUID()}`,
+      email,
+      'Vérification de votre adresse e-mail ENP',
+      `Votre code de vérification est : ${code}. Il expire dans 15 minutes.`,
+      demandes[0].expires_at,
+    );
+  }
+
+  async confirmerChangementEmail(userId: number, code: string): Promise<void> {
+    if (!/^\d{6}$/.test(code)) {
+      throw new BadRequestException('Code de vérification invalide ou expiré');
+    }
+
+    try {
+      const emailChange = await this.db.transaction(async (query) => {
+        const demandes = await query<{ pending_email: string }>(
+          `UPDATE identity.email_change_requests
+           SET used_at = NOW()
+           WHERE user_id = $1 AND token_hash = $2 AND used_at IS NULL
+             AND expires_at > NOW() AND attempts < 5
+           RETURNING pending_email`,
+          [userId, this.hashChallenge(code)],
+        );
+        if (!demandes[0]) {
+          await query(
+            `UPDATE identity.email_change_requests
+             SET attempts = attempts + 1,
+                 used_at = CASE WHEN attempts + 1 >= 5 THEN NOW() ELSE used_at END
+             WHERE user_id = $1 AND used_at IS NULL
+               AND expires_at > NOW() AND attempts < 5`,
+            [userId],
+          );
+          return null;
+        }
+
+        await query('UPDATE identity.users SET email = $2 WHERE id = $1', [
+          userId,
+          demandes[0].pending_email,
+        ]);
+        await query(
+          'UPDATE identity.refresh_tokens SET revoque_le = NOW() WHERE user_id = $1 AND revoque_le IS NULL',
+          [userId],
+        );
+        await query(
+          'DELETE FROM identity.mfa_trusted_devices WHERE user_id = $1',
+          [userId],
+        );
+        return demandes[0].pending_email;
+      });
+
+      if (!emailChange) {
+        throw new BadRequestException('Code de vérification invalide ou expiré');
+      }
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === '23505') {
+        throw new BadRequestException('Cette adresse e-mail est déjà utilisée');
+      }
+      throw error;
+    }
+  }
+
   async appareilMfaFiable(
     userId: number,
     jeton: string | null | undefined,

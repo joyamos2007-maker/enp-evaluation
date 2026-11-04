@@ -92,6 +92,18 @@ Verifier que l'execution du job finit avec le statut `Succeeded` avant de
 deployer l'API et le frontend. Cette image n'execute que `017_mfa_trusted_devices.sql`.
 Ne pas lancer `Dockerfile.migrations` sur une base deja migree.
 
+Pour activer le changement d'adresse e-mail, construire et executer la migration
+018 separement, apres la migration 017 :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-email-migration:<TAG> --file infra/sql/Dockerfile.mfa-018 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-email-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+Attendre le statut `Succeeded` avant de deployer l'API qui utilise la table
+`identity.email_change_requests`.
+
 `Dockerfile.azure` construit le frontend avec `VITE_USE_MOCK=false` et
 `VITE_API_BASE_URL=/api/v1` : le mode maquette n'est donc pas embarque en
 production ; le module contenant les comptes de demonstration est remplace
