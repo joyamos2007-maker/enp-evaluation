@@ -6,7 +6,10 @@ const BALLOT = '3d2ffb41-1f7c-464c-bccf-0d9ca21a3958';
 
 describe('ModerationController', () => {
   const moderation = { lister: jest.fn(), decider: jest.fn() };
-  const campusScope = { forScolarite: jest.fn() };
+  const campusScope = {
+    forScolarite: jest.fn(),
+    forDirecteurCampus: jest.fn(),
+  };
   const controller = new ModerationController(moderation as never, campusScope as never);
   const sco = {
     headers: {},
@@ -24,7 +27,8 @@ describe('ModerationController', () => {
       Object.getOwnPropertyDescriptor(prototype, name)?.value;
     expect(Reflect.getMetadata(ROLES_KEY, handler('lister'))).toEqual([
       'scolarite',
-      'direction_etudes',
+      'directeur_campus',
+      'directeur_general',
     ]);
     expect(Reflect.getMetadata(ROLES_KEY, handler('decider'))).toEqual([
       'scolarite',
@@ -35,8 +39,8 @@ describe('ModerationController', () => {
       headers: {},
       utilisateur: {
         id: 2,
-        roles: ['direction_etudes'],
-        activeRole: 'direction_etudes',
+        roles: ['directeur_general'],
+        activeRole: 'directeur_general',
       },
     });
     expect(campusScope.forScolarite).not.toHaveBeenCalled();
@@ -49,6 +53,21 @@ describe('ModerationController', () => {
     await controller.lister('3', undefined, sco);
     expect(moderation.lister).toHaveBeenNthCalledWith(1, 3, 'valide', 9);
     expect(moderation.lister).toHaveBeenNthCalledWith(2, 3, undefined, 9);
+  });
+
+  it('limite la lecture des commentaires du Directeur de campus à son campus', async () => {
+    campusScope.forDirecteurCampus.mockResolvedValue(9);
+    moderation.lister.mockResolvedValue([]);
+    await controller.lister('3', undefined, {
+      headers: {},
+      utilisateur: {
+        id: 6,
+        roles: ['directeur_campus'],
+        activeRole: 'directeur_campus',
+      },
+    });
+    expect(campusScope.forDirecteurCampus).toHaveBeenCalledWith(6, ['directeur_campus']);
+    expect(moderation.lister).toHaveBeenCalledWith(3, undefined, 9);
   });
 
   it('refuse un campagneId absent ou invalide, et un statut inconnu', async () => {

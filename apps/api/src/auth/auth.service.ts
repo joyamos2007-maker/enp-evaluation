@@ -60,7 +60,13 @@ export class AuthService {
     }
 
     const roles = await this.users.rolesDe(utilisateur.id);
-    if (roles.some((role) => ['admin', 'scolarite', 'direction_etudes', 'chef_departement'].includes(role))) {
+    if (roles.some((role) => [
+      'admin',
+      'scolarite',
+      'directeur_campus',
+      'directeur_general',
+      'chef_departement',
+    ].includes(role))) {
       if (!utilisateur.email) {
         throw new ForbiddenException('Une adresse e-mail institutionnelle doit etre configuree pour le MFA');
       }

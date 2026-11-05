@@ -104,6 +104,18 @@ az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-
 Attendre le statut `Succeeded` avant de deployer l'API qui utilise la table
 `identity.email_change_requests`.
 
+Pour remplacer le role global de direction par les roles campus et general,
+construire puis executer la migration 019 apres une sauvegarde de la base :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-directions-migration:<TAG> --file infra/sql/Dockerfile.directions-019 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-directions-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+La migration convertit les anciens comptes `direction_etudes` en
+`directeur_general`. Attendre le statut `Succeeded` avant de mettre a jour l'API.
+
 `Dockerfile.azure` construit le frontend avec `VITE_USE_MOCK=false` et
 `VITE_API_BASE_URL=/api/v1` : le mode maquette n'est donc pas embarque en
 production ; le module contenant les comptes de demonstration est remplace

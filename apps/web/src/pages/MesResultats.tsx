@@ -41,8 +41,10 @@ export function MesResultats() {
         r.libelleCampagne.toLowerCase().includes(recherche.toLowerCase()),
     );
   }, [resultats, recherche]);
-  const perimetre = aRole('direction_etudes')
+  const perimetre = aRole('directeur_general')
     ? 'de tous les campus'
+    : aRole('directeur_campus')
+      ? 'de votre campus'
     : aRole('scolarite')
       ? 'de votre campus'
       : aRole('chef_departement')

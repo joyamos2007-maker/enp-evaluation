@@ -106,9 +106,41 @@ describe('ImportsService', () => {
     ]);
   });
 
+  it('rattache un Directeur de campus au campus fourni par l’administration', async () => {
+    db.query.mockResolvedValueOnce([]);
+    const csv = Buffer.from(
+      'matricule,email,nom,prenom,role,campusId\nDIRC-1,dirc@example.test,DOE,Jo,directeur_campus,7\n',
+    );
+    await expect(service.importUsers(csv)).resolves.toMatchObject({
+      successCount: 1,
+      errorCount: 0,
+    });
+    expect(db.query.mock.calls[0][1]).toEqual([
+      'DIRC-1',
+      'dirc@example.test',
+      'DOE',
+      'Jo',
+      'directeur_campus',
+      7,
+      null,
+    ]);
+  });
+
+  it('refuse de créer un Directeur de campus sans campus', async () => {
+    const csv = Buffer.from(
+      'matricule,email,nom,prenom,role\nDIRC-1,dirc@example.test,DOE,Jo,directeur_campus\n',
+    );
+    await expect(service.importUsers(csv)).resolves.toMatchObject({
+      successCount: 0,
+      errorCount: 1,
+      errors: [{ ligne: 2, erreur: 'Un Directeur de campus doit être rattaché à un campus' }],
+    });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('empêche un service Scolarité de créer des rôles globaux ou privilégiés', async () => {
     const csv = Buffer.from(
-      'matricule,email,nom,prenom,role\nDIR-1,direction@example.test,DOE,Jane,direction_etudes\n',
+      'matricule,email,nom,prenom,role\nDIR-1,direction@example.test,DOE,Jane,directeur_general\n',
     );
     await expect(service.importUsers(csv, 7, ['scolarite'])).resolves.toMatchObject({
       successCount: 0,

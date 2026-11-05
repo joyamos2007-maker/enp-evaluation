@@ -24,7 +24,8 @@ type ImportRole =
   | 'enseignant'
   | 'chef_departement'
   | 'scolarite'
-  | 'direction_etudes'
+  | 'directeur_campus'
+  | 'directeur_general'
   | 'admin';
 
 const ENTETES = ['matricule', 'email', 'nom', 'prenom', 'role'];
@@ -35,7 +36,8 @@ const ROLES: ImportRole[] = [
   'enseignant',
   'chef_departement',
   'scolarite',
-  'direction_etudes',
+  'directeur_campus',
+  'directeur_general',
   'admin',
 ];
 
@@ -131,11 +133,14 @@ export class ImportsService {
         if (row.role === 'scolarite' && campusFinal === null) {
           throw new BadRequestException('Un compte Scolarité doit être rattaché à un campus');
         }
+        if (row.role === 'directeur_campus' && campusFinal === null) {
+          throw new BadRequestException('Un Directeur de campus doit être rattaché à un campus');
+        }
         if (row.role === 'chef_departement' && departmentAffectation === null) {
           throw new BadRequestException('Un Chef de département doit être rattaché à un département');
         }
         if (
-          ['direction_etudes', 'admin'].includes(row.role) &&
+          ['directeur_general', 'admin'].includes(row.role) &&
           (campusFinal !== null || departmentAffectation !== null)
         ) {
           throw new BadRequestException('Les rôles globaux ne peuvent pas être rattachés à un campus ou département');

@@ -197,7 +197,8 @@ export default function App() {
                     "enseignant",
                     "chef_departement",
                     "scolarite",
-                    "direction_etudes",
+                    "directeur_campus",
+                    "directeur_general",
                   ]}
                 >
                   <MesResultats />
@@ -212,7 +213,8 @@ export default function App() {
                     "enseignant",
                     "chef_departement",
                     "scolarite",
-                    "direction_etudes",
+                    "directeur_campus",
+                    "directeur_general",
                   ]}
                 >
                   <FicheResultatUE />
@@ -298,7 +300,7 @@ export default function App() {
             <Route
               path="/direction/commentaires"
               element={
-                <RequireRole role="direction_etudes">
+                <RequireRole roles={["directeur_campus", "directeur_general"]}>
                   <ScolariteModeration />
                 </RequireRole>
               }
@@ -328,7 +330,15 @@ export default function App() {
             <Route
               path="/direction/statistiques"
               element={
-                <RequireRole role="direction_etudes">
+                <RequireRole roles={["directeur_campus", "directeur_general"]}>
+                  <DirectionStatistiques />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/direction/controles"
+              element={
+                <RequireRole roles={["directeur_campus", "directeur_general"]}>
                   <DirectionStatistiques />
                 </RequireRole>
               }

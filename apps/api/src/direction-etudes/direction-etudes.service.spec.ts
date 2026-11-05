@@ -89,7 +89,34 @@ describe('DirectionEtudesService', () => {
       nombreAnomalies: 1,
       anomalies: [{ code: 'CAMPAGNE_OUVERTE_ECHUE', campus: 'Lomé' }],
     });
-    expect(db.query.mock.calls[0][1]).toEqual(['2026-2027', 5]);
+    expect(db.query.mock.calls[0][1]).toEqual(['2026-2027', 5, null]);
     expect(db.query.mock.calls[0][0]).toContain('JOIN ref.campus');
+  });
+
+  it('limite la synthèse et les contrôles au campus demandé', async () => {
+    db.query
+      .mockResolvedValueOnce([
+        {
+          campus_id: 7,
+          campus: 'Campus Nord',
+          campagne_id: 10,
+          statut: 'close',
+          course_id: 100,
+          inscriptions: 8,
+          participations: 6,
+        },
+      ])
+      .mockResolvedValueOnce([{ id: 7, nom: 'Campus Nord' }])
+      .mockResolvedValueOnce([]);
+    resultsDb.lire.mockResolvedValueOnce([]);
+
+    const stats = await service.synthese(periode, 7);
+    await service.controlesAcademiques(periode, 7);
+
+    expect(stats.campus).toHaveLength(1);
+    expect(db.query.mock.calls[0][1]).toEqual(['2026-2027', 5, 7]);
+    expect(db.query.mock.calls[1][1]).toEqual([7]);
+    expect(db.query.mock.calls[2][1]).toEqual(['2026-2027', 5, 7]);
+    expect(db.query.mock.calls[2][0]).toContain('c.id = $3');
   });
 });

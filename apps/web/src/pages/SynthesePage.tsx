@@ -259,7 +259,7 @@ export function SynthesePage() {
                 Plan d'Actions Correctives & Délibération Départementale
               </h2>
               <p className="text-xs text-enp-gray-medium mt-0.5">
-                Renseigné sous la responsabilité du Chef de Département et transmis à la Direction des Études
+                Renseigné sous la responsabilité du Chef de Département et transmis à la direction compétente du campus
               </p>
             </div>
 

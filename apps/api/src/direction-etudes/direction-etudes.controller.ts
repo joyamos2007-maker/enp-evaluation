@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { Acces } from '../auth/acces.decorator';
 import type { RequeteAuthentifiee } from '../auth/auth.types';
+import { CampusScopeService } from '../database/campus-scope.service';
 import { DirectionEtudesService } from './direction-etudes.service';
 
 interface Periode {
@@ -39,19 +40,31 @@ function lirePeriode(valeur: unknown): Periode {
 
 @Controller('direction')
 export class DirectionEtudesController {
-  constructor(private readonly direction: DirectionEtudesService) {}
+  constructor(
+    private readonly direction: DirectionEtudesService,
+    private readonly campusScope: CampusScopeService,
+  ) {}
 
   @Get('statistiques')
-  @Acces('direction_etudes')
-  statistiques(
+  @Acces('directeur_campus', 'directeur_general')
+  async statistiques(
+    @Req() requete: RequeteAuthentifiee,
     @Query('anneeUniversitaire') anneeUniversitaire: string,
     @Query('semestre') semestre: string,
   ) {
-    return this.direction.synthese(lirePeriode({ anneeUniversitaire, semestre }));
+    const utilisateur = requete.utilisateur;
+    if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
+    const campusId = utilisateur.activeRole === 'directeur_campus'
+      ? await this.campusScope.forDirecteurCampus(utilisateur.id, [utilisateur.activeRole])
+      : null;
+    return this.direction.synthese(
+      lirePeriode({ anneeUniversitaire, semestre }),
+      campusId,
+    );
   }
 
   @Post('statistiques/publications')
-  @Acces('direction_etudes')
+  @Acces('directeur_general')
   publier(
     @Body() corps: unknown,
     @Req() requete: RequeteAuthentifiee,
@@ -62,16 +75,22 @@ export class DirectionEtudesController {
   }
 
   @Get('controles-academiques')
-  @Acces('direction_etudes')
-  controles(
+  @Acces('directeur_campus', 'directeur_general')
+  async controles(
+    @Req() requete: RequeteAuthentifiee,
     @Query('anneeUniversitaire') anneeUniversitaire: string | undefined,
     @Query('semestre') semestre: string | undefined,
   ) {
+    const utilisateur = requete.utilisateur;
+    if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
+    const campusId = utilisateur.activeRole === 'directeur_campus'
+      ? await this.campusScope.forDirecteurCampus(utilisateur.id, [utilisateur.activeRole])
+      : null;
     let periode: Periode | undefined;
     if (anneeUniversitaire !== undefined || semestre !== undefined) {
       periode = lirePeriode({ anneeUniversitaire, semestre });
     }
-    return this.direction.controlesAcademiques(periode);
+    return this.direction.controlesAcademiques(periode, campusId);
   }
 }
 

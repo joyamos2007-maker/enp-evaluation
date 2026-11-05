@@ -24,6 +24,23 @@ export class CampusScopeService {
     return campusId;
   }
 
+  async forDirecteurCampus(userId: number, roles: string[]): Promise<number> {
+    if (!roles.includes('directeur_campus')) {
+      throw new ForbiddenException('Accès réservé à la Direction de campus');
+    }
+    const rows = await this.db.query<{ campus_id: number | null }>(
+      `SELECT campus_id
+       FROM identity.user_roles
+       WHERE user_id = $1 AND role = 'directeur_campus'`,
+      [userId],
+    );
+    const campusId = rows[0]?.campus_id;
+    if (typeof campusId !== 'number' || !Number.isSafeInteger(campusId) || campusId < 1) {
+      throw new ForbiddenException('Ce compte Direction de campus n’est rattaché à aucun campus');
+    }
+    return campusId;
+  }
+
   async verifierDepartement(
     departmentId: number,
     campusId: number | null,

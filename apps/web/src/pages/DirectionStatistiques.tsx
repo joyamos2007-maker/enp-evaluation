@@ -24,6 +24,7 @@ import {
   Legend,
 } from 'recharts';
 import { api, ApiError } from '@/api';
+import { useAuth } from '@/auth/AuthContext';
 import type {
   ControlesAcademiques,
   PeriodeDirection,
@@ -52,6 +53,8 @@ const SEMESTRE_DEFAUT = 1;
 
 export function DirectionStatistiques() {
   const location = useLocation();
+  const { aRole } = useAuth();
+  const directeurGeneral = aRole('directeur_general');
   const [anneeUniversitaire, setAnneeUniversitaire] = useState(ANNEE_DEFAUT);
   const [semestre, setSemestre] = useState(SEMESTRE_DEFAUT);
   const [onglet, setOnglet] = useState(() =>
@@ -120,10 +123,12 @@ export function DirectionStatistiques() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
       <PageHeader
-        title="Supervision & Statistiques de la Direction des Études"
-        description="Vue consolidée multi-campus, intégrité des référentiels et publication officielle des rapports ministériels"
-        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Direction des Études' }]}
-        actions={
+        title={directeurGeneral ? 'Supervision & Statistiques globales ENP' : 'Pilotage & Statistiques de votre campus'}
+        description={directeurGeneral
+          ? 'Synthèse des résultats de tous les campus et publication des statistiques globales de l’ENP.'
+          : 'Résultats et contrôles académiques limités au campus auquel vous êtes rattaché.'}
+        breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: directeurGeneral ? 'Direction générale' : 'Direction de campus' }]}
+        actions={directeurGeneral ? (
           <Button
             variant="primary"
             size="md"
@@ -132,9 +137,9 @@ export function DirectionStatistiques() {
             onClick={() => void publier()}
             leftIcon={<Send className="w-4 h-4" />}
           >
-            Publier les synthèses officielles
+            Publier les statistiques globales ENP
           </Button>
-        }
+        ) : undefined}
       />
 
       {/* Sélecteur de période académique */}
@@ -200,7 +205,7 @@ export function DirectionStatistiques() {
           {/* Indicateurs nationaux ENP */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              label="Participation nationale"
+              label={directeurGeneral ? 'Participation nationale' : 'Participation du campus'}
               value={`${statistiques.global.tauxParticipation !== null ? statistiques.global.tauxParticipation.toFixed(1) : 0}%`}
               subtext={`${statistiques.global.bulletins} bulletins reçus sur ${statistiques.global.inscriptions} inscrits`}
               variant="primary"
@@ -209,14 +214,14 @@ export function DirectionStatistiques() {
             <StatCard
               label="Satisfaction moyenne"
               value={`${statistiques.global.moyenneEvaluations !== null ? statistiques.global.moyenneEvaluations.toFixed(2) : '-'} / 5.0`}
-              subtext="Moyenne générale tous campus confondus"
+              subtext={directeurGeneral ? 'Moyenne générale tous campus confondus' : 'Moyenne des évaluations de votre campus'}
               variant="success"
               icon={<Award className="w-5 h-5" />}
             />
             <StatCard
-              label="Campus analysés"
+              label={directeurGeneral ? 'Campus analysés' : 'Campus du périmètre'}
               value={statistiques.campus.length}
-              subtext="Périmètre actif ENP"
+              subtext={directeurGeneral ? 'Périmètre actif ENP' : 'Votre campus de rattachement'}
               variant="default"
               icon={<Building2 className="w-5 h-5" />}
             />
@@ -231,8 +236,8 @@ export function DirectionStatistiques() {
 
           {/* Graphique des départements */}
           <ChartCard
-            title="Comparatif des taux de participation par campus et département"
-            subtitle="Taux effectif de mobilisation (%) pour le semestre actif"
+            title={directeurGeneral ? 'Comparatif des taux de participation par campus' : 'Taux de participation du campus'}
+            subtitle={directeurGeneral ? 'Taux effectif de mobilisation (%) pour le semestre actif' : 'Indicateurs du seul campus de rattachement'}
           >
             <div className="h-64 w-full min-w-0 overflow-hidden" aria-label="Graphique des taux par département">
               <ResponsiveContainer width="99%" height="100%">
@@ -251,7 +256,7 @@ export function DirectionStatistiques() {
           {/* Tableau détaillé des campus */}
           <div className="bg-white border border-enp-border p-5 space-y-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep border-b border-enp-border pb-2">
-              Indicateurs détaillés par campus et département
+              {directeurGeneral ? 'Indicateurs détaillés par campus' : 'Indicateurs détaillés de votre campus'}
             </h2>
             {/* Vue mobile (< 640px) */}
             <div className="block sm:hidden divide-y divide-enp-border">

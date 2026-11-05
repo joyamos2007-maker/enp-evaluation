@@ -136,8 +136,8 @@ describe('ResultatsService', () => {
       expect(urne.lire).not.toHaveBeenCalled();
     });
 
-    it('permet à la Direction des Études de consulter les résultats multisites', async () => {
-      const direction = { id: 4, roles: ['direction_etudes'] };
+    it('permet au Directeur général de consulter les résultats multisites', async () => {
+      const direction = { id: 4, roles: ['directeur_general'] };
       db.query
         .mockResolvedValueOnce([meta({ enseigne: false })])
         .mockResolvedValueOnce([{ etat: 'prete' }]);
@@ -147,6 +147,18 @@ describe('ResultatsService', () => {
         detailDisponible: false,
       });
       expect(db.query.mock.calls[0][1]).toEqual([1, 3, 4, null, null]);
+    });
+
+    it('autorise un Directeur de campus uniquement dans son périmètre affecté', async () => {
+      db.query
+        .mockResolvedValueOnce([meta({ enseigne: false, campus_id: 7 })])
+        .mockResolvedValueOnce([{ etat: 'prete' }]);
+      urne.lire.mockResolvedValueOnce([{ n: 4 }]);
+
+      await expect(
+        service.fiche({ id: 6, roles: ['directeur_campus'] }, 1, 3, 7),
+      ).resolves.toMatchObject({ detailDisponible: false });
+      expect(db.query.mock.calls[0][1]).toEqual([1, 3, 6, 7, null]);
     });
 
     it('permet au Chef de département de consulter une UE de son seul département', async () => {

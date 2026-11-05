@@ -825,30 +825,34 @@ export function Accueil() {
       )}
 
       {/* ======================================================== */}
-      {/* 5. ESPACE DIRECTION DES ÉTUDES                           */}
+      {/* 5. ESPACE DES DIRECTIONS DE CAMPUS ET GÉNÉRALE           */}
       {/* ======================================================== */}
-      {role === 'direction_etudes' && (
+      {(role === 'directeur_campus' || role === 'directeur_general') && (
         <div className="space-y-4 sm:space-y-6">
           <div className="bg-white border-l-4 border-l-enp-blue-primary border-t border-r border-b border-enp-border p-4 sm:p-6 shadow-xs">
             <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-enp-blue-primary flex items-center gap-1.5">
                 <Activity className="w-4 h-4 shrink-0" />
-                Direction des Études
+                {role === 'directeur_general' ? 'Direction générale' : 'Direction de campus'}
               </span>
               <InfoBubble
                 triggerVariant="pill"
-                triggerLabel="Indicateurs nationaux"
-                title="Supervision de la Direction des Études"
-                badge="GOUVERNANCE ENP"
+                triggerLabel={role === 'directeur_general' ? 'Indicateurs ENP' : 'Indicateurs du campus'}
+                title={role === 'directeur_general' ? 'Supervision globale ENP' : 'Supervision de votre campus'}
+                badge={role === 'directeur_general' ? 'GOUVERNANCE ENP' : 'GOUVERNANCE DU CAMPUS'}
                 icon="info"
                 duration={6000}
                 content={
                   <div className="space-y-2 text-xs leading-relaxed">
                     <p>
-                      La Direction des Études centralise les bilans semestriels, valide la conformité des maquettes pédagogiques et produit les rapports institutionnels.
+                      {role === 'directeur_general'
+                        ? 'La Direction générale consolide les bilans de tous les campus et publie les statistiques globales de l’ENP.'
+                        : 'La Direction de campus suit les résultats et la conformité académique dans le périmètre de son campus.'}
                     </p>
                     <p className="text-[11px] text-enp-gray-medium border-t border-enp-border pt-1.5">
-                      Les indicateurs nationaux sont audités annuellement par la commission d'évaluation interne.
+                      {role === 'directeur_general'
+                        ? 'Les indicateurs nationaux sont audités annuellement par la commission d’évaluation interne.'
+                        : 'Les indicateurs visibles dans votre espace sont limités à votre campus.'}
                     </p>
                   </div>
                 }
@@ -858,10 +862,14 @@ export function Accueil() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-enp-blue-deep font-sans">
-                  Participation consolidée : 78.4%
+                  {role === 'directeur_general'
+                    ? 'Participation consolidée ENP : 78.4%'
+                    : 'Participation de votre campus : —'}
                 </h2>
                 <p className="text-xs text-enp-gray-medium mt-1">
-                  Tous départements actifs (6/6) • Indicateurs conformes
+                  {role === 'directeur_general'
+                    ? 'Tous les campus • Indicateurs consolidés'
+                    : 'Départements de votre campus • Indicateurs locaux'}
                 </p>
               </div>
               <Button
@@ -870,7 +878,7 @@ export function Accueil() {
                 className="w-full sm:w-auto font-bold flex items-center justify-center gap-2 py-2.5 px-4 text-sm"
               >
                 <Activity className="w-4 h-4" />
-                <span>Statistiques globales</span>
+                <span>{role === 'directeur_general' ? 'Statistiques globales ENP' : 'Statistiques du campus'}</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -888,10 +896,10 @@ export function Accueil() {
                 <Activity className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
               <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                78.4%
+                {role === 'directeur_general' ? '78.4%' : '—'}
               </div>
               <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Moyenne tous campus ENP
+                {role === 'directeur_general' ? 'Moyenne tous campus ENP' : 'Moyenne de votre campus'}
               </p>
             </div>
 
@@ -906,10 +914,10 @@ export function Accueil() {
                 <Award className="w-4 h-4 text-enp-green-valid shrink-0" />
               </div>
               <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                6 / 6
+                {role === 'directeur_general' ? '6 / 6' : '—'}
               </div>
               <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Tous départements actifs
+                {role === 'directeur_general' ? 'Tous départements actifs' : 'Départements de votre campus'}
               </p>
             </div>
 
@@ -924,7 +932,7 @@ export function Accueil() {
                 <ShieldCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Conforme
+                {role === 'directeur_general' ? 'Conforme' : 'Consulter'}
               </div>
               <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
                 Cohérence des référentiels
@@ -932,12 +940,12 @@ export function Accueil() {
             </div>
 
             <div
-              onClick={() => navigate('/administration')}
+              onClick={() => navigate('/resultats')}
               className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Catalogue UE
+                  Résultats UE
                 </span>
                 <BookOpen className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
@@ -945,7 +953,7 @@ export function Accueil() {
                 Consulter
               </div>
               <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Programmes et volumes
+                Synthèses pédagogiques accessibles
               </p>
             </div>
           </div>

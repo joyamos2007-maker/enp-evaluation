@@ -26,14 +26,15 @@ export class ResultatsController {
 
   @Get('mes-ues')
   @Header('Cache-Control', 'no-store')
-  @Acces('enseignant', 'chef_departement', 'scolarite', 'direction_etudes')
+  @Acces('enseignant', 'chef_departement', 'scolarite', 'directeur_campus', 'directeur_general')
   async mesUes(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
     const rolesActifs = [utilisateur.activeRole];
-    const campusId =
-      utilisateur.activeRole === 'scolarite'
-        ? await this.campusScope.forScolarite(utilisateur.id, rolesActifs)
+    const campusId = utilisateur.activeRole === 'scolarite'
+      ? await this.campusScope.forScolarite(utilisateur.id, rolesActifs)
+      : utilisateur.activeRole === 'directeur_campus'
+        ? await this.campusScope.forDirecteurCampus(utilisateur.id, rolesActifs)
         : null;
     const departmentId =
       utilisateur.activeRole === 'chef_departement'
@@ -50,7 +51,7 @@ export class ResultatsController {
   // ueId designe un ref.course.
   @Get('ues/:ueId')
   @Header('Cache-Control', 'no-store')
-  @Acces('enseignant', 'chef_departement', 'scolarite', 'direction_etudes')
+  @Acces('enseignant', 'chef_departement', 'scolarite', 'directeur_campus', 'directeur_general')
   async fiche(
     @Param('ueId') ueIdBrut: string,
     @Query('campagneId') campagneIdBrut: string | undefined,
@@ -68,9 +69,10 @@ export class ResultatsController {
     }
 
     const rolesActifs = [utilisateur.activeRole];
-    const campusId =
-      utilisateur.activeRole === 'scolarite'
-        ? await this.campusScope.forScolarite(utilisateur.id, rolesActifs)
+    const campusId = utilisateur.activeRole === 'scolarite'
+      ? await this.campusScope.forScolarite(utilisateur.id, rolesActifs)
+      : utilisateur.activeRole === 'directeur_campus'
+        ? await this.campusScope.forDirecteurCampus(utilisateur.id, rolesActifs)
         : null;
     const departmentId =
       utilisateur.activeRole === 'chef_departement'

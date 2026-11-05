@@ -4,7 +4,8 @@ export type Role =
   | "enseignant"
   | "chef_departement"
   | "scolarite"
-  | "direction_etudes"
+  | "directeur_campus"
+  | "directeur_general"
   | "admin";
 
 export interface UtilisateurSession {

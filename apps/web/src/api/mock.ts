@@ -124,8 +124,8 @@ const COMPTES: CompteInterne[] = [
     nom: "Amavi",
     prenom: "Afi",
     identifiant: "DEMO-DIR",
-    roles: ["direction_etudes"],
-    activeRole: "direction_etudes",
+    roles: ["directeur_general"],
+    activeRole: "directeur_general",
     motDePasse: "demo-direction-2026",
   },
   {

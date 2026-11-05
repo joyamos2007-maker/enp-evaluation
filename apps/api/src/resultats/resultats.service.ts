@@ -13,7 +13,7 @@ import {
 import type { ResultatUe, ResultatUeResume } from './resultats.types';
 import { ResultsDatabaseService } from './results-database.service';
 
-const ROLES_COMPLETS = ['scolarite', 'direction_etudes'];
+const ROLES_COMPLETS = ['scolarite', 'directeur_general'];
 
 interface LigneMesUes {
   ue_id: number;
@@ -83,7 +83,7 @@ export class ResultatsService {
         roles.includes('enseignant'),
         departmentId,
         campusId,
-        roles.includes('direction_etudes'),
+        roles.includes('directeur_general'),
       ],
     );
     if (lignes.length === 0) return [];
@@ -136,7 +136,7 @@ export class ResultatsService {
   ): Promise<ResultatUe> {
     const lignes = await this.db.query<LigneFiche>(
       `      SELECT co.id AS ue_id, ue.code, ue.intitule, c.id AS campagne_id,
-             p.department_id, c.statut,
+             p.department_id, d.campus_id, c.statut,
               (SELECT COUNT(*)::int FROM ref.enrollment e WHERE e.course_id = co.id) AS inscrits,
               EXISTS (SELECT 1 FROM ref.course_teacher ct
                       WHERE ct.course_id = co.id AND ct.teacher_id = $3) AS enseigne
@@ -163,7 +163,11 @@ export class ResultatsService {
       utilisateur.roles.includes('chef_departement') &&
       departmentId !== null &&
       l.department_id === departmentId;
-    if (!accesComplet && !dirigeDepartement && !l.enseigne) {
+    const dirigeCampus =
+      utilisateur.roles.includes('directeur_campus') &&
+      campusId !== null &&
+      l.campus_id === campusId;
+    if (!accesComplet && !dirigeDepartement && !dirigeCampus && !l.enseigne) {
       throw new ForbiddenException(
         'Acces refuse : cette UE n est pas la votre',
       );

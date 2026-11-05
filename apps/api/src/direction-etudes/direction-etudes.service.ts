@@ -66,10 +66,13 @@ export class DirectionEtudesService {
     private readonly resultsDb: ResultsDatabaseService,
   ) {}
 
-  async synthese(periode: PeriodeStatistique) {
-    const lignes = await this.lignesPerimetre(periode);
+  async synthese(periode: PeriodeStatistique, campusId: number | null = null) {
+    const lignes = await this.lignesPerimetre(periode, campusId);
     const nomsCampus = await this.db.query<{ id: number; nom: string }>(
-      'SELECT id, nom FROM ref.campus ORDER BY nom',
+      `SELECT id, nom FROM ref.campus
+       WHERE $1::int IS NULL OR id = $1
+       ORDER BY nom`,
+      [campusId],
     );
     const statsParCampus = new Map<number, CampusStats>();
     for (const campus of nomsCampus) {
@@ -223,7 +226,10 @@ export class DirectionEtudesService {
     );
   }
 
-  async controlesAcademiques(periode?: PeriodeStatistique) {
+  async controlesAcademiques(
+    periode?: PeriodeStatistique,
+    campusId: number | null = null,
+  ) {
     const lignes = await this.db.query<{
       code: string;
       campus: string;
@@ -262,8 +268,9 @@ export class DirectionEtudesService {
        WHERE anomalies.est_anormale
          AND ($1::text IS NULL OR campagne.annee_universitaire = $1)
          AND ($2::smallint IS NULL OR campagne.semestre = $2)
+         AND ($3::int IS NULL OR c.id = $3)
        ORDER BY c.nom, d.nom, campagne.annee_universitaire DESC, campagne.semestre, campagne.id`,
-      [periode?.anneeUniversitaire ?? null, periode?.semestre ?? null],
+      [periode?.anneeUniversitaire ?? null, periode?.semestre ?? null, campusId],
     );
     return {
       reglesVerifiees: REGLES_CONTROLE,
@@ -280,7 +287,10 @@ export class DirectionEtudesService {
     };
   }
 
-  private lignesPerimetre(periode: PeriodeStatistique): Promise<LignePerimetre[]> {
+  private lignesPerimetre(
+    periode: PeriodeStatistique,
+    campusId: number | null,
+  ): Promise<LignePerimetre[]> {
     return this.db.query<LignePerimetre>(
       `SELECT campus.id AS campus_id, campus.nom AS campus,
               campagne.id AS campagne_id, campagne.statut,
@@ -298,9 +308,10 @@ export class DirectionEtudesService {
        LEFT JOIN evaluation.participation_ledger pl
          ON pl.campaign_id = campagne.id AND pl.course_id = co.id
        WHERE campagne.annee_universitaire = $1 AND campagne.semestre = $2
+         AND ($3::int IS NULL OR campus.id = $3)
        GROUP BY campus.id, campus.nom, campagne.id, campagne.statut, co.id
        ORDER BY campus.nom, campagne.id, co.id`,
-      [periode.anneeUniversitaire, periode.semestre],
+      [periode.anneeUniversitaire, periode.semestre, campusId],
     );
   }
 }

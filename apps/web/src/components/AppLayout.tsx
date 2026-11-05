@@ -30,6 +30,7 @@ import {
   Building2,
   Archive,
   ScrollText,
+  MessageSquare,
   Circle,
   type LucideIcon,
 } from 'lucide-react';
@@ -63,6 +64,7 @@ const ICONES_MENU: Record<string, LucideIcon> = {
   Building2,
   Archive,
   ScrollText,
+  MessageSquare,
   Home,
   Bell,
   Circle,
@@ -116,12 +118,21 @@ function getTabsMobile(role: Role): TabMobile[] {
         { chemin: '/scolarite/comptes', libelle: 'Comptes', icone: UserCog },
         { chemin: '/scolarite/moderation', libelle: 'Modération', icone: ShieldCheck },
       ];
-    case 'direction_etudes':
+    case 'directeur_campus':
       return [
         { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
-        { chemin: '/direction/statistiques', libelle: 'Stats', icone: Globe2 },
+        { chemin: '/direction/statistiques', libelle: 'Stats campus', icone: Globe2 },
         { chemin: '/direction/controles', libelle: 'Contrôles', icone: Sliders },
-        { chemin: '/administration', libelle: 'Gestion', icone: Building2 },
+        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
+        { chemin: '/direction/commentaires', libelle: 'Commentaires', icone: MessageSquare },
+      ];
+    case 'directeur_general':
+      return [
+        { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/direction/statistiques', libelle: 'Stats ENP', icone: Globe2 },
+        { chemin: '/direction/controles', libelle: 'Contrôles', icone: Sliders },
+        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
+        { chemin: '/direction/commentaires', libelle: 'Commentaires', icone: MessageSquare },
       ];
     case 'admin':
       return [

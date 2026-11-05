@@ -25,7 +25,7 @@ function melanger<T>(arr: T[]): T[] {
 
 export function ScolariteModeration() {
   const { aRole } = useAuth();
-  const lectureSeule = aRole('direction_etudes');
+  const lectureSeule = aRole('directeur_campus') || aRole('directeur_general');
   const [campagnes, setCampagnes] = useState<CampagneCommentaire[]>([]);
   const [campagneId, setCampagneId] = useState<number | ''>('');
   const [statut, setStatut] = useState<string>(lectureSeule ? '' : 'a_moderer');

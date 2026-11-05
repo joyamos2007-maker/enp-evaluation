@@ -95,16 +95,22 @@ Règles de sécurité :
   modère pas les commentaires et ne consulte pas les résultats.
 - `scolarite` ne voit dans le journal d’audit que les événements rattachés à son
   campus ; l’administrateur technique conserve la vue complète.
-- `direction_etudes` est un rôle global ENP : il consulte les résultats et
-  commentaires multisites, les synthèses et contrôles académiques, et publie les
-  statistiques d'une période.
+- `directeur_campus` est rattaché à un campus : ses statistiques, contrôles,
+  résultats et commentaires sont limités à ce campus. Il ne publie pas les
+  statistiques globales.
+- `directeur_general` supervise tous les campus, consulte les résultats et
+  commentaires multisites, contrôle les référentiels et publie les statistiques
+  globales de l’ENP.
 - `scolarite` est affecté à un seul campus. Ses listes, campagnes, imports,
   résultats, modérations et restitutions sont limités à ce campus.
 - `chef_departement` reste un rôle distinct, rattaché à un département, avec
   consultation des résultats limitée à ce département, suivi de la participation,
   synthèse de campagne et saisie des suites données.
-- Les statistiques publiées sont consultables par tout utilisateur authentifié ;
-  les contrôles et la publication restent réservés à la Direction des Études.
+- Les statistiques globales publiées sont consultables par tout utilisateur
+  authentifié ; la publication globale est réservée au Directeur général.
+- Un compte peut cumuler, par exemple, les rôles `enseignant` et
+  `chef_departement`. Le profil actif choisi à la connexion détermine seul les
+  autorisations de la session ; les droits des deux rôles ne se cumulent pas.
 
 Routes principales :
 
@@ -173,8 +179,8 @@ compte propriétaire du schéma (pas le rôle applicatif `app_main`) :
 
 1. `infra/sql/008_step_a_multi_campus_imports.sql` : périmètres campus /
    département et affectations des Chefs de département.
-2. `infra/sql/009_direction_etudes.sql` : rôle global de Direction des Études
-   et publications statistiques.
+2. `infra/sql/009_direction_etudes.sql` : ancien rôle global de Direction des
+   Études et publications statistiques (remplacé par la migration 019).
 3. `infra/sql/010_cahier_texte.sql` : séances du cahier de texte et heures
    prévues des cours.
 4. `infra/sql/011_chef_departement_pilotage.sql` : notes de synthèse et suites
@@ -190,6 +196,8 @@ compte propriétaire du schéma (pas le rôle applicatif `app_main`) :
 10. `infra/sql/017_mfa_trusted_devices.sql` : appareils MFA de confiance.
 11. `infra/sql/018_email_change_verification.sql` : vérification des changements
     d’adresse e-mail.
+12. `infra/sql/019_directions_campus_general.sql` : rôles des Directions de
+    campus et générale avec périmètres associés.
 
 Avec `psql`, lancer chaque fichier séparément et attendre sa réussite avant de
 passer au suivant. `-W` demande le mot de passe sans l'inscrire dans la commande :
@@ -206,6 +214,7 @@ psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_S
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/016_notifications_exports_cahier_audit.sql
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/017_mfa_trusted_devices.sql
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/018_email_change_verification.sql
+psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/019_directions_campus_general.sql
 ```
 
 Après `014_auth_lifecycle.sql`, configurer les variables SMTP dans `.env`.
@@ -215,11 +224,14 @@ la placer dans `MFA_ENCRYPTION_KEY`. Conserver cette clé sauvegardée : sa pert
 empêche la validation des secrets TOTP existants. Définir aussi une valeur
 aléatoire distincte d’au moins 32 caractères dans `MFA_CHALLENGE_SECRET`.
 
-Les comptes `admin`, `scolarite`, `direction_etudes` et `chef_departement`
+Les comptes `admin`, `scolarite`, `directeur_campus`, `directeur_general` et `chef_departement`
 doivent avoir une adresse e-mail renseignée et confirmée : la connexion exige
 une validation MFA par code e-mail. Ils peuvent ajouter une application TOTP
 dans **Sécurité du compte**. Les comptes multi-rôles disposent d’un sélecteur
 de profil actif ; l’API conserve ce choix lors du renouvellement de session.
+La migration 019 convertit les anciens rôles globaux `direction_etudes` en
+`directeur_general`, car ils ne portaient aucun rattachement de campus. Les
+nouveaux comptes `directeur_campus` doivent être importés avec leur `campusId`.
 
 Après application de `016`, les délégués peuvent planifier une séance future ;
 les étudiants inscrits reçoivent un rappel intégré et un courriel dans les

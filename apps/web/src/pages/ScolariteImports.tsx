@@ -138,11 +138,12 @@ export function ScolariteImports() {
           Cette route importe les utilisateurs et leurs rôles. Le CSV doit contenir, dans cet ordre,
           les colonnes <code>matricule,email,nom,prenom,role</code>. Les colonnes
           {' '}<code>campusId</code> et <code>departmentId</code> sont facultatives, mais requises
-          respectivement pour créer un Service Scolarité ou rattacher un Chef de département.
+          respectivement pour rattacher un Service Scolarité, un Directeur de campus
+          ou un Chef de département.
           Rôles possibles :
           {' '}<code>etudiant</code>, <code>delegue</code>, <code>enseignant</code>,
-          {' '}<code>chef_departement</code>, <code>scolarite</code>, <code>direction_etudes</code>
-          {' '}ou <code>admin</code>. Le Service Scolarité reste limité à son campus et ne peut importer
+          {' '}<code>chef_departement</code>, <code>scolarite</code>, <code>directeur_campus</code>,
+          {' '}<code>directeur_general</code> ou <code>admin</code>. Le Service Scolarité reste limité à son campus et ne peut importer
           que des étudiants, délégués et enseignants. L’import est appliqué immédiatement, ligne
           par ligne; les lignes en erreur sont signalées.
         </p>

@@ -18,7 +18,7 @@ import { lireId } from '../evaluation/campagnes.validation';
 import { ModerationService } from './moderation.service';
 import { lireRefCommentaire, validerDecision, validerFiltreStatut } from './moderation.validation';
 
-// Reserve a la Scolarite : l'administrateur technique ne lit jamais les commentaires.
+// Les Directions lisent les commentaires sans pouvoir les modérer.
 @Controller('moderation')
 export class ModerationController {
   private readonly logger = new Logger(ModerationController.name);
@@ -29,22 +29,21 @@ export class ModerationController {
   ) {}
 
   @Get('campagnes')
-  @Acces('scolarite', 'direction_etudes')
+  @Acces('scolarite', 'directeur_campus', 'directeur_general')
   async campagnes(@Req() requete: RequeteAuthentifiee) {
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId =
-      utilisateur.activeRole === 'scolarite'
-        ? await this.campusScope.forScolarite(utilisateur.id, [
-            utilisateur.activeRole,
-          ])
+    const campusId = utilisateur.activeRole === 'scolarite'
+      ? await this.campusScope.forScolarite(utilisateur.id, [utilisateur.activeRole])
+      : utilisateur.activeRole === 'directeur_campus'
+        ? await this.campusScope.forDirecteurCampus(utilisateur.id, [utilisateur.activeRole])
         : null;
     return this.moderation.campagnes(campusId);
   }
 
   @Get('commentaires')
   @Header('Cache-Control', 'no-store')
-  @Acces('scolarite', 'direction_etudes')
+  @Acces('scolarite', 'directeur_campus', 'directeur_general')
   async lister(
     @Query('campagneId') campagneIdBrut: string | undefined,
     @Query('statut') statutBrut: string | undefined,
@@ -54,11 +53,10 @@ export class ModerationController {
     if (campagneId === null) throw new BadRequestException('campagneId : entier positif obligatoire');
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
-    const campusId =
-      utilisateur.activeRole === 'scolarite'
-        ? await this.campusScope.forScolarite(utilisateur.id, [
-            utilisateur.activeRole,
-          ])
+    const campusId = utilisateur.activeRole === 'scolarite'
+      ? await this.campusScope.forScolarite(utilisateur.id, [utilisateur.activeRole])
+      : utilisateur.activeRole === 'directeur_campus'
+        ? await this.campusScope.forDirecteurCampus(utilisateur.id, [utilisateur.activeRole])
         : null;
     return this.moderation.lister(campagneId, validerFiltreStatut(statutBrut), campusId);
   }

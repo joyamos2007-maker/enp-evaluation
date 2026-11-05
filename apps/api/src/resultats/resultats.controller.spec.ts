@@ -6,6 +6,7 @@ describe('ResultatsController', () => {
   const resultats = { mesUes: jest.fn(), fiche: jest.fn() };
   const campusScope = {
     forScolarite: jest.fn(),
+    forDirecteurCampus: jest.fn(),
     forChefDepartement: jest.fn(),
   };
   const controller = new ResultatsController(
@@ -35,7 +36,8 @@ describe('ResultatsController', () => {
       'enseignant',
       'chef_departement',
       'scolarite',
-      'direction_etudes',
+      'directeur_campus',
+      'directeur_general',
     ]);
   });
 
@@ -48,7 +50,8 @@ describe('ResultatsController', () => {
       'enseignant',
       'chef_departement',
       'scolarite',
-      'direction_etudes',
+      'directeur_campus',
+      'directeur_general',
     ]);
   });
 
@@ -68,7 +71,7 @@ describe('ResultatsController', () => {
       headers: {},
       utilisateur: {
         id: 45,
-        roles: ['scolarite', 'direction_etudes'],
+        roles: ['scolarite', 'directeur_general'],
         activeRole: 'scolarite',
       },
     };
@@ -90,6 +93,26 @@ describe('ResultatsController', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(resultats.mesUes).not.toHaveBeenCalled();
     expect(resultats.fiche).not.toHaveBeenCalled();
+  });
+
+  it('transmet uniquement le campus du profil Directeur de campus', async () => {
+    resultats.mesUes.mockResolvedValue([]);
+    campusScope.forDirecteurCampus.mockResolvedValue(8);
+    await controller.mesUes({
+      headers: {},
+      utilisateur: {
+        id: 18,
+        roles: ['directeur_campus', 'enseignant'],
+        activeRole: 'directeur_campus',
+      },
+    });
+    expect(campusScope.forDirecteurCampus).toHaveBeenCalledWith(18, ['directeur_campus']);
+    expect(resultats.mesUes).toHaveBeenCalledWith(
+      18,
+      ['directeur_campus'],
+      8,
+      null,
+    );
   });
 
   it('refuse des identifiants invalides', async () => {

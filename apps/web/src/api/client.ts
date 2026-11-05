@@ -647,7 +647,7 @@ export async function dossierMesPresences(): Promise<PresencesEtudiant> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Direction des Études                                               */
+/*  Directions de campus et générale                                   */
 /* ------------------------------------------------------------------ */
 
 export async function directionStatistiques(

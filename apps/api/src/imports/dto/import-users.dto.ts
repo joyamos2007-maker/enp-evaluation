@@ -7,7 +7,8 @@ export enum RoleEnum {
   ENSEIGNANT = 'enseignant',
   CHEF_DEPARTEMENT = 'chef_departement',
   SCOLARITE = 'scolarite',
-  DIRECTION_ETUDES = 'direction_etudes',
+  DIRECTEUR_CAMPUS = 'directeur_campus',
+  DIRECTEUR_GENERAL = 'directeur_general',
   ADMIN = 'admin',
 }
 

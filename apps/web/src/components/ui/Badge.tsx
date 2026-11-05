@@ -94,7 +94,8 @@ export const ROLE_LABELS: Record<string, string> = {
   enseignant: 'Enseignant-Chercheur',
   chef_departement: 'Chef de Département',
   scolarite: 'Scolarité Centrale',
-  direction_etudes: 'Direction des Études',
+  directeur_campus: 'Directeur de campus',
+  directeur_general: 'Directeur général',
   admin: 'Administrateur Système',
 };
 
@@ -102,7 +103,7 @@ export function RoleBadge({ role }: { role: string }) {
   const label = ROLE_LABELS[role] ?? role;
   let variant: BadgeProps['variant'] = 'neutral';
   if (role === 'admin') variant = 'danger';
-  else if (role === 'direction_etudes') variant = 'violet';
+  else if (role === 'directeur_campus' || role === 'directeur_general') variant = 'violet';
   else if (role === 'scolarite') variant = 'primary';
   else if (role === 'chef_departement') variant = 'primary';
   else if (role === 'enseignant') variant = 'success';

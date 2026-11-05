@@ -23,6 +23,17 @@ describe('CampusScopeService', () => {
     await expect(service.forScolarite(7, ['scolarite'])).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('retourne le campus rattaché au Directeur de campus', async () => {
+    db.query.mockResolvedValueOnce([{ campus_id: 8 }]);
+    await expect(service.forDirecteurCampus(9, ['directeur_campus'])).resolves.toBe(8);
+    expect(db.query.mock.calls[0][1]).toEqual([9]);
+  });
+
+  it('refuse un Directeur de campus sans rattachement', async () => {
+    db.query.mockResolvedValueOnce([{ campus_id: null }]);
+    await expect(service.forDirecteurCampus(9, ['directeur_campus'])).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('refuse l’accès à un département hors campus', async () => {
     db.query.mockResolvedValueOnce([]);
     await expect(service.verifierDepartement(9, 4)).rejects.toBeInstanceOf(ForbiddenException);

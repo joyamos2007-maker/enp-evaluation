@@ -145,6 +145,28 @@ describe('AuthService', () => {
     expect(res).not.toHaveProperty('mfaRequired');
   });
 
+  it.each(['directeur_campus', 'directeur_general'])(
+    'exige le MFA pour le rôle %s',
+    async (role) => {
+      users.trouverParIdentifiant.mockResolvedValue({
+        ...utilisateur,
+        email: 'direction@enp.dz',
+      });
+      users.rolesDe.mockResolvedValue([role]);
+      passwords.verify.mockResolvedValue(true);
+      identity.totpDisponible.mockResolvedValue(false);
+      identity.creerChallengeMfa.mockResolvedValue({ mfaRequired: true });
+
+      await service.connecter('TEST-0001', 'bon');
+
+      expect(identity.creerChallengeMfa).toHaveBeenCalledWith(
+        1,
+        'direction@enp.dz',
+        false,
+      );
+    },
+  );
+
   it('crée un appareil de confiance uniquement après la validation du code MFA', async () => {
     identity.verifierChallengeMfa.mockResolvedValue(1);
     identity.creerAppareilMfaFiable.mockResolvedValue({

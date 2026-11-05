@@ -174,7 +174,7 @@ export function CahierTexte() {
                   Chaque séance consignée engage la responsabilité académique. L'enseignant dispose d'un délai réglementaire pour viser la séance ou émettre une réserve motivée.
                 </p>
                 <p>
-                  Les volumes horaires consolidés servent d'assiette aux états de service officiels et au suivi des maquettes pédagogiques par la Direction des Études.
+                  Les volumes horaires consolidés servent d'assiette aux états de service officiels et au suivi des maquettes pédagogiques par les Directions de campus et générale.
                 </p>
               </div>
             }

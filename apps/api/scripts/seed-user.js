@@ -1,7 +1,7 @@
 const { Pool } = require('pg');
 const { hash } = require('@node-rs/argon2');
 
-const ROLES = ['etudiant', 'delegue', 'enseignant', 'chef_departement', 'scolarite', 'direction_etudes', 'admin'];
+const ROLES = ['etudiant', 'delegue', 'enseignant', 'chef_departement', 'scolarite', 'directeur_campus', 'directeur_general', 'admin'];
 
 async function main() {
   if (process.env.NODE_ENV === 'production') {
@@ -11,14 +11,14 @@ async function main() {
 
   const [matricule, role, motDePasse, rawScopeId] = process.argv.slice(2);
   const scopeId = rawScopeId === undefined ? null : Number(rawScopeId);
-  const scopeRequired = role === 'scolarite' || role === 'chef_departement';
+  const scopeRequired = role === 'scolarite' || role === 'directeur_campus' || role === 'chef_departement';
   if (
     !matricule || !role || !motDePasse || !ROLES.includes(role) ||
     (scopeRequired && (!Number.isSafeInteger(scopeId) || scopeId < 1)) ||
     (!scopeRequired && rawScopeId !== undefined)
   ) {
     console.error('Usage : node --env-file=../../.env scripts/seed-user.js MATRICULE ROLE MOT_DE_PASSE [CAMPUS_ID|DEPARTMENT_ID]');
-    console.error('Un CAMPUS_ID est requis pour scolarite, un DEPARTMENT_ID pour chef_departement.');
+    console.error('Un CAMPUS_ID est requis pour scolarite/directeur_campus, un DEPARTMENT_ID pour chef_departement.');
     console.error('Roles possibles : ' + ROLES.join(', '));
     process.exit(1);
   }
@@ -29,9 +29,9 @@ async function main() {
     const email = matricule.toLowerCase() + '@example.com';
     const res = await pool.query(
       `WITH perimetre AS (
-         SELECT CASE WHEN $2 = 'scolarite' THEN $3::int END AS campus_id,
+         SELECT CASE WHEN $2 IN ('scolarite', 'directeur_campus') THEN $3::int END AS campus_id,
                 CASE WHEN $2 = 'chef_departement' THEN $3::int END AS department_id
-         WHERE ($2 <> 'scolarite' OR EXISTS (
+         WHERE ($2 NOT IN ('scolarite', 'directeur_campus') OR EXISTS (
                   SELECT 1 FROM ref.campus WHERE id = $3::int))
            AND ($2 <> 'chef_departement' OR EXISTS (
                   SELECT 1 FROM ref.department WHERE id = $3::int))
