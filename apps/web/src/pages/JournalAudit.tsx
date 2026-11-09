@@ -68,9 +68,9 @@ export function JournalAudit() {
                   <td className="px-3 py-2">{ligne.userId ?? "Système"}</td>
                   <td className="px-3 py-2">{ligne.action}</td>
                   <td className="px-3 py-2">
-                    {ligne.objet ?? ligne.courseId ?? "—"}
+                    {ligne.objet ?? ligne.courseId ?? "-"}
                   </td>
-                  <td className="px-3 py-2">{ligne.detail ?? "—"}</td>
+                  <td className="px-3 py-2">{ligne.detail ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

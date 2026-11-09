@@ -32,6 +32,8 @@ import {
   ScrollText,
   MessageSquare,
   Circle,
+  PlusCircle,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
@@ -68,6 +70,8 @@ const ICONES_MENU: Record<string, LucideIcon> = {
   Home,
   Bell,
   Circle,
+  PlusCircle,
+  Settings,
 };
 
 function iconePour(nom: string): LucideIcon {
@@ -93,16 +97,16 @@ function getTabsMobile(role: Role): TabMobile[] {
     case 'delegue':
       return [
         { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
+        { chemin: '/cahier-texte/nouvelle', libelle: 'Saisie', icone: PlusCircle },
         { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
-        { chemin: '/evaluations', libelle: 'Évaluations', icone: ClipboardCheck },
-        { chemin: '/participation', libelle: 'Participation', icone: Users },
+        { chemin: '/mes-notes', libelle: 'Notes', icone: GraduationCap },
       ];
     case 'enseignant':
       return [
         { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
-        { chemin: '/visas', libelle: 'Visas', icone: Stamp },
         { chemin: '/cahier-texte', libelle: 'Cahier', icone: BookOpen },
-        { chemin: '/resultats', libelle: 'Résultats', icone: BarChart3 },
+        { chemin: '/enseignant/notes', libelle: 'Notes', icone: ClipboardList },
+        { chemin: '/enseignant/presences', libelle: 'Présences', icone: CalendarCheck },
       ];
     case 'chef_departement':
       return [
@@ -137,14 +141,13 @@ function getTabsMobile(role: Role): TabMobile[] {
     case 'admin':
       return [
         { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
-        { chemin: '/administration', libelle: 'Gestion', icone: Building2 },
+        { chemin: '/administration', libelle: 'Gestion', icone: Settings },
+        { chemin: '/scolarite/comptes', libelle: 'Comptes', icone: UserCog },
         { chemin: '/journal-audit', libelle: 'Audit', icone: ScrollText },
-        { chemin: '/securite', libelle: 'Sécurité', icone: ShieldCheck },
       ];
     default:
       return [
         { chemin: '/', libelle: 'Accueil', icone: Home, exact: true },
-        { chemin: '/notifications', libelle: 'Notifs', icone: Bell },
         { chemin: '/securite', libelle: 'Sécurité', icone: ShieldCheck },
       ];
   }
@@ -277,24 +280,6 @@ export function AppLayout() {
           </p>
         </div>
         <div className="px-3 space-y-0.5">
-          <NavLink
-            to="/notifications"
-            onClick={fermerMenuMobile}
-            className={({ isActive }) => classeLienNavigation(isActive)}
-          >
-            <div className="relative">
-              <Bell className="w-4 h-4 shrink-0" aria-hidden="true" />
-              {nonLuesCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-enp-red-error" />
-              )}
-            </div>
-            <span className="flex-1 truncate">Notifications</span>
-            {nonLuesCount > 0 && (
-              <span className="px-1.5 py-0.2 bg-enp-red-error text-white text-[10px] font-bold">
-                {nonLuesCount}
-              </span>
-            )}
-          </NavLink>
           <NavLink
             to="/securite"
             onClick={fermerMenuMobile}
@@ -668,19 +653,23 @@ export function AppLayout() {
               </div>
             </div>
 
-            {/* Côté droit : Liens essentiels & Copyright sobre */}
-            <div className="flex flex-wrap items-center justify-center md:justify-end gap-x-4 gap-y-1.5 text-xs text-slate-300 w-full md:w-auto">
-              <Link to="/securite" className="hover:text-white transition-colors">
-                Sécurité & MFA
-              </Link>
-              <span className="text-white/20">|</span>
-              <Link to="/notifications" className="hover:text-white transition-colors">
-                Notifications
-              </Link>
-              <span className="text-white/20">|</span>
-              <span className="text-[11px] text-slate-400 text-center">
-                © {new Date().getFullYear()} — Copyright Pr Adekunle Akim SALAMI, KOUDASSE Joy Amos &amp; OHONSSOU Bienvenu
-              </span>
+            {/* Côté droit : Mentions officielles & Droits d'auteur */}
+            <div className="flex flex-col items-center md:items-end gap-1 text-xs text-slate-300 w-full md:w-auto text-center md:text-right">
+              <div className="flex items-center gap-3">
+                <Link to="/securite" className="text-slate-300 hover:text-white transition-colors underline-offset-4 hover:underline">
+                  Sécurité &amp; MFA
+                </Link>
+                <span className="text-white/20">•</span>
+                <span className="text-slate-300">
+                  Système d'Évaluation &amp; Suivi Académique
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-tight">
+                © {new Date().getFullYear()} École Nationale Polytechnique de Lomé (ENP) • Tous droits réservés
+              </p>
+              <p className="text-[10px] text-slate-400 tracking-wide">
+                Conception : Pr Adekunle Akim SALAMI, KOUDASSE Joy Amos &amp; OHOUNSOUN Bienvenu
+              </p>
             </div>
           </div>
         </div>

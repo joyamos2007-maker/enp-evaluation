@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, Send } from 'lucide-react';
+import { Send, FileText } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { CampagneGestion } from '@/api/types';
-import { InfoCard } from '@/components/InfoCard';
+import { PageHeader, Button, Alert, Badge, Modal, Textarea } from '@/components/ui';
 
 const MAX_CHARS = 3000;
 
@@ -21,10 +21,17 @@ export function ScolariteRestitution() {
       const cs = await api.scolariteCampagnes();
       const close = cs.filter((c) => c.statut === 'close' || c.statut === 'restituee');
       setCampagnes(close);
-    } catch { /* ignore */ }
-  }, []);
+      if (close.length > 0 && campagneId === '') {
+        setCampagneId(close[0].id);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [campagneId]);
 
-  useEffect(() => { void charger(); }, [charger]);
+  useEffect(() => {
+    void charger();
+  }, [charger]);
 
   const campagne = campagnes.find((c) => c.id === (campagneId !== '' ? Number(campagneId) : -1));
   const enLectureSeule = campagne?.statut === 'restituee' || publiee;
@@ -47,96 +54,138 @@ export function ScolariteRestitution() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Restitution</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">Publiez la restitution des résultats aux étudiants.</p>
-      </div>
+    <div className="space-y-5 max-w-4xl mx-auto animate-fade-in pb-6">
+      <PageHeader
+        title="Restitution officielle (Article 77)"
+        description="Rédigez et publiez la synthèse des principaux résultats et des suites données aux étudiants."
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Restitution officielle' },
+        ]}
+      />
 
-      <InfoCard titre="Article 77">
-        <p>Une restitution des principaux résultats et des suites données est faite aux étudiants.</p>
-      </InfoCard>
-
-      <div>
-        <label htmlFor="campagne-rest" className="block text-sm font-medium text-enp-ink mb-1">Campagne (close)</label>
-        <select id="campagne-rest"
-          value={campagneId}
-          onChange={(e) => { setCampagneId(e.target.value ? Number(e.target.value) : ''); setPubliee(false); setErreur(null); }}
-          className="w-full sm:w-auto rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none min-h-[44px]"
-        >
-          <option value="">— Choisir —</option>
-          {campagnes.map((c) => <option key={c.id} value={c.id}>{c.libelle} ({c.statut === 'restituee' ? 'restituée' : 'close'})</option>)}
-        </select>
-      </div>
-
-      {campagne && enLectureSeule && (
-        <div className="rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-3 text-enp-bordeaux text-sm">
-          Cette campagne a été restituée. L'écran est en lecture seule.
-        </div>
+      {erreur && (
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
       )}
 
-      {campagne && (
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="resultats" className="block text-sm font-medium text-enp-ink mb-1">
-              Principaux résultats <span className="text-enp-ink-soft">({resultats.length}/{MAX_CHARS})</span>
-            </label>
-            <textarea id="resultats" rows={6} maxLength={MAX_CHARS}
-              value={resultats}
-              onChange={(e) => setResultats(e.target.value)}
-              disabled={enLectureSeule}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y disabled:bg-enp-sky"
-            />
-          </div>
-          <div>
-            <label htmlFor="suites" className="block text-sm font-medium text-enp-ink mb-1">
-              Suites données <span className="text-enp-ink-soft">({suites.length}/{MAX_CHARS})</span>
-            </label>
-            <textarea id="suites" rows={6} maxLength={MAX_CHARS}
-              value={suites}
-              onChange={(e) => setSuites(e.target.value)}
-              disabled={enLectureSeule}
-              className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y disabled:bg-enp-sky"
-            />
+      {campagnes.length === 0 ? (
+        <div className="bg-white border border-enp-border p-10 text-center space-y-2 shadow-xs">
+          <FileText className="w-10 h-10 text-enp-gray-medium mx-auto opacity-40" />
+          <p className="text-sm font-bold text-enp-blue-deep">Aucune campagne clôturée</p>
+          <p className="text-xs text-enp-gray-medium">
+            La publication d'une restitution nécessite qu'une campagne soit préalablement clôturée.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white border border-enp-border p-4 space-y-2.5 shadow-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep block">
+              Campagne concernée
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {campagnes.map((c) => {
+                const active = c.id === campagneId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setCampagneId(c.id);
+                      setPubliee(false);
+                      setErreur(null);
+                    }}
+                    className={`px-3.5 py-2 text-xs font-semibold border transition-colors flex items-center gap-2 ${
+                      active
+                        ? 'bg-enp-blue-deep text-white border-enp-blue-deep'
+                        : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice/40'
+                    }`}
+                  >
+                    <span>{c.libelle}</span>
+                    <Badge variant={c.statut === 'restituee' ? 'success' : 'warning'}>
+                      {c.statut === 'restituee' ? 'Restituée' : 'Close'}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {erreur && (
-            <div className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux" role="alert">
-              <AlertCircle size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
-              <span>{erreur}</span>
-            </div>
+          {campagne && enLectureSeule && (
+            <Alert variant="success" title="Campagne restituée">
+              Cette restitution a été publiée auprès des étudiants. Les textes sont désormais scellés en lecture seule.
+            </Alert>
           )}
 
-          {!enLectureSeule && (
-            <button type="button"
-              onClick={() => setConfirmPub(true)}
-              disabled={enCours}
-              className="inline-flex items-center gap-2 bg-enp-primary text-white font-semibold px-5 py-3 rounded-md hover:bg-enp-primary-dark transition-all disabled:opacity-60 min-h-[44px]"
+          {campagne && (
+            <div className="bg-white border border-enp-border p-5 sm:p-6 space-y-5 shadow-xs">
+              <Textarea
+                label="Principaux résultats constatés"
+                rows={5}
+                maxLength={MAX_CHARS}
+                maxLengthIndicator={true}
+                value={resultats}
+                onChange={(e) => setResultats(e.target.value)}
+                disabled={enLectureSeule}
+                placeholder="Synthèse des points positifs et des enseignements plébiscités par les promotions..."
+              />
+
+              <Textarea
+                label="Suites données et engagements pédagogiques"
+                rows={5}
+                maxLength={MAX_CHARS}
+                maxLengthIndicator={true}
+                value={suites}
+                onChange={(e) => setSuites(e.target.value)}
+                disabled={enLectureSeule}
+                placeholder="Mesures d'amélioration retenues avec les départements pour le prochain semestre..."
+              />
+
+              {!enLectureSeule && (
+                <div className="pt-3 border-t border-enp-border flex justify-end">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    disabled={enCours || !resultats.trim() || !suites.trim()}
+                    leftIcon={<Send className="w-4 h-4" />}
+                    onClick={() => setConfirmPub(true)}
+                  >
+                    Publier la restitution aux étudiants
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      <Modal
+        isOpen={confirmPub}
+        onClose={() => setConfirmPub(false)}
+        title="Confirmer la publication définitive"
+        subtitle={campagne?.libelle}
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setConfirmPub(false)}>
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              isLoading={enCours}
+              onClick={() => void publier()}
             >
-              <Send size={20} aria-hidden="true" /> Publier la restitution aux étudiants
-            </button>
-          )}
-        </div>
-      )}
-
-      {confirmPub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4">
-            <h2 className="text-lg font-semibold text-enp-ink">Publication définitive</h2>
-            <p className="text-sm text-enp-ink">Cette publication est définitive. Les étudiants pourront consulter la restitution. La campagne passera au statut « restituée ».</p>
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => setConfirmPub(false)}
-                className="inline-flex items-center bg-white border border-enp-border text-enp-ink font-medium px-4 py-2.5 rounded-md hover:bg-enp-sky transition-colors text-sm min-h-[44px]">
-                Annuler
-              </button>
-              <button type="button" onClick={() => void publier()} disabled={enCours}
-                className="inline-flex items-center bg-enp-primary text-white font-semibold px-4 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all text-sm min-h-[44px] disabled:opacity-60">
-                {enCours ? 'Publication…' : 'Confirmer la publication'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              Confirmer la publication
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-enp-black">
+          Cette publication est définitive. Les étudiants inscrits pourront consulter la restitution et la campagne passera au statut « Restituée ».
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -1,7 +1,14 @@
-import { useEffect, useState } from 'react';
-import { AlertCircle, CalendarCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  CalendarCheck,
+  CheckCircle2,
+  Clock,
+  UserX,
+  Activity,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { PresencesEtudiant, StatutPresenceEtudiant } from '@/api/types';
+import { PageHeader, Alert, StatCard, Badge } from '@/components/ui';
 
 const LIBELLES_STATUT: Record<StatutPresenceEtudiant, string> = {
   present: 'Présent',
@@ -11,76 +18,207 @@ const LIBELLES_STATUT: Record<StatutPresenceEtudiant, string> = {
 
 export function EtudiantPresences() {
   const [donnees, setDonnees] = useState<PresencesEtudiant | null>(null);
+  const [filtreUe, setFiltreUe] = useState<string>('toutes');
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
     let actif = true;
-    api.dossierMesPresences()
-      .then((data) => { if (actif) setDonnees(data); })
-      .catch((err: unknown) => {
-        if (actif) setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger vos présences.');
+    api
+      .dossierMesPresences()
+      .then((data) => {
+        if (actif) setDonnees(data);
       })
-      .finally(() => { if (actif) setChargement(false); });
-    return () => { actif = false; };
+      .catch((err: unknown) => {
+        if (actif) {
+          setErreur(
+            err instanceof ApiError
+              ? err.messages.join(' ')
+              : 'Impossible de charger vos présences.',
+          );
+        }
+      })
+      .finally(() => {
+        if (actif) setChargement(false);
+      });
+    return () => {
+      actif = false;
+    };
   }, []);
 
   const presences = donnees?.presences ?? [];
   const statistiques = donnees?.statistiques;
 
+  const uesUniques = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of presences) {
+      if (!map.has(p.code)) map.set(p.code, p.intitule);
+    }
+    return Array.from(map.entries());
+  }, [presences]);
+
+  const presencesFiltrees = useMemo(() => {
+    if (filtreUe === 'toutes') return presences;
+    return presences.filter((p) => p.code === filtreUe);
+  }, [presences, filtreUe]);
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <header>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Mes présences</h1>
-        <p className="text-sm text-enp-ink-soft mt-1">Historique des présences et retards enregistrés pour vos UE.</p>
-      </header>
+    <div className="space-y-5 animate-fade-in max-w-6xl mx-auto pb-6">
+      <PageHeader
+        title="Mon relevé d'assiduité"
+        description="Consultez l'historique de vos présences, retards et absences par unité d'enseignement."
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Mes présences' },
+        ]}
+      />
+
       {erreur && (
-        <div className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux" role="alert">
-          <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{erreur}</span>
-        </div>
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
       )}
-      {chargement ? <p className="text-enp-ink-soft">Chargement…</p> : (
+
+      {chargement ? (
+        <div className="bg-white border border-enp-border p-12 text-center text-sm text-enp-gray-medium">
+          Chargement de votre relevé d'assiduité…
+        </div>
+      ) : (
         <>
           {statistiques && (
-            <section aria-label="Statistiques de présence" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <CarteStatistique libelle="Taux de présence" valeur={statistiques.tauxPresence === null ? '—' : `${statistiques.tauxPresence}%`} />
-              <CarteStatistique libelle="Séances marquées" valeur={`${statistiques.seancesMarquees} / ${statistiques.seancesTotal}`} />
-              <CarteStatistique libelle="Présences" valeur={String(statistiques.presents)} />
-              <CarteStatistique libelle="Absences" valeur={String(statistiques.absents)} />
-              <CarteStatistique libelle="Retards" valeur={String(statistiques.retards)} />
-            </section>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+              <StatCard
+                title="Taux de présence"
+                value={statistiques.tauxPresence === null ? '-' : `${statistiques.tauxPresence}%`}
+                icon={<Activity className="w-4 h-4 sm:w-5 sm:h-5 text-enp-blue-primary" />}
+                description={`${statistiques.seancesMarquees} / ${statistiques.seancesTotal} séances`}
+                variant="primary"
+                className="p-3 sm:p-5"
+              />
+              <StatCard
+                title="Présences"
+                value={statistiques.presents}
+                icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-enp-green-valid" />}
+                description="Séances validées"
+                variant="success"
+                className="p-3 sm:p-5"
+              />
+              <StatCard
+                title="Retards"
+                value={statistiques.retards}
+                icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-enp-gold" />}
+                description="Arrivées tardives"
+                variant="warning"
+                className="p-3 sm:p-5"
+              />
+              <StatCard
+                title="Absences"
+                value={statistiques.absents}
+                icon={<UserX className="w-4 h-4 sm:w-5 sm:h-5 text-enp-red-error" />}
+                description="Séances manquées"
+                variant={statistiques.absents > 0 ? 'danger' : 'default'}
+                className="p-3 sm:p-5"
+              />
+            </div>
           )}
+
           {presences.length === 0 ? (
-            <div className="rounded-xl border border-enp-border bg-white p-8 text-center">
-              <CalendarCheck size={28} className="mx-auto mb-3 text-enp-primary" aria-hidden="true" />
-              <p className="text-enp-ink-soft">Aucun statut n’est encore renseigné pour vos séances.</p>
+            <div className="bg-white border border-enp-border p-10 text-center space-y-2 shadow-xs">
+              <CalendarCheck className="w-10 h-10 text-enp-gray-medium mx-auto opacity-40" />
+              <p className="text-sm font-bold text-enp-blue-deep">
+                Aucun pointage enregistré pour le moment
+              </p>
+              <p className="text-xs text-enp-gray-medium">
+                Vos feuilles de présence apparaîtront ici dès leur saisie par vos enseignants.
+              </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-enp-border bg-white">
-              <table className="w-full text-sm">
-                <thead><tr className="bg-enp-primary text-left text-white"><th className="px-4 py-3">Date</th><th className="px-4 py-3">UE</th><th className="px-4 py-3">Séance</th><th className="px-4 py-3">Statut</th></tr></thead>
-                <tbody>{presences.map((ligne) => (
-                  <tr key={ligne.seanceId} className="border-t border-enp-border">
-                    <td className="px-4 py-3">{ligne.date}</td>
-                    <td className="px-4 py-3"><span className="font-semibold text-enp-ink">{ligne.code}</span><span className="block text-xs text-enp-ink-soft">{ligne.intitule}</span></td>
-                    <td className="px-4 py-3">{ligne.libelle}</td>
-                    <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${ligne.statut === 'present' ? 'bg-emerald-100 text-emerald-800' : ligne.statut === 'retard' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>{LIBELLES_STATUT[ligne.statut]}</span></td>
-                  </tr>
-                ))}</tbody>
-              </table>
+            <div className="bg-white border border-enp-border shadow-xs overflow-hidden">
+              {uesUniques.length > 1 && (
+                <div className="p-3.5 border-b border-enp-border bg-enp-bg flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep mr-1">
+                    Filtrer par UE :
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFiltreUe('toutes')}
+                    className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                      filtreUe === 'toutes'
+                        ? 'bg-enp-blue-deep text-white border-enp-blue-deep'
+                        : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice/40'
+                    }`}
+                  >
+                    Toutes ({presences.length})
+                  </button>
+                  {uesUniques.map(([code, intitule]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setFiltreUe(code)}
+                      title={intitule}
+                      className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                        filtreUe === code
+                          ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                          : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice/40'
+                      }`}
+                    >
+                      {code}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-enp-blue-deep text-left text-white text-xs uppercase tracking-wider">
+                      <th className="px-4 py-3 font-semibold">Date</th>
+                      <th className="px-4 py-3 font-semibold">Unité d'Enseignement</th>
+                      <th className="px-4 py-3 font-semibold">Séance</th>
+                      <th className="px-4 py-3 text-center font-semibold">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-enp-border">
+                    {presencesFiltrees.map((ligne) => (
+                      <tr key={ligne.seanceId} className="hover:bg-enp-blue-ice/20">
+                        <td className="px-4 py-3 font-mono text-xs font-bold text-enp-black whitespace-nowrap">
+                          {ligne.date}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20 px-1.5 py-0.5">
+                              {ligne.code}
+                            </span>
+                            <span className="font-semibold text-enp-black text-xs sm:text-sm">
+                              {ligne.intitule}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-enp-gray-dark text-xs sm:text-sm">
+                          {ligne.libelle}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge
+                            variant={
+                              ligne.statut === 'present'
+                                ? 'success'
+                                : ligne.statut === 'retard'
+                                  ? 'warning'
+                                  : 'danger'
+                            }
+                          >
+                            {LIBELLES_STATUT[ligne.statut]}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
       )}
-    </div>
-  );
-}
-
-function CarteStatistique({ libelle, valeur }: { libelle: string; valeur: string }) {
-  return (
-    <div className="rounded-xl border border-enp-border bg-white p-4">
-      <p className="text-xs font-medium text-enp-ink-soft">{libelle}</p>
-      <p className="mt-1 text-xl font-bold text-enp-primary">{valeur}</p>
     </div>
   );
 }

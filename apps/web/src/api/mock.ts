@@ -70,7 +70,9 @@ import { ApiError } from "./error";
 
 interface CompteInterne extends UtilisateurSession {
   identifiant: string;
+  email?: string;
   motDePasse: string;
+  altMotDePasse?: string;
 }
 
 const COMPTES: CompteInterne[] = [
@@ -79,63 +81,88 @@ const COMPTES: CompteInterne[] = [
     nom: "Benali",
     prenom: "Amine",
     identifiant: "DEMO-ETU",
+    email: "student1@enp.tg",
     roles: ["etudiant"],
     activeRole: "etudiant",
     motDePasse: "demo-etudiant-2026",
+    altMotDePasse: "Enp2026!Etudiant",
   },
   {
     id: 1002,
     nom: "Cherif",
     prenom: "Lina",
     identifiant: "DEMO-DEL",
-    roles: ["etudiant", "delegue"],
-    activeRole: "etudiant",
+    email: "delegue1@enp.tg",
+    roles: ["delegue", "etudiant"],
+    activeRole: "delegue",
     motDePasse: "demo-delegue-2026",
+    altMotDePasse: "Enp2026!Delegue",
   },
   {
     id: 1003,
     nom: "Hamidi",
     prenom: "Karim",
     identifiant: "DEMO-ENS",
+    email: "prof.dupont@enp.tg",
     roles: ["enseignant"],
     activeRole: "enseignant",
     motDePasse: "demo-enseignant-2026",
+    altMotDePasse: "Enp2026!Prof",
   },
   {
     id: 1004,
     nom: "Saidi",
     prenom: "Nora",
     identifiant: "DEMO-CHEF",
+    email: "chef.gc@enp.tg",
     roles: ["chef_departement"],
     activeRole: "chef_departement",
     motDePasse: "demo-chef-2026",
+    altMotDePasse: "Enp2026!Chef",
   },
   {
     id: 1005,
     nom: "Mokrani",
     prenom: "Yacine",
     identifiant: "DEMO-SCO",
+    email: "scolarite@enp.tg",
     roles: ["scolarite"],
     activeRole: "scolarite",
     motDePasse: "demo-scolarite-2026",
+    altMotDePasse: "Enp2026!Scolarite",
   },
   {
     id: 1006,
     nom: "Amavi",
     prenom: "Afi",
     identifiant: "DEMO-DIR",
+    email: "direction@enp.tg",
     roles: ["directeur_general"],
     activeRole: "directeur_general",
     motDePasse: "demo-direction-2026",
+    altMotDePasse: "Enp2026!Direction",
   },
   {
     id: 1007,
     nom: "Administrateur",
     prenom: "Demo",
     identifiant: "DEMO-ADMIN",
+    email: "admin@enp.tg",
     roles: ["admin"],
     activeRole: "admin",
     motDePasse: "demo-admin-2026",
+    altMotDePasse: "Enp2026!Admin",
+  },
+  {
+    id: 1008,
+    nom: "Koffi",
+    prenom: "Edem",
+    identifiant: "DEMO-CAMPUS",
+    email: "directeur.campus@enp.tg",
+    roles: ["directeur_campus"],
+    activeRole: "directeur_campus",
+    motDePasse: "demo-campus-2026",
+    altMotDePasse: "Enp2026!Campus",
   },
 ];
 
@@ -385,7 +412,11 @@ function delai(ms = DELAI): Promise<void> {
 
 function trouverCompte(identifiant: string): CompteInterne | undefined {
   const id = identifiant.trim().toUpperCase();
-  return COMPTES.find((c) => c.identifiant.toUpperCase() === id);
+  return COMPTES.find(
+    (c) =>
+      c.identifiant.toUpperCase() === id ||
+      (c.email && c.email.toUpperCase() === id),
+  );
 }
 
 function cle(identifiant: string): string {
@@ -417,6 +448,8 @@ function fabriquerReponse(compte: CompteInterne): ReponseConnexion {
       id: compte.id,
       nom: compte.nom,
       prenom: compte.prenom,
+      email: compte.email,
+      identifiant: compte.identifiant,
       roles: [...compte.roles] as Role[],
       activeRole: compte.roles[0] as Role,
     },
@@ -424,7 +457,7 @@ function fabriquerReponse(compte: CompteInterne): ReponseConnexion {
 }
 
 /* ------------------------------------------------------------------ */
-/*  API publique — signatures identiques à src/api/client.ts           */
+/*  API publique : signatures identiques à src/api/client.ts           */
 /* ------------------------------------------------------------------ */
 
 export async function connexion(corps: CorpsConnexion): Promise<ReponseLogin> {
@@ -446,7 +479,12 @@ export async function connexion(corps: CorpsConnexion): Promise<ReponseLogin> {
   }
 
   const compte = trouverCompte(identifiant);
-  if (!compte || compte.motDePasse !== motDePasse) {
+  const mdpValide =
+    compte &&
+    (compte.motDePasse === motDePasse ||
+      (compte.altMotDePasse && compte.altMotDePasse === motDePasse));
+
+  if (!compte || !mdpValide) {
     const k = cle(identifiant);
     const nb = (tentatives.get(k) ?? 0) + 1;
     tentatives.set(k, nb);
@@ -626,7 +664,7 @@ export async function desactiverMfaTotp(): Promise<ReponseSimple> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Évaluation des enseignements — signatures identiques à client.ts   */
+/*  Évaluation des enseignements : signatures identiques à client.ts   */
 /* ------------------------------------------------------------------ */
 
 export async function listeEvaluations(): Promise<UeAEvaluer[]> {
@@ -672,7 +710,7 @@ export async function obtenirJeton(
 }
 
 /**
- * Mock de l'envoi de bulletin — SÉPARÉ du client authentifié.
+ * Mock de l'envoi de bulletin : SÉPARÉ du client authentifié.
  * Marque l'UE comme « terminée » dans la liste simulée.
  */
 export async function envoyerBulletinMock(
@@ -699,7 +737,7 @@ export async function envoyerBulletinMock(
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Résultats (enseignant)                          */
+/*  DONNÉES SIMULÉES : Résultats (enseignant)                          */
 /* ================================================================== */
 
 const RESULTATS_RESUME: ResultatUeResume[] = [
@@ -993,7 +1031,7 @@ function fabriquerResultatDetail(ueId: number): ResultatUe {
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Cahier de texte & visa                          */
+/*  DONNÉES SIMULÉES : Cahier de texte & visa                          */
 /* ================================================================== */
 
 const UE_CAHIER: UeCahier[] = [
@@ -1200,7 +1238,7 @@ let seancesMemoire: Seance[] = [
     type: "TP",
     groupe: "G1",
     statut: "tenue",
-    intitule: "SQL — requêtes de base",
+    intitule: "SQL : requêtes de base",
     contenu: "SELECT, JOIN, agrégats",
     travailAFaire: "Finir le TP et rendre le rapport",
     effectif: 17,
@@ -1300,7 +1338,7 @@ const AVANCEMENT_DATA: Avancement[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  API — Résultats (enseignant)                                       */
+/*  API : Résultats (enseignant)                                       */
 /* ------------------------------------------------------------------ */
 
 export async function resultatsMesUes(): Promise<ResultatUeResume[]> {
@@ -1318,7 +1356,7 @@ export async function resultatUe(
 }
 
 /* ------------------------------------------------------------------ */
-/*  API — Cahier de texte & visa                                       */
+/*  API : Cahier de texte & visa                                       */
 /* ------------------------------------------------------------------ */
 
 export async function cahierMesUes(): Promise<UeCahier[]> {
@@ -1538,14 +1576,14 @@ export async function dossierExporterNotes(
 ): Promise<Blob> {
   const cahier = await dossierCahierNotes(courseId);
   const contenu = [
-    `${cahier.cours.code} — ${cahier.cours.intitule}`,
+    `${cahier.cours.code} : ${cahier.cours.intitule}`,
     ...cahier.etudiants.map((etudiant) =>
       [
         etudiant.identifiant,
         etudiant.prenom,
         etudiant.nom,
         ...cahier.evaluations.map(
-          (evaluation) => evaluation.notes[etudiant.id] ?? "—",
+          (evaluation) => evaluation.notes[etudiant.id] ?? "-",
         ),
       ].join("\t"),
     ),
@@ -1823,13 +1861,13 @@ export async function dossierMesPresences(): Promise<PresencesEtudiant> {
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Pilotage (chef de département)                  */
+/*  DONNÉES SIMULÉES : Pilotage (chef de département)                  */
 /* ================================================================== */
 
 const CAMPAGNES_PILOTAGE: Campagne[] = [
   {
     id: 10,
-    libelle: "Évaluations S5 — Automne 2026",
+    libelle: "Évaluations S5 : Automne 2026",
     semestre: "S5",
     anneeUniversitaire: "2026-2027",
     debut: "2026-09-01",
@@ -1838,7 +1876,7 @@ const CAMPAGNES_PILOTAGE: Campagne[] = [
   },
   {
     id: 11,
-    libelle: "Évaluations S3 — Automne 2026",
+    libelle: "Évaluations S3 : Automne 2026",
     semestre: "S3",
     anneeUniversitaire: "2026-2027",
     debut: "2026-09-01",
@@ -2196,7 +2234,7 @@ const SYNTHESE_DATA: Record<number, Synthese> = {
 const suitesMemoire: Map<number, SuitesDonnees> = new Map();
 
 /* ------------------------------------------------------------------ */
-/*  API — Pilotage (chef de département)                               */
+/*  API : Pilotage (chef de département)                               */
 /* ------------------------------------------------------------------ */
 
 export async function directionStatistiques(
@@ -2366,7 +2404,7 @@ export async function pilotageChargerSuites(
 }
 
 /* ================================================================== */
-/*  DONNÉES SIMULÉES — Scolarité                                       */
+/*  DONNÉES SIMULÉES : Scolarité                                       */
 /* ================================================================== */
 
 const DEPARTEMENTS: DepartementOption[] = [
@@ -2378,7 +2416,7 @@ const DEPARTEMENTS: DepartementOption[] = [
 let campagnesGestionMemoire: CampagneGestion[] = [
   {
     id: 201,
-    libelle: "Évaluations S5 — Informatique",
+    libelle: "Évaluations S5 : Informatique",
     departmentId: 1,
     departement: "Informatique",
     anneeUniversitaire: "2026-2027",
@@ -2390,7 +2428,7 @@ let campagnesGestionMemoire: CampagneGestion[] = [
   },
   {
     id: 202,
-    libelle: "Évaluations S3 — Informatique",
+    libelle: "Évaluations S3 : Informatique",
     departmentId: 1,
     departement: "Informatique",
     anneeUniversitaire: "2026-2027",
@@ -2402,7 +2440,7 @@ let campagnesGestionMemoire: CampagneGestion[] = [
   },
   {
     id: 203,
-    libelle: "Évaluations S1 — Électronique",
+    libelle: "Évaluations S1 : Électronique",
     departmentId: 2,
     departement: "Électronique",
     anneeUniversitaire: "2026-2027",
@@ -2555,30 +2593,38 @@ let commentairesMemoire: CommentaireAModerer[] = COMMENTAIRES_MODERATION.map(
   (c) => ({ ...c }),
 );
 
-const EN_TETES_IMPORT: Record<TypeImport, string[]> = {
-  etudiants: ["matricule", "nom", "prenom", "email"],
-  enseignants: ["email", "nom", "prenom"],
-  ue: ["code", "intitule", "credits"],
-  offres: ["code_ue", "programme", "annee_universitaire", "semestre"],
+const EN_TETES_IMPORT: Record<TypeImport, string[][]> = {
+  etudiants: [
+    ["matricule", "email", "nom", "prenom"],
+    ["matricule", "nom", "prenom", "email"],
+  ],
+  enseignants: [
+    ["matricule", "email", "nom", "prenom"],
+    ["email", "nom", "prenom"],
+  ],
+  ue: [
+    ["code", "intitule", "credits"],
+  ],
+  offres: [
+    ["uecode", "programid", "anneeuniversitaire", "semestre"],
+    ["code_ue", "programme", "annee_universitaire", "semestre"],
+  ],
   affectations: [
-    "code_ue",
-    "programme",
-    "annee_universitaire",
-    "semestre",
-    "email_enseignant",
+    ["courseid", "matricule"],
+    ["code_ue", "programme", "annee_universitaire", "semestre", "email_enseignant"],
   ],
   inscriptions: [
-    "matricule",
-    "code_ue",
-    "programme",
-    "annee_universitaire",
-    "semestre",
+    ["courseid", "matricule"],
+    ["matricule", "code_ue", "programme", "annee_universitaire", "semestre"],
   ],
-  delegues: ["matricule", "programme", "annee_universitaire"],
+  delegues: [
+    ["programid", "matricule", "anneeuniversitaire", "type", "debut", "fin"],
+    ["matricule", "programme", "annee_universitaire"],
+  ],
 };
 
 /* ------------------------------------------------------------------ */
-/*  API — Scolarité                                                    */
+/*  API : Scolarité                                                    */
 /* ------------------------------------------------------------------ */
 
 export async function scolariteTableauDeBord(): Promise<TableauDeBordScolarite> {
@@ -2826,16 +2872,15 @@ export async function scolariteImporterUtilisateurs(
   const lignes = (await fichier.text())
     .split(/\r?\n/)
     .filter((ligne) => ligne.trim());
-  const entetes = ["matricule", "email", "nom", "prenom", "role"];
-  if (
-    lignes[0]
-      ?.replace(/^\uFEFF/, "")
-      .split(",")
-      .map((x) => x.trim())
-      .join(",") !== entetes.join(",")
-  ) {
+  const entetesAttendus = ["matricule", "email", "nom", "prenom", "role"];
+  const h = lignes[0]
+    ?.replace(/^\uFEFF/, "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase()) ?? [];
+  const entetesValides = entetesAttendus.every((champ, idx) => h[idx] === champ);
+  if (!entetesValides) {
     throw new ApiError({
-      message: `En-têtes attendus : ${entetes.join(", ")}`,
+      message: `En-têtes CSV invalides. Attendus : ${entetesAttendus.join(", ")} (avec éventuellement campusId et departmentId)`,
       statusCode: 400,
     });
   }
@@ -3011,7 +3056,7 @@ export async function scolariteVerifierImport(
   await delai();
   const texte = await fichier.text();
   const lignes = texte.split(/\r?\n/).filter((l) => l.trim());
-  const attendues = EN_TETES_IMPORT[type];
+  const setsAttendus = EN_TETES_IMPORT[type] ?? [];
 
   if (lignes.length === 0) {
     return {
@@ -3022,14 +3067,19 @@ export async function scolariteVerifierImport(
     };
   }
 
-  const enTetes = lignes[0].split(",").map((h) => h.trim());
+  const enTetes = lignes[0].split(",").map((h) => h.trim().toLowerCase());
   const erreurs: ErreurImport[] = [];
   let lignesValides = 0;
 
-  if (enTetes.join(",").toLowerCase() !== attendues.join(",")) {
+  // Recherche d'un ensemble d'en-têtes valide
+  const attendues = setsAttendus.find(
+    (ens) => ens.map((x) => x.toLowerCase()).join(",") === enTetes.join(","),
+  ) ?? setsAttendus[0] ?? [];
+
+  if (setsAttendus.every((ens) => ens.map((x) => x.toLowerCase()).join(",") !== enTetes.join(","))) {
     erreurs.push({
       ligne: 1,
-      message: `En-têtes incorrects. Attendus : ${attendues.join(", ")}`,
+      message: `En-têtes incorrects. Format attendu : ${attendues.join(", ")}`,
     });
   }
 
@@ -3195,7 +3245,7 @@ export async function scolariteRestitution(
 const RESTITUTIONS: Restitution[] = [
   {
     campagneId: 201,
-    libelle: "Évaluations S5 — Informatique",
+    libelle: "Évaluations S5 : Informatique",
     departement: "Informatique",
     anneeUniversitaire: "2026-2027",
     semestre: 5,
@@ -3207,7 +3257,7 @@ const RESTITUTIONS: Restitution[] = [
   },
   {
     campagneId: 10,
-    libelle: "Évaluations S3 — Automne 2025",
+    libelle: "Évaluations S3 : Automne 2025",
     departement: "Informatique",
     anneeUniversitaire: "2025-2026",
     semestre: 3,

@@ -46,7 +46,7 @@ export default function App() {
           <Route path="/connexion" element={<Connexion />} />
           <Route path="/activation" element={<Activation />} />
 
-          {/* Routes protégées — authentification requise */}
+          {/* Routes protégées : authentification requise */}
           <Route
             element={
               <RequireAuth>
@@ -112,7 +112,7 @@ export default function App() {
               element={<Navigate to="/evaluations" replace />}
             />
 
-            {/* Étudiant & Délégué — Restitution */}
+            {/* Étudiant & Délégué : Restitution */}
             <Route
               path="/restitution"
               element={

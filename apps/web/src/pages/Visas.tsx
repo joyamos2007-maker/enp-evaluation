@@ -1,30 +1,25 @@
-import { useEffect, useState, useCallback } from "react";
-import { CheckCircle2, AlertCircle, MessageSquare, Send } from "lucide-react";
-import { api, ApiError } from "@/api";
-import type { Seance } from "@/api/types";
+import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, MessageSquare, Send, Stamp, BookOpen } from 'lucide-react';
+import { api, ApiError } from '@/api';
+import type { Seance } from '@/api/types';
+import { PageHeader, Button, Alert, Badge } from '@/components/ui';
 
 const LIBELLES_STATUT: Record<string, string> = {
-  tenue: "Tenue",
-  reportee: "Reportée",
-  annulee: "Annulée",
-  enseignant_absent: "Enseignant absent",
-  planifiee: "Planifiée",
-};
-
-const LIBELLES_TYPE: Record<string, string> = {
-  CM: "CM",
-  TD: "TD",
-  TP: "TP",
-  AUTRE: "Autre",
+  tenue: 'Tenue',
+  reportee: 'Reportée',
+  annulee: 'Annulée',
+  enseignant_absent: 'Enseignant absent',
+  planifiee: 'Planifiée',
 };
 
 function formaterDate(iso: string): string {
   try {
-    const d = new Date(iso + "T00:00:00");
-    return d.toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+    const d = new Date(`${iso}T00:00:00`);
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
   } catch {
     return iso;
@@ -36,19 +31,19 @@ export function Visas() {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [contesteId, setContesteId] = useState<number | null>(null);
-  const [commentaire, setCommentaire] = useState("");
-  const [enCours, setEnCours] = useState<number | null>(null);
+  const [commentaire, setCommentaire] = useState('');
+  const [enCours, setEnCours] = useState<number | 'tous' | null>(null);
   const [erreurAction, setErreurAction] = useState<string | null>(null);
 
   const charger = useCallback(async () => {
     setChargement(true);
     setErreur(null);
     try {
-      const data = await api.cahierSeances(undefined, "en_attente");
+      const data = await api.cahierSeances(undefined, 'en_attente');
       setSeances(data);
     } catch (err) {
-      if (err instanceof ApiError) setErreur(err.messages.join(" "));
-      else setErreur("Erreur réseau : impossible de charger les séances.");
+      if (err instanceof ApiError) setErreur(err.messages.join(' '));
+      else setErreur('Erreur réseau : impossible de charger les séances.');
     } finally {
       setChargement(false);
     }
@@ -62,11 +57,29 @@ export function Visas() {
     setEnCours(s.id);
     setErreurAction(null);
     try {
-      await api.visaSeance(s.id, { decision: "vise" });
+      await api.visaSeance(s.id, { decision: 'vise' });
       setSeances((prev) => prev.filter((x) => x.id !== s.id));
     } catch (err) {
-      if (err instanceof ApiError) setErreurAction(err.messages.join(" "));
-      else setErreurAction("Erreur réseau.");
+      if (err instanceof ApiError) setErreurAction(err.messages.join(' '));
+      else setErreurAction('Erreur réseau.');
+    } finally {
+      setEnCours(null);
+    }
+  }
+
+  async function viserToutes() {
+    if (seances.length === 0) return;
+    setEnCours('tous');
+    setErreurAction(null);
+    try {
+      for (const s of seances) {
+        await api.visaSeance(s.id, { decision: 'vise' });
+      }
+      setSeances([]);
+    } catch (err) {
+      if (err instanceof ApiError) setErreurAction(err.messages.join(' '));
+      else setErreurAction('Erreur réseau lors de la validation groupée.');
+      await charger();
     } finally {
       setEnCours(null);
     }
@@ -74,228 +87,197 @@ export function Visas() {
 
   async function contester(s: Seance) {
     if (!commentaire.trim()) {
-      setErreurAction("Un commentaire est obligatoire pour contester.");
+      setErreurAction('Un commentaire est obligatoire pour contester.');
       return;
     }
     setEnCours(s.id);
     setErreurAction(null);
     try {
       await api.visaSeance(s.id, {
-        decision: "conteste",
+        decision: 'conteste',
         commentaire: commentaire.trim(),
       });
       setSeances((prev) => prev.filter((x) => x.id !== s.id));
       setContesteId(null);
-      setCommentaire("");
+      setCommentaire('');
     } catch (err) {
-      if (err instanceof ApiError) setErreurAction(err.messages.join(" "));
-      else setErreurAction("Erreur réseau.");
+      if (err instanceof ApiError) setErreurAction(err.messages.join(' '));
+      else setErreurAction('Erreur réseau.');
     } finally {
       setEnCours(null);
     }
   }
 
-  if (chargement) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-          Séances à viser
-        </h1>
-        <div className="flex items-center gap-3 text-enp-ink-soft">
-          <div
-            className="h-6 w-6 rounded-full border-2 border-enp-sky border-t-enp-primary animate-spin"
-            aria-hidden="true"
-          />
-          <span>Chargement…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (erreur) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-          Séances à viser
-        </h1>
-        <div
-          className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
-          role="alert"
-        >
-          <AlertCircle
-            size={20}
-            className="shrink-0 mt-0.5"
-            aria-hidden="true"
-          />
-          <div>
-            <p>{erreur}</p>
-            <button
-              type="button"
-              onClick={() => void charger()}
-              className="mt-2 inline-flex items-center gap-2 bg-enp-primary text-white text-sm font-medium px-3 py-2 rounded-md hover:bg-enp-primary-dark transition-all min-h-[44px]"
-            >
-              Réessayer
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">
-          Séances à viser
-        </h1>
-        <p className="text-sm text-enp-ink-soft mt-1">
-          {seances.length} séance{seances.length > 1 ? "s" : ""} en attente de
-          visa.
-        </p>
-      </div>
+    <div className="space-y-5 max-w-5xl mx-auto animate-fade-in pb-6">
+      <PageHeader
+        title="Séances à viser"
+        description={`${seances.length} séance(s) en attente de votre visa pédagogique.`}
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Cahier de texte', href: '/cahier-texte' },
+          { label: 'Séances à viser' },
+        ]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/cahier-texte">
+              <Button variant="outline" size="sm" leftIcon={<BookOpen className="w-4 h-4" />}>
+                Ouvrir le cahier complet
+              </Button>
+            </Link>
+            {seances.length > 1 && (
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={enCours === 'tous'}
+                leftIcon={<Stamp className="w-4 h-4" />}
+                onClick={() => void viserToutes()}
+              >
+                Tout viser ({seances.length})
+              </Button>
+            )}
+          </div>
+        }
+      />
+
+      {erreur && (
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
+      )}
 
       {erreurAction && (
-        <div
-          className="flex items-start gap-2 rounded-lg bg-enp-bordeaux-light border border-enp-bordeaux/15 p-4 text-enp-bordeaux"
-          role="alert"
-        >
-          <AlertCircle
-            size={20}
-            className="shrink-0 mt-0.5"
-            aria-hidden="true"
-          />
-          <span>{erreurAction}</span>
-        </div>
+        <Alert variant="danger" title="Action impossible" onClose={() => setErreurAction(null)}>
+          {erreurAction}
+        </Alert>
       )}
 
-      {seances.length === 0 && (
-        <div className="text-center py-12">
-          <CheckCircle2
-            size={48}
-            className="mx-auto text-enp-teal mb-3"
-            aria-hidden="true"
-          />
-          <p className="text-enp-ink font-medium">Aucune séance en attente.</p>
-          <p className="text-sm text-enp-ink-soft mt-1">
-            Toutes les séances ont été visées.
+      {chargement ? (
+        <div className="bg-white border border-enp-border p-10 text-center text-sm text-enp-gray-medium">
+          Chargement des séances en attente…
+        </div>
+      ) : seances.length === 0 ? (
+        <div className="bg-white border border-enp-border p-12 text-center space-y-2">
+          <CheckCircle2 className="w-10 h-10 text-enp-green-valid mx-auto" />
+          <p className="text-base font-bold text-enp-blue-deep">Aucune séance en attente</p>
+          <p className="text-xs text-enp-gray-medium">
+            Toutes les séances de vos cours ont été visées.
           </p>
         </div>
-      )}
-
-      <div className="space-y-4">
-        {seances.map((s) => (
-          <div
-            key={s.id}
-            className="bg-white border border-enp-border rounded-lg p-4 space-y-3"
-          >
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center justify-center bg-enp-primary text-white text-xs font-semibold px-2 py-0.5 rounded">
-                {s.ueCode}
-              </span>
-              <span className="text-xs text-enp-ink-soft">
-                {LIBELLES_TYPE[s.type]}
-                {s.groupe ? ` — ${s.groupe}` : ""}
-              </span>
-              <span className="text-xs text-enp-ink-soft ml-auto">
-                {formaterDate(s.date)} · {s.debut}–{s.fin}
-              </span>
-            </div>
-            <p className="text-enp-ink font-medium">
-              {s.intitule ?? "Sans intitulé"}
-            </p>
-            <p className="text-sm text-enp-ink-soft">{s.ueIntitule}</p>
-
-            {s.contenu && (
-              <div className="text-sm text-enp-ink bg-enp-sky/40 border border-enp-border rounded-md p-3">
-                <span className="font-medium">Contenu : </span>
-                {s.contenu}
+      ) : (
+        <div className="space-y-3">
+          {seances.map((s) => (
+            <article
+              key={s.id}
+              className="bg-white border border-enp-border border-l-4 border-l-[#D97706] p-4 sm:p-5 space-y-3 shadow-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-bold bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20 px-2 py-0.5">
+                    {s.ueCode}
+                  </span>
+                  <Badge variant="outline">
+                    {s.type}
+                    {s.groupe ? ` (${s.groupe})` : ''}
+                  </Badge>
+                  <Badge variant="neutral">{LIBELLES_STATUT[s.statut] ?? s.statut}</Badge>
+                </div>
+                <span className="text-xs font-semibold text-enp-gray-medium">
+                  {formaterDate(s.date)} • {s.debut} - {s.fin}
+                </span>
               </div>
-            )}
-            {s.travailAFaire && (
-              <div className="text-sm text-enp-ink bg-enp-sky/40 border border-enp-border rounded-md p-3">
-                <span className="font-medium">Travail à faire : </span>
-                {s.travailAFaire}
-              </div>
-            )}
-            {s.observations && (
-              <div className="text-sm text-enp-ink bg-enp-sky/40 border border-enp-border rounded-md p-3">
-                <span className="font-medium">Observations : </span>
-                {s.observations}
-              </div>
-            )}
-            <p className="text-xs text-enp-ink-soft">
-              Statut : {LIBELLES_STATUT[s.statut]}
-            </p>
 
-            {/* Boutons d'action */}
-            {contesteId === s.id ? (
-              <div className="space-y-3 border-t border-enp-border pt-3">
-                <label
-                  htmlFor={`commentaire-${s.id}`}
-                  className="block text-sm font-medium text-enp-ink"
-                >
-                  Commentaire (obligatoire)
-                </label>
-                <textarea
-                  id={`commentaire-${s.id}`}
-                  rows={3}
-                  value={commentaire}
-                  onChange={(e) => setCommentaire(e.target.value)}
-                  placeholder="Expliquez la raison de la contestation..."
-                  className="w-full rounded-lg border border-enp-border px-3 py-2.5 text-enp-ink bg-white focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20 outline-none resize-y"
-                />
-                <div className="flex gap-3">
-                  <button
-                    type="button"
+              <div>
+                <h2 className="text-base font-bold text-enp-blue-deep">
+                  {s.intitule ?? 'Sans intitulé'}
+                </h2>
+                <p className="text-xs text-enp-gray-medium">{s.ueIntitule}</p>
+              </div>
+
+              {s.contenu && (
+                <div className="text-xs sm:text-sm text-enp-black bg-enp-bg border border-enp-border p-3 leading-relaxed">
+                  <strong className="text-enp-blue-deep">Contenu : </strong>
+                  {s.contenu}
+                </div>
+              )}
+
+              {s.travailAFaire && (
+                <div className="text-xs text-enp-black bg-enp-blue-ice/30 border border-enp-border p-2.5">
+                  <strong className="text-enp-blue-deep">Travail à faire : </strong>
+                  {s.travailAFaire}
+                </div>
+              )}
+
+              {contesteId === s.id ? (
+                <div className="space-y-3 border-t border-enp-border pt-3">
+                  <label
+                    htmlFor={`commentaire-${s.id}`}
+                    className="block text-xs font-bold text-enp-black"
+                  >
+                    Motif de la contestation (obligatoire)
+                  </label>
+                  <textarea
+                    id={`commentaire-${s.id}`}
+                    rows={2}
+                    value={commentaire}
+                    onChange={(e) => setCommentaire(e.target.value)}
+                    placeholder="Indiquez la correction attendue du délégué..."
+                    className="w-full border border-enp-border px-3 py-2 text-sm text-enp-black bg-white focus:border-enp-blue-primary outline-none"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setContesteId(null);
+                        setCommentaire('');
+                        setErreurAction(null);
+                      }}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      isLoading={enCours === s.id}
+                      leftIcon={<Send className="w-3.5 h-3.5" />}
+                      onClick={() => void contester(s)}
+                    >
+                      Confirmer la contestation
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-enp-border pt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={enCours !== null}
+                    leftIcon={<MessageSquare className="w-3.5 h-3.5" />}
                     onClick={() => {
-                      setContesteId(null);
-                      setCommentaire("");
+                      setContesteId(s.id);
+                      setCommentaire('');
                       setErreurAction(null);
                     }}
-                    className="inline-flex items-center gap-2 bg-white border border-enp-border text-enp-ink font-medium px-3 py-2.5 rounded-md hover:bg-enp-sky transition-colors text-sm min-h-[44px]"
                   >
-                    Annuler
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void contester(s)}
-                    disabled={enCours === s.id}
-                    className="inline-flex items-center gap-2 bg-enp-primary text-white font-semibold px-3 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all text-sm min-h-[44px] disabled:opacity-60"
+                    Contester
+                  </Button>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    disabled={enCours !== null}
+                    isLoading={enCours === s.id}
+                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                    onClick={() => void viser(s)}
                   >
-                    <Send size={16} aria-hidden="true" />
-                    {enCours === s.id ? "Envoi…" : "Confirmer la contestation"}
-                  </button>
+                    Viser en 1 clic
+                  </Button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex gap-3 border-t border-enp-border pt-3">
-                <button
-                  type="button"
-                  onClick={() => void viser(s)}
-                  disabled={enCours === s.id}
-                  className="inline-flex items-center gap-2 bg-enp-primary text-white font-semibold px-3 py-2.5 rounded-md hover:bg-enp-primary-dark transition-all text-sm min-h-[44px] disabled:opacity-60"
-                >
-                  <CheckCircle2 size={18} aria-hidden="true" />
-                  {enCours === s.id ? "Traitement…" : "Viser"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContesteId(s.id);
-                    setCommentaire("");
-                    setErreurAction(null);
-                  }}
-                  disabled={enCours === s.id}
-                  className="inline-flex items-center gap-2 bg-white border border-enp-border text-enp-ink font-medium px-3 py-2.5 rounded-md hover:bg-enp-primary-light hover:border-enp-primary/40 transition-colors text-sm min-h-[44px] disabled:opacity-60"
-                >
-                  <MessageSquare size={18} aria-hidden="true" />
-                  Contester
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

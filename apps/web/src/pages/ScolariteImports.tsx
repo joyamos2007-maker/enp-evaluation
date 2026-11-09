@@ -1,308 +1,403 @@
-import { useState } from 'react';
-import { AlertCircle, Download, FileCheck, Upload } from 'lucide-react';
+import { useState, useRef } from 'react';
+import {
+  Upload,
+  Download,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Users,
+  BookOpen,
+} from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type {
-  RapportImport,
-  ResultatImport,
   ResultatImportUtilisateurs,
+  ResultatImport,
   TypeImport,
 } from '@/api/types';
-import { InfoCard } from '@/components/InfoCard';
 
-const TAILLE_MAX = 2 * 1024 * 1024;
-const MODELE_CSV = 'matricule,email,nom,prenom,role,campusId,departmentId\n';
-const TYPES_ACADEMIQUES: { valeur: TypeImport; libelle: string; modele: string }[] = [
-  { valeur: 'etudiants', libelle: 'Étudiants', modele: 'matricule,email,nom,prenom\n' },
-  { valeur: 'enseignants', libelle: 'Enseignants', modele: 'matricule,email,nom,prenom\n' },
-  { valeur: 'ue', libelle: 'Unités d’enseignement', modele: 'code,intitule,credits\n' },
-  { valeur: 'offres', libelle: 'Offres de cours', modele: 'ueCode,programId,anneeUniversitaire,semestre\n' },
-  { valeur: 'affectations', libelle: 'Affectations enseignants', modele: 'courseId,matricule\n' },
-  { valeur: 'inscriptions', libelle: 'Inscriptions aux cours', modele: 'courseId,matricule\n' },
-  { valeur: 'delegues', libelle: 'Mandats des délégués', modele: 'programId,matricule,anneeUniversitaire,type,debut,fin\n' },
-];
+const TAILLE_MAX = 2 * 1024 * 1024; // 2 Mo
+
+// Modèles CSV simples et prêts à l'emploi
+const MODELE_COMPTES = `matricule,email,nom,prenom,role,campusId,departmentId
+TEST-2026-001,student1@enp.tg,KOUDASSE,Joy,etudiant,1,1
+TEST-2026-002,delegue1@enp.tg,CHEF,Lina,delegue,1,1
+TEST-2026-003,prof.dupont@enp.tg,DUPONT,Jean,enseignant,1,1
+`;
+
+const MODELES_ACADEMIQUES: Record<TypeImport, { label: string; colonnes: string; csv: string }> = {
+  ue: {
+    label: "Unités d'enseignement (UE)",
+    colonnes: 'code, intitule, credits',
+    csv: 'code,intitule,credits\nINF501,Algorithmique avancée,4\nMAT502,Probabilités et statistiques,3\n',
+  },
+  offres: {
+    label: 'Offres de cours semestrielles',
+    colonnes: 'ueCode, programId, anneeUniversitaire, semestre',
+    csv: 'ueCode,programId,anneeUniversitaire,semestre\nINF501,1,2026-2027,5\nMAT502,1,2026-2027,5\n',
+  },
+  inscriptions: {
+    label: 'Inscriptions des étudiants',
+    colonnes: 'courseId, matricule',
+    csv: 'courseId,matricule\n1,TEST-2026-001\n1,TEST-2026-002\n',
+  },
+  affectations: {
+    label: 'Affectations enseignants',
+    colonnes: 'courseId, matricule',
+    csv: 'courseId,matricule\n1,TEST-1001\n2,TEST-1002\n',
+  },
+  delegues: {
+    label: 'Mandats des délégués',
+    colonnes: 'programId, matricule, anneeUniversitaire, type, debut, fin',
+    csv: 'programId,matricule,anneeUniversitaire,type,debut,fin\n1,TEST-0002,2026-2027,titulaire,2026-09-01,2027-06-30\n',
+  },
+  etudiants: {
+    label: 'Référentiel étudiants',
+    colonnes: 'matricule, email, nom, prenom',
+    csv: 'matricule,email,nom,prenom\nTEST-0001,kodjo.adjei@exemple.test,ADJEI,Kodjo\n',
+  },
+  enseignants: {
+    label: 'Référentiel enseignants',
+    colonnes: 'matricule, email, nom, prenom',
+    csv: 'matricule,email,nom,prenom\nTEST-1001,mawuli.attiogbe@exemple.test,ATTIOGBE,Mawuli\n',
+  },
+};
 
 export function ScolariteImports() {
+  const [categorie, setCategorie] = useState<'comptes' | 'academique'>('comptes');
+  const [typeAcademique, setTypeAcademique] = useState<TypeImport>('ue');
   const [fichier, setFichier] = useState<File | null>(null);
-  const [resultat, setResultat] = useState<ResultatImportUtilisateurs | null>(null);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [typeAcademique, setTypeAcademique] = useState<TypeImport>('offres');
-  const [fichierAcademique, setFichierAcademique] = useState<File | null>(null);
-  const [rapport, setRapport] = useState<RapportImport | null>(null);
-  const [resultatAcademique, setResultatAcademique] = useState<ResultatImport | null>(null);
+  const [succesMessage, setSuccesMessage] = useState<string | null>(null);
+  const [erreursLignes, setErreursLignes] = useState<{ ligne: number; message: string }[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Télécharger le modèle CSV adapté
   function telechargerModele() {
-    const blob = new Blob([MODELE_CSV], { type: 'text/csv;charset=utf-8' });
+    const contenu =
+      categorie === 'comptes'
+        ? MODELE_COMPTES
+        : MODELES_ACADEMIQUES[typeAcademique].csv;
+    const nomFichier =
+      categorie === 'comptes'
+        ? 'modele-comptes-utilisateurs.csv'
+        : `modele-${typeAcademique}.csv`;
+
+    const blob = new Blob([contenu], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const lien = document.createElement('a');
     lien.href = url;
-    lien.download = 'modele-comptes-utilisateurs.csv';
+    lien.download = nomFichier;
     lien.click();
     URL.revokeObjectURL(url);
   }
 
-  function choisirFichier(event: React.ChangeEvent<HTMLInputElement>) {
-    const selection = event.target.files?.[0];
-    setResultat(null);
+  // Sélection de fichier
+  function handleFile(f: File) {
     setErreur(null);
-    if (!selection) {
-      setFichier(null);
+    setSuccesMessage(null);
+    setErreursLignes([]);
+
+    if (!f.name.toLowerCase().endsWith('.csv')) {
+      setErreur('Veuillez sélectionner un fichier au format .csv uniquement.');
       return;
     }
-    if (!selection.name.toLowerCase().endsWith('.csv')) {
-      setFichier(null);
-      setErreur('Le fichier doit avoir l’extension .csv.');
+    if (f.size > TAILLE_MAX) {
+      setErreur('Le fichier est trop volumineux (maximum 2 Mo).');
       return;
     }
-    if (selection.size > TAILLE_MAX) {
-      setFichier(null);
-      setErreur('Le fichier dépasse la taille maximale de 2 Mo.');
-      return;
-    }
-    setFichier(selection);
+    setFichier(f);
   }
 
-  async function importer() {
+  // Traitement du drop
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  }
+
+  // Déclencher l'importation
+  async function lancerImport() {
     if (!fichier) return;
-    if (!window.confirm(
-      'L’import écrit immédiatement les comptes dans la base. Vérifie le fichier et confirme pour continuer.',
-    )) return;
 
     setEnCours(true);
     setErreur(null);
-    setResultat(null);
+    setSuccesMessage(null);
+    setErreursLignes([]);
+
     try {
-      setResultat(await api.scolariteImporterUtilisateurs(fichier));
+      if (categorie === 'comptes') {
+        const res: ResultatImportUtilisateurs = await api.scolariteImporterUtilisateurs(fichier);
+        if (res.errorCount === 0) {
+          setSuccesMessage(
+            `Importation réussie ! ${res.successCount} compte(s) créé(s) ou mis à jour.`
+          );
+        } else {
+          setSuccesMessage(
+            `${res.successCount} compte(s) créé(s) avec succès. ${res.errorCount} ligne(s) rejetée(s).`
+          );
+          setErreursLignes(res.errors.map((e) => ({ ligne: e.ligne, message: e.erreur })));
+        }
+      } else {
+        // Données académiques : vérification puis application
+        const rapport = await api.scolariteVerifierImport(typeAcademique, fichier);
+
+        if (rapport.lignesValides === 0) {
+          setErreur(
+            rapport.erreurs[0]?.message ?? 'Aucune ligne valide trouvée dans le fichier.'
+          );
+          setErreursLignes(rapport.erreurs);
+          return;
+        }
+
+        const res: ResultatImport = await api.scolariteValiderImport(typeAcademique, rapport.importId);
+        setSuccesMessage(
+          `Importation réussie : ${res.crees} entrée(s) créée(s), ${res.misAJour} mise(s) à jour.`
+        );
+
+        if (rapport.erreurs.length > 0) {
+          setErreursLignes(rapport.erreurs);
+        }
+      }
     } catch (err) {
-      if (err instanceof ApiError) setErreur(err.messages.join(' '));
-      else setErreur('Erreur réseau lors de l’import.');
+      if (err instanceof ApiError) {
+        setErreur(err.messages.join(' '));
+      } else {
+        setErreur("Une erreur est survenue lors de l'importation du fichier.");
+      }
     } finally {
       setEnCours(false);
     }
   }
 
-  async function verifierImportAcademique() {
-    if (!fichierAcademique) return;
-    setEnCours(true);
+  // Réinitialiser le formulaire
+  function reinitialiser() {
+    setFichier(null);
     setErreur(null);
-    setRapport(null);
-    setResultatAcademique(null);
-    try {
-      setRapport(await api.scolariteVerifierImport(typeAcademique, fichierAcademique));
-    } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Erreur réseau lors de la vérification.');
-    } finally {
-      setEnCours(false);
-    }
-  }
-
-  async function appliquerImportAcademique() {
-    if (!rapport) return;
-    if (!window.confirm(
-      `Appliquer ${rapport.lignesValides} ligne(s) valide(s) ? Les erreurs seront ignorées.`,
-    )) return;
-    setEnCours(true);
-    setErreur(null);
-    try {
-      setResultatAcademique(await api.scolariteValiderImport(typeAcademique, rapport.importId));
-      setRapport(null);
-    } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Erreur réseau lors de l’application.');
-    } finally {
-      setEnCours(false);
-    }
-  }
-
-  function telechargerModeleAcademique() {
-    const modele = TYPES_ACADEMIQUES.find((item) => item.valeur === typeAcademique)?.modele ?? '';
-    const blob = new Blob([modele], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const lien = document.createElement('a');
-    lien.href = url;
-    lien.download = `modele-${typeAcademique}.csv`;
-    lien.click();
-    URL.revokeObjectURL(url);
+    setSuccesMessage(null);
+    setErreursLignes([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-enp-ink tracking-tight">Imports de comptes</h1>
-        <p className="mt-1 text-sm text-enp-ink-soft">
-          Importez les comptes utilisateur pris en charge par l’API.
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* En-tête simple et direct */}
+      <div className="border-b border-enp-border pb-4">
+        <h1 className="text-xl font-bold text-enp-blue-deep font-sans">
+          Importation de fichiers
+        </h1>
+        <p className="text-xs text-enp-gray-medium mt-1">
+          Chargez rapidement vos données via un fichier CSV (séparateur virgule, encodé en UTF-8).
         </p>
       </div>
 
-      <InfoCard titre="Format pris en charge">
-        <p>
-          Cette route importe les utilisateurs et leurs rôles. Le CSV doit contenir, dans cet ordre,
-          les colonnes <code>matricule,email,nom,prenom,role</code>. Les colonnes
-          {' '}<code>campusId</code> et <code>departmentId</code> sont facultatives, mais requises
-          respectivement pour rattacher un Service Scolarité, un Directeur de campus
-          ou un Chef de département.
-          Rôles possibles :
-          {' '}<code>etudiant</code>, <code>delegue</code>, <code>enseignant</code>,
-          {' '}<code>chef_departement</code>, <code>scolarite</code>, <code>directeur_campus</code>,
-          {' '}<code>directeur_general</code> ou <code>admin</code>. Le Service Scolarité reste limité à son campus et ne peut importer
-          que des étudiants, délégués et enseignants. L’import est appliqué immédiatement, ligne
-          par ligne; les lignes en erreur sont signalées.
-        </p>
-      </InfoCard>
-
-      <button
-        type="button"
-        onClick={telechargerModele}
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-enp-border bg-white px-4 py-2.5 text-sm font-medium text-enp-ink transition-colors hover:bg-enp-sky"
-      >
-        <Download size={18} aria-hidden="true" /> Télécharger le modèle CSV
-      </button>
-
-      <div className="space-y-2">
-        <label htmlFor="fichier-comptes" className="block text-sm font-medium text-enp-ink">
-          Fichier CSV (UTF-8, 2 Mo maximum)
-        </label>
-        <input
-          id="fichier-comptes"
-          type="file"
-          accept=".csv,text/csv"
-          onChange={choisirFichier}
-          className="block min-h-[44px] w-full text-sm text-enp-ink file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-enp-primary file:px-4 file:py-2.5 file:font-medium file:text-white"
-        />
-        {fichier && <p className="text-xs text-enp-ink-soft">{fichier.name} ({Math.ceil(fichier.size / 1024)} Ko)</p>}
-      </div>
-
-      {erreur && (
-        <div className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux" role="alert">
-          <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <span>{erreur}</span>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => void importer()}
-        disabled={!fichier || enCours}
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-enp-primary px-5 py-3 font-semibold text-white transition-all hover:bg-enp-primary-dark disabled:opacity-60"
-      >
-        {enCours ? <Upload size={20} className="animate-pulse" aria-hidden="true" /> : <FileCheck size={20} aria-hidden="true" />}
-        {enCours ? 'Import en cours…' : 'Importer les comptes'}
-      </button>
-
-      {resultat && (
-        <section className="space-y-3 rounded-xl border border-enp-border bg-white p-4 shadow-card" aria-live="polite">
-          <h2 className="font-semibold text-enp-ink">Résultat de l’import</h2>
-          <p className="text-sm text-enp-ink-soft">
-            {resultat.successCount} ligne(s) importée(s) sur {resultat.totalRows} ;
-            {' '}{resultat.errorCount} erreur(s).
-          </p>
-          {resultat.successCount > 0 && (
-            <p className="text-sm text-enp-ink-soft">
-              {resultat.courrielsActivationEnfiles} courriel(s) d’activation mis en file. L’envoi peut prendre jusqu’à une minute.
-            </p>
-          )}
-          {resultat.erreurActivation && (
-            <p className="text-sm text-enp-bordeaux" role="alert">{resultat.erreurActivation}</p>
-          )}
-          {resultat.errors.length > 0 && (
-            <ul className="space-y-1 text-sm text-enp-bordeaux">
-              {resultat.errors.map((item, index) => (
-                <li key={`${item.ligne}-${index}`}>Ligne {item.ligne} : {item.erreur}</li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
-      <section className="space-y-5 border-t border-enp-border pt-6">
-        <div>
-          <h2 className="text-xl font-bold text-enp-ink">Imports académiques</h2>
-          <p className="mt-1 text-sm text-enp-ink-soft">
-            Vérifiez les références et les erreurs avant de confirmer l’écriture. Les lignes invalides ne seront pas appliquées.
-          </p>
-        </div>
-        <label htmlFor="type-import" className="block text-sm font-medium text-enp-ink">
-          Type de données
-        </label>
-        <select
-          id="type-import"
-          value={typeAcademique}
-          onChange={(event) => {
-            setTypeAcademique(event.target.value as TypeImport);
-            setRapport(null);
-            setResultatAcademique(null);
-          }}
-          className="min-h-[44px] rounded-md border border-enp-border bg-white px-3"
-        >
-          {TYPES_ACADEMIQUES.map((type) => (
-            <option key={type.valeur} value={type.valeur}>{type.libelle}</option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={telechargerModeleAcademique}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-enp-border bg-white px-4 py-2.5 text-sm font-medium text-enp-ink"
-        >
-          <Download size={18} aria-hidden="true" /> Télécharger le modèle correspondant
-        </button>
-        <label htmlFor="fichier-academique" className="block text-sm font-medium text-enp-ink">
-          Fichier CSV (UTF-8, 2 Mo maximum)
-        </label>
-        <input
-          id="fichier-academique"
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(event) => {
-            const selection = event.target.files?.[0] ?? null;
-            setRapport(null);
-            setResultatAcademique(null);
-            if (selection && (!selection.name.toLowerCase().endsWith('.csv') || selection.size > TAILLE_MAX)) {
-              setFichierAcademique(null);
-              setErreur('Le fichier doit être un CSV de 2 Mo maximum.');
-              return;
-            }
-            setFichierAcademique(selection);
-            setErreur(null);
-          }}
-          className="block min-h-[44px] w-full text-sm text-enp-ink file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-enp-primary file:px-4 file:py-2.5 file:font-medium file:text-white"
-        />
-        <button
-          type="button"
-          onClick={() => void verifierImportAcademique()}
-          disabled={!fichierAcademique || enCours}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-enp-primary px-5 py-3 font-semibold text-white disabled:opacity-60"
-        >
-          <FileCheck size={18} aria-hidden="true" />
-          {enCours ? 'Vérification…' : 'Vérifier l’import'}
-        </button>
-        {rapport && (
-          <div className="space-y-3 rounded-xl border border-enp-border bg-white p-4" aria-live="polite">
-            <h3 className="font-semibold">Rapport de vérification</h3>
-            <p className="text-sm text-enp-ink-soft">
-              {rapport.lignesValides} ligne(s) valide(s) sur {rapport.lignesTotal}.
-            </p>
-            {rapport.erreurs.length > 0 && (
-              <ul className="space-y-1 text-sm text-enp-bordeaux">
-                {rapport.erreurs.map((item, index) => (
-                  <li key={`${item.ligne}-${index}`}>Ligne {item.ligne} : {item.message}</li>
-                ))}
-              </ul>
-            )}
+      {/* Carte principale épurée */}
+      <div className="bg-white border border-enp-border p-6 shadow-subtle space-y-6">
+        {/* Étape 1 : Choix de la catégorie */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-enp-blue-deep uppercase tracking-wider">
+            1. Que souhaitez-vous importer ?
+          </label>
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              disabled={enCours || rapport.lignesValides === 0}
-              onClick={() => void appliquerImportAcademique()}
-              className="min-h-[44px] rounded-md bg-enp-teal px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+              onClick={() => {
+                setCategorie('comptes');
+                reinitialiser();
+              }}
+              className={`p-3 text-left border flex items-center gap-3 transition-colors ${
+                categorie === 'comptes'
+                  ? 'border-enp-blue-primary bg-enp-blue-ice text-enp-blue-deep font-bold'
+                  : 'border-enp-border bg-white text-enp-black hover:bg-slate-50'
+              }`}
             >
-              Confirmer et appliquer
+              <Users className="w-5 h-5 text-enp-blue-primary shrink-0" />
+              <div>
+                <p className="text-xs font-semibold">Comptes utilisateurs</p>
+                <p className="text-[11px] text-enp-gray-medium font-normal">Étudiants, profs, etc.</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCategorie('academique');
+                reinitialiser();
+              }}
+              className={`p-3 text-left border flex items-center gap-3 transition-colors ${
+                categorie === 'academique'
+                  ? 'border-enp-blue-primary bg-enp-blue-ice text-enp-blue-deep font-bold'
+                  : 'border-enp-border bg-white text-enp-black hover:bg-slate-50'
+              }`}
+            >
+              <BookOpen className="w-5 h-5 text-enp-blue-primary shrink-0" />
+              <div>
+                <p className="text-xs font-semibold">Données académiques</p>
+                <p className="text-[11px] text-enp-gray-medium font-normal">UE, cours, inscriptions...</p>
+              </div>
             </button>
           </div>
+        </div>
+
+        {/* Sous-choix si données académiques */}
+        {categorie === 'academique' && (
+          <div className="space-y-1.5 p-3.5 bg-enp-blue-ice/50 border border-enp-border animate-fade-in">
+            <label htmlFor="select-type" className="block text-xs font-bold text-enp-blue-deep">
+              Type d'élément académique :
+            </label>
+            <select
+              id="select-type"
+              value={typeAcademique}
+              onChange={(e) => {
+                setTypeAcademique(e.target.value as TypeImport);
+                reinitialiser();
+              }}
+              className="w-full text-xs p-2 bg-white border border-enp-border text-enp-black focus:border-enp-blue-primary focus:outline-none"
+            >
+              {Object.entries(MODELES_ACADEMIQUES).map(([key, info]) => (
+                <option key={key} value={key}>
+                  {info.label} ({info.colonnes})
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-        {resultatAcademique && (
-          <p className="text-sm text-enp-teal" role="status">
-            Import appliqué : {resultatAcademique.crees} création(s), {resultatAcademique.misAJour} mise(s) à jour.
-          </p>
+
+        {/* Étape 2 : Zone de dépôt du fichier */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-enp-blue-deep uppercase tracking-wider">
+              2. Fichier CSV
+            </label>
+            <button
+              type="button"
+              onClick={telechargerModele}
+              className="text-xs text-enp-blue-primary hover:underline font-medium inline-flex items-center gap-1"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Télécharger le modèle CSV
+            </button>
+          </div>
+
+          {fichier ? (
+            <div className="p-3.5 bg-enp-blue-ice/60 border border-enp-border flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <FileText className="w-6 h-6 text-enp-blue-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-enp-blue-deep truncate">{fichier.name}</p>
+                  <p className="text-[11px] text-enp-gray-medium">
+                    {(fichier.size / 1024).toFixed(1)} Ko • Prêt pour import
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={reinitialiser}
+                className="text-enp-gray-medium hover:text-enp-red-error p-1 transition-colors"
+                title="Retirer le fichier"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={onDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`p-8 border-2 border-dashed text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-enp-blue-ice/30 ${
+                isDragOver ? 'border-enp-blue-primary bg-enp-blue-ice' : 'border-enp-border'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                className="hidden"
+              />
+              <Upload className="w-7 h-7 text-enp-gray-medium mx-auto mb-2 opacity-70" />
+              <p className="text-xs font-semibold text-enp-blue-deep">
+                Glissez votre fichier CSV ici
+              </p>
+              <p className="text-[11px] text-enp-gray-medium mt-0.5">
+                ou <span className="text-enp-blue-primary underline">parcourez votre ordinateur</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Message d'erreur global */}
+        {erreur && (
+          <div className="p-3 bg-enp-red-light border-l-4 border-enp-red-error text-xs text-enp-red-error flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p className="font-medium leading-relaxed">{erreur}</p>
+          </div>
         )}
-      </section>
+
+        {/* Message de succès */}
+        {succesMessage && (
+          <div className="p-3 bg-enp-green-light border-l-4 border-enp-green-valid text-xs text-enp-green-valid flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <p className="font-bold leading-relaxed">{succesMessage}</p>
+          </div>
+        )}
+
+        {/* Tableau épuré des lignes en erreur si présent */}
+        {erreursLignes.length > 0 && (
+          <div className="space-y-1.5 pt-2 border-t border-enp-border">
+            <p className="text-xs font-bold text-enp-red-error">
+              Lignes rejetées ({erreursLignes.length}) :
+            </p>
+            <div className="border border-enp-border text-xs max-h-40 overflow-y-auto">
+              <table className="w-full">
+                <thead className="bg-enp-red-light/60 border-b border-enp-border text-left">
+                  <tr>
+                    <th className="px-2.5 py-1.5 w-16">Ligne</th>
+                    <th className="px-2.5 py-1.5">Problème</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-enp-border">
+                  {erreursLignes.map((err, i) => (
+                    <tr key={i}>
+                      <td className="px-2.5 py-1 font-mono font-bold text-enp-red-error">
+                        #{err.ligne}
+                      </td>
+                      <td className="px-2.5 py-1 text-enp-black">{err.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Bouton d'action principal */}
+        <div className="pt-2">
+          <button
+            type="button"
+            disabled={!fichier || enCours}
+            onClick={() => void lancerImport()}
+            className="w-full py-2.5 px-4 bg-enp-blue-primary hover:bg-enp-blue-dark text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {enCours ? (
+              <span>Importation en cours…</span>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                <span>Importer le fichier</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

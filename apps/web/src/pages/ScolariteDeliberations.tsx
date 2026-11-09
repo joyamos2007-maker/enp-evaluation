@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, LockKeyhole, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, LockKeyhole, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { DetailsDeliberationExamen, ExamenADeliberer } from '@/api/types';
+import { PageHeader, Button, Alert, Badge } from '@/components/ui';
 
 export function ScolariteDeliberations() {
   const [examens, setExamens] = useState<ExamenADeliberer[]>([]);
@@ -21,33 +22,61 @@ export function ScolariteDeliberations() {
       setSelectionId((current) =>
         current !== null && liste.some((examen) => examen.id === current)
           ? current
-          : liste[0]?.id ?? null
+          : liste[0]?.id ?? null,
       );
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger les examens.');
+      setErreur(
+        err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger les examens.',
+      );
     } finally {
       setChargement(false);
     }
   }, []);
 
-  useEffect(() => { void charger(); }, [charger]);
+  useEffect(() => {
+    void charger();
+  }, [charger]);
 
   useEffect(() => {
     let actif = true;
     if (selectionId === null) {
       setDetails(null);
-      return () => { actif = false; };
+      return () => {
+        actif = false;
+      };
     }
     setDetails(null);
-    api.scolariteDetailsDeliberationExamen(selectionId)
-      .then((resultat) => { if (actif) setDetails(resultat); })
+    api
+      .scolariteDetailsDeliberationExamen(selectionId)
+      .then((resultat) => {
+        if (actif) setDetails(resultat);
+      })
       .catch((err: unknown) => {
-        if (actif) setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de charger les notes de cet examen.');
+        if (actif) {
+          setErreur(
+            err instanceof ApiError
+              ? err.messages.join(' ')
+              : 'Impossible de charger les notes de cet examen.',
+          );
+        }
       });
-    return () => { actif = false; };
+    return () => {
+      actif = false;
+    };
   }, [selectionId]);
 
   const examenSelectionne = examens.find((examen) => examen.id === selectionId) ?? null;
+
+  const moyenneExamen = useMemo(() => {
+    if (!details) return '-';
+    const notesValides = details.etudiants
+      .map((e) => e.note)
+      .filter((n): n is number => n !== null && n !== undefined);
+    if (notesValides.length === 0) return '-';
+    return (
+      Math.round((notesValides.reduce((a, b) => a + b, 0) / notesValides.length) * 100) / 100
+    ).toFixed(2);
+  }, [details]);
 
   async function deliberer() {
     if (!examenSelectionne || examenSelectionne.delibereeLe) return;
@@ -56,120 +85,213 @@ export function ScolariteDeliberations() {
     setMessage(null);
     try {
       await api.scolariteDelibererExamen(examenSelectionne.id);
-      setMessage(`Les notes de « ${examenSelectionne.libelle} » ont été délibérées et sont désormais visibles par les étudiants.`);
+      setMessage(
+        `Les notes de « ${examenSelectionne.libelle} » ont été délibérées et sont désormais publiées aux étudiants.`,
+      );
       await charger();
       const resultat = await api.scolariteDetailsDeliberationExamen(examenSelectionne.id);
       setDetails(resultat);
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Impossible de délibérer cet examen.');
+      setErreur(
+        err instanceof ApiError ? err.messages.join(' ') : 'Impossible de délibérer cet examen.',
+      );
     } finally {
       setEnCours(false);
     }
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-enp-ink">Délibération des examens</h1>
-          <p className="mt-1 text-sm text-enp-ink-soft">
-            Vérifiez les notes d’examen avant leur publication aux étudiants. Les devoirs restent visibles immédiatement.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void charger()}
-          disabled={chargement}
-          className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-enp-border bg-white px-3 py-2 text-sm font-medium text-enp-ink hover:bg-enp-sky disabled:opacity-60"
-        >
-          <RefreshCw size={16} aria-hidden="true" /> Actualiser
-        </button>
-      </header>
+    <div className="space-y-5 max-w-6xl mx-auto animate-fade-in pb-6">
+      <PageHeader
+        title="Délibération des examens"
+        description="Vérifiez les bordereaux de notes d’examen et publiez les résultats aux étudiants après délibération du jury."
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Délibération des examens' },
+        ]}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={chargement}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />}
+            onClick={() => void charger()}
+          >
+            Actualiser
+          </Button>
+        }
+      />
 
-      {erreur && <Alerte texte={erreur} />}
-      {message && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
-          {message}
-        </p>
+      {erreur && (
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
       )}
 
-      {chargement ? <p className="text-sm text-enp-ink-soft" role="status">Chargement des examens…</p> : examens.length === 0 ? (
-        <div className="rounded-xl border border-enp-border bg-white p-8 text-center text-enp-ink-soft">
-          Aucun examen n’a encore été saisi dans votre périmètre.
+      {message && (
+        <Alert variant="success" title="Délibération validée" onClose={() => setMessage(null)}>
+          {message}
+        </Alert>
+      )}
+
+      {chargement ? (
+        <div className="bg-white border border-enp-border p-12 text-center text-sm text-enp-gray-medium">
+          Chargement des examens…
+        </div>
+      ) : examens.length === 0 ? (
+        <div className="bg-white border border-enp-border p-10 text-center space-y-2 shadow-xs">
+          <ClipboardCheck className="w-10 h-10 text-enp-gray-medium mx-auto opacity-40" />
+          <p className="text-sm font-bold text-enp-blue-deep">Aucun examen en attente</p>
+          <p className="text-xs text-enp-gray-medium">
+            Aucun examen terminal n’a encore été saisi dans votre périmètre.
+          </p>
         </div>
       ) : (
         <>
-          <label className="block max-w-2xl text-sm font-medium text-enp-ink">
-            Évaluation d’examen
-            <select
-              value={selectionId ?? ''}
-              onChange={(event) => setSelectionId(Number(event.target.value))}
-              className="mt-1 block w-full rounded-md border border-enp-border bg-white px-3 py-2"
-            >
-              {examens.map((examen) => (
-                <option key={examen.id} value={examen.id}>
-                  {examen.code} — {examen.libelle} ({examen.delibereeLe ? 'délibéré' : `${examen.notesSaisies}/${examen.effectif} notes`})
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* SÉLECTION D'EXAMEN EN 1 CLIC */}
+          <div className="bg-white border border-enp-border p-4 space-y-2.5 shadow-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep block">
+              Sélectionner l'examen à vérifier
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {examens.map((examen) => {
+                const actif = examen.id === selectionId;
+                return (
+                  <button
+                    key={examen.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectionId(examen.id);
+                      setMessage(null);
+                    }}
+                    className={`px-3.5 py-2 text-xs border transition-colors flex items-center gap-2 ${
+                      actif
+                        ? 'bg-enp-blue-deep text-white border-enp-blue-deep font-bold shadow-xs'
+                        : 'bg-white text-enp-black border-enp-border hover:bg-enp-blue-ice/40'
+                    }`}
+                  >
+                    <span
+                      className={`font-mono px-1.5 py-0.5 font-bold ${
+                        actif ? 'bg-white/20 text-white' : 'bg-enp-blue-light text-enp-blue-deep'
+                      }`}
+                    >
+                      {examen.code}
+                    </span>
+                    <span>{examen.libelle}</span>
+                    <span
+                      className={`px-1.5 py-0.5 text-[10px] font-bold ${
+                        actif
+                          ? 'bg-white/20 text-white'
+                          : examen.delibereeLe
+                            ? 'bg-enp-green-light text-enp-green-valid'
+                            : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {examen.delibereeLe
+                        ? 'Délibéré'
+                        : `${examen.notesSaisies}/${examen.effectif}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {examenSelectionne && (
-            <section className="overflow-hidden rounded-xl border border-enp-border bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-enp-border bg-enp-sky px-4 py-4">
-                <div>
-                  <h2 className="font-semibold text-enp-ink">{examenSelectionne.code} — {examenSelectionne.intitule}</h2>
-                  <p className="mt-1 text-sm text-enp-ink-soft">
-                    {examenSelectionne.libelle} · barème {examenSelectionne.bareme} · S{examenSelectionne.semestre} · {examenSelectionne.anneeUniversitaire} · {examenSelectionne.campus}
-                  </p>
-                  <p className="mt-1 text-xs text-enp-ink-soft">
-                    {examenSelectionne.notesSaisies}/{examenSelectionne.effectif} notes saisies
+            <section className="bg-white border border-enp-border shadow-xs overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-enp-border bg-enp-bg p-4">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-bold text-enp-blue-deep">
+                      {examenSelectionne.code} : {examenSelectionne.intitule}
+                    </h2>
+                    <Badge variant="institutional">{examenSelectionne.libelle}</Badge>
+                  </div>
+                  <p className="text-xs text-enp-gray-medium">
+                    Barème /{examenSelectionne.bareme} • Semestre {examenSelectionne.semestre} •{' '}
+                    {examenSelectionne.anneeUniversitaire} • {examenSelectionne.campus} •{' '}
+                    <strong className="text-enp-black">
+                      {examenSelectionne.notesSaisies}/{examenSelectionne.effectif} notes saisies
+                    </strong>{' '}
+                    • Moyenne : <strong className="text-enp-blue-deep">{moyenneExamen}</strong>
                   </p>
                 </div>
+
                 {examenSelectionne.delibereeLe ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-800">
-                    <CheckCircle2 size={16} aria-hidden="true" /> Délibéré
+                  <span className="inline-flex items-center gap-1.5 bg-enp-green-light border border-enp-green-valid/30 px-3 py-1.5 text-xs font-bold text-enp-green-valid">
+                    <CheckCircle2 className="w-4 h-4" /> Délibéré et publié
                   </span>
                 ) : (
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     onClick={() => void deliberer()}
-                    disabled={enCours || chargement || examenSelectionne.effectif === 0 || examenSelectionne.notesSaisies !== examenSelectionne.effectif}
-                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-enp-primary px-4 py-2 text-sm font-semibold text-white hover:bg-enp-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+                    isLoading={enCours}
+                    disabled={
+                      enCours ||
+                      chargement ||
+                      examenSelectionne.effectif === 0 ||
+                      examenSelectionne.notesSaisies !== examenSelectionne.effectif
+                    }
+                    leftIcon={<LockKeyhole className="w-4 h-4" />}
                   >
-                    <LockKeyhole size={16} aria-hidden="true" />
-                    {enCours ? 'Délibération…' : 'Confirmer la délibération'}
-                  </button>
+                    Confirmer la délibération
+                  </Button>
                 )}
               </div>
 
-              {!examenSelectionne.delibereeLe && examenSelectionne.notesSaisies !== examenSelectionne.effectif && (
-                <p className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  La délibération sera possible lorsque toutes les notes seront saisies.
-                </p>
-              )}
+              {!examenSelectionne.delibereeLe &&
+                examenSelectionne.notesSaisies !== examenSelectionne.effectif && (
+                  <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-900">
+                    La délibération sera déverrouillée dès que l'enseignant aura saisi les notes de tous les étudiants inscrits.
+                  </div>
+                )}
 
               {!details ? (
-                <p className="p-4 text-sm text-enp-ink-soft">Chargement des notes…</p>
+                <p className="p-8 text-center text-sm text-enp-gray-medium">
+                  Chargement du bordereau des notes…
+                </p>
               ) : details.etudiants.length === 0 ? (
-                <p className="p-4 text-sm text-enp-ink-soft">Aucun étudiant n’est inscrit à cette UE.</p>
+                <p className="p-8 text-center text-sm text-enp-gray-medium">
+                  Aucun étudiant n’est inscrit à cette UE.
+                </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="text-left text-enp-ink-soft">
-                        <th className="px-4 py-3">Matricule</th>
-                        <th className="px-4 py-3">Étudiant</th>
-                        <th className="px-4 py-3 text-right">Note / {examenSelectionne.bareme}</th>
+                      <tr className="bg-enp-blue-deep text-white text-left text-xs uppercase tracking-wider">
+                        <th className="px-4 py-3 font-semibold">Matricule</th>
+                        <th className="px-4 py-3 font-semibold">Étudiant</th>
+                        <th className="px-4 py-3 text-right font-semibold">
+                          Note / {examenSelectionne.bareme}
+                        </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-enp-border">
                       {details.etudiants.map((etudiant) => (
-                        <tr key={etudiant.id} className="border-t border-enp-border">
-                          <td className="px-4 py-3">{etudiant.identifiant ?? '—'}</td>
-                          <td className="px-4 py-3">{etudiant.prenom} {etudiant.nom}</td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {etudiant.note === null ? <span className="font-normal text-amber-800">Non saisie</span> : etudiant.note}
+                        <tr key={etudiant.id} className="hover:bg-enp-blue-ice/20">
+                          <td className="px-4 py-2.5 font-mono text-xs font-bold text-enp-blue-deep">
+                            {etudiant.identifiant ?? '-'}
+                          </td>
+                          <td className="px-4 py-2.5 font-semibold text-enp-black">
+                            {etudiant.prenom} {etudiant.nom}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono font-bold">
+                            {etudiant.note === null ? (
+                              <Badge variant="warning">Non saisie</Badge>
+                            ) : (
+                              <span
+                                className={
+                                  etudiant.note >= examenSelectionne.bareme / 2
+                                    ? 'text-enp-blue-deep'
+                                    : 'text-enp-red-error'
+                                }
+                              >
+                                {etudiant.note}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -181,15 +303,6 @@ export function ScolariteDeliberations() {
           )}
         </>
       )}
-    </div>
-  );
-}
-
-function Alerte({ texte }: { texte: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux" role="alert">
-      <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
-      <span>{texte}</span>
     </div>
   );
 }

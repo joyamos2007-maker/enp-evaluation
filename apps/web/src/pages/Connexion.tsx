@@ -409,10 +409,17 @@ export function Connexion() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => preRemplir('directeur.campus@enp.tg', 'Enp2026!Campus')}
+                    className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
+                  >
+                    Dir. Campus
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => preRemplir('direction@enp.tg', 'Enp2026!Direction')}
                     className="text-[11px] px-2 py-1 bg-white border border-enp-border text-enp-black hover:border-enp-blue-primary hover:bg-enp-blue-light font-medium"
                   >
-                    Direction Études
+                    Dir. Générale
                   </button>
                   <button
                     type="button"

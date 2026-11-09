@@ -1,7 +1,7 @@
 import type { JetonVote, Note } from '@/api/types';
 
 /**
- * Brouillon d'évaluation — SEULE exception autorisée au stockage navigateur.
+ * Brouillon d'évaluation : SEULE exception autorisée au stockage navigateur.
  *
  * Contenu : réponses saisies + jeton de vote. JAMAIS d'identité, de jeton
  * d'accès, ni de donnée personnelle. Effacé après envoi réussi et à la

@@ -3,55 +3,43 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   Plus,
-  Calendar as CalendarIcon,
   Clock,
-  Filter,
   Download,
-  List,
-  Table as TableIcon,
-  ChevronLeft,
-  ChevronRight,
   Stamp,
   AlertCircle,
-  FileCheck2,
-  Paperclip,
   Search,
   CheckCircle2,
+  Calendar,
+  X,
+  FileText,
+  Filter,
+  Check,
+  MessageSquare,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
-import type { Avancement, Seance, UeCahier, TypeSeance, StatutSeance, StatutVisa } from '@/api/types';
+import type { Avancement, Seance, UeCahier, TypeSeance, StatutVisa } from '@/api/types';
 import { useAuth } from '@/auth/AuthContext';
 import {
   PageHeader,
   Button,
-  Table,
   Badge,
-  ProgressBar,
   Input,
   Select,
   Alert,
   EmptyState,
-  InfoBubble,
+  Modal,
 } from '@/components/ui';
-
-type ModeAffichage = 'chronologique' | 'tableau' | 'calendrier';
 
 const LIBELLES_VISA: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
   en_attente: { label: 'En attente de visa', variant: 'warning' },
-  vise: { label: 'Visée par l’enseignant', variant: 'success' },
+  vise: { label: 'Visée', variant: 'success' },
   conteste: { label: 'Contestée', variant: 'danger' },
 };
 
-const LIBELLES_STATUT: Record<string, string> = {
-  tenue: 'Séance tenue',
-  reportee: 'Reportée',
-  annulee: 'Annulée',
-  enseignant_absent: 'Enseignant absent',
-  planifiee: 'Planifiée',
-};
-
 export function CahierTexte() {
-  const { aRole, utilisateur } = useAuth();
+  const { aRole } = useAuth();
   const navigate = useNavigate();
 
   const peutSaisir = aRole('delegue');
@@ -61,17 +49,25 @@ export function CahierTexte() {
   const [seances, setSeances] = useState<Seance[]>([]);
   const [avancements, setAvancements] = useState<Map<number, Avancement>>(new Map());
 
-  // Vues & Filtres
-  const [mode, setMode] = useState<ModeAffichage>('chronologique');
+  // Filtres simplifiés et pratiques
   const [recherche, setRecherche] = useState('');
   const [filtreUe, setFiltreUe] = useState<string>('all');
+  const [filtreVisa, setFiltreVisa] = useState<'all' | 'en_attente' | 'vise' | 'conteste'>('all');
   const [filtreType, setFiltreType] = useState<string>('all');
-  const [filtreVisa, setFiltreVisa] = useState<string>('all');
 
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [messageSucces, setMessageSucces] = useState<string | null>(null);
   const [exportEnCours, setExportEnCours] = useState(false);
 
+  // Actions de visa directes
+  const [seanceEnCoursVisa, setSeanceEnCoursVisa] = useState<number | null>(null);
+  const [seanceAContester, setSeanceAContester] = useState<Seance | null>(null);
+  const [motifContestation, setMotifContestation] = useState('');
+  const [erreurContestation, setErreurContestation] = useState<string | null>(null);
+  const [envoiContestation, setEnvoiContestation] = useState(false);
+
+  // Chargement des données
   const charger = useCallback(async () => {
     setChargement(true);
     setErreur(null);
@@ -83,13 +79,13 @@ export function CahierTexte() {
       setUes(uesData);
       setSeances(seancesData);
 
-      // Charger les avancements horaires pour les UE
+      // Chargement avancements
       const avMap = new Map<number, Avancement>();
       try {
         const avancees = await Promise.all(uesData.map((u) => api.avancementUe(u.ueId)));
         avancees.forEach((av) => avMap.set(av.ueId, av));
       } catch {
-        // En cas de droits limités sur avancement, on ignore
+        // Ignorer si droits restreints
       }
       setAvancements(avMap);
     } catch (err) {
@@ -103,6 +99,11 @@ export function CahierTexte() {
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  // Nombre de séances en attente pour l'enseignant
+  const nbEnAttente = useMemo(() => {
+    return seances.filter((s) => s.visa.statut === 'en_attente').length;
+  }, [seances]);
 
   // Séances filtrées
   const seancesFiltrees = useMemo(() => {
@@ -120,7 +121,57 @@ export function CahierTexte() {
     });
   }, [seances, filtreUe, filtreType, filtreVisa, recherche]);
 
-  async function telechargerExport(format: 'pdf' | 'xlsx' | 'docx') {
+  // Action rapide : Viser directement une séance
+  async function viserDirectement(seance: Seance) {
+    setSeanceEnCoursVisa(seance.id);
+    setMessageSucces(null);
+    try {
+      const seanceVisée = await api.visaSeance(seance.id, { decision: 'vise' });
+      // Mise à jour immédiate en local
+      setSeances((prev) =>
+        prev.map((s) => (s.id === seance.id ? { ...s, visa: seanceVisée.visa } : s))
+      );
+      setMessageSucces(`La séance de « ${seance.ueCode} » du ${seance.date} a été visée avec succès.`);
+      setTimeout(() => setMessageSucces(null), 4000);
+    } catch (err) {
+      alert(err instanceof ApiError ? err.messages.join(' ') : 'Erreur lors du visa de la séance.');
+    } finally {
+      setSeanceEnCoursVisa(null);
+    }
+  }
+
+  // Action : Confirmer la contestation
+  async function soumettreContestation() {
+    if (!seanceAContester) return;
+    if (!motifContestation.trim()) {
+      setErreurContestation('Veuillez indiquer le motif de votre réserve ou contestation.');
+      return;
+    }
+    setEnvoiContestation(true);
+    setErreurContestation(null);
+    try {
+      const seanceModifiee = await api.visaSeance(seanceAContester.id, {
+        decision: 'conteste',
+        commentaire: motifContestation.trim(),
+      });
+      setSeances((prev) =>
+        prev.map((s) => (s.id === seanceAContester.id ? { ...s, visa: seanceModifiee.visa } : s))
+      );
+      setMessageSucces(`Réserve enregistrée pour la séance de « ${seanceAContester.ueCode} ».`);
+      setTimeout(() => setMessageSucces(null), 4000);
+      setSeanceAContester(null);
+      setMotifContestation('');
+    } catch (err) {
+      setErreurContestation(
+        err instanceof ApiError ? err.messages.join(' ') : 'Erreur lors de la contestation.'
+      );
+    } finally {
+      setEnvoiContestation(false);
+    }
+  }
+
+  // Téléchargement d'exportation
+  async function telechargerExport(format: 'pdf' | 'xlsx') {
     setExportEnCours(true);
     try {
       const ueId = filtreUe === 'all' ? undefined : Number(filtreUe);
@@ -155,416 +206,447 @@ export function CahierTexte() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-6 pb-12 animate-fade-in">
+      {/* En-tête sobre et direct */}
       <PageHeader
-        title="Cahier de Texte Numérique Officiel"
-        description="Traçabilité des cours magistraux, travaux dirigés et pratiques • Visas des enseignants"
+        title="Cahier de texte"
+        description="Traçabilité des cours dispensés et validation officielle des séances."
         breadcrumbs={[{ label: 'Accueil', href: '/' }, { label: 'Cahier de texte' }]}
-        badge={
-          <InfoBubble
-            triggerVariant="pill"
-            triggerLabel="Cadre du visa"
-            title="Réglementation officielle du visa pédagogique"
-            badge="TRAÇABILITÉ ACADÉMIQUE"
-            icon="book"
-            duration={7000}
-            content={
-              <div className="space-y-2 text-xs leading-relaxed font-sans">
-                <p>
-                  Chaque séance consignée engage la responsabilité académique. L'enseignant dispose d'un délai réglementaire pour viser la séance ou émettre une réserve motivée.
-                </p>
-                <p>
-                  Les volumes horaires consolidés servent d'assiette aux états de service officiels et au suivi des maquettes pédagogiques par les Directions de campus et générale.
-                </p>
-              </div>
-            }
-          />
-        }
         actions={
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 flex-wrap">
             {peutSaisir && (
-              <Link to="/cahier-texte/nouvelle" className="w-full sm:w-auto">
-                <Button variant="primary" size="md" className="w-full sm:w-auto justify-center font-bold min-h-[42px]" leftIcon={<Plus className="w-4 h-4" />}>
+              <Link to="/cahier-texte/nouvelle">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  className="font-bold min-h-[38px]"
+                >
                   Nouvelle séance
                 </Button>
               </Link>
             )}
-            <div className="flex items-center border border-enp-border bg-white w-full sm:w-auto justify-center">
+            <div className="inline-flex border border-enp-border bg-white">
               <button
                 type="button"
                 disabled={exportEnCours}
                 onClick={() => void telechargerExport('pdf')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
-                title="Exporter au format PDF officiel"
+                className="px-3 py-1.5 text-xs font-semibold text-enp-blue-deep hover:bg-enp-blue-ice border-r border-enp-border transition-colors flex items-center gap-1.5"
+                title="Exporter le cahier de texte en PDF"
               >
-                PDF
+                <Download className="w-3.5 h-3.5" />
+                <span>PDF</span>
               </button>
               <button
                 type="button"
                 disabled={exportEnCours}
                 onClick={() => void telechargerExport('xlsx')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice border-r border-enp-border transition-colors text-center font-sans"
-                title="Exporter au format Excel"
+                className="px-3 py-1.5 text-xs font-semibold text-enp-blue-deep hover:bg-enp-blue-ice transition-colors flex items-center gap-1.5"
+                title="Exporter vers Excel"
               >
-                Excel
-              </button>
-              <button
-                type="button"
-                disabled={exportEnCours}
-                onClick={() => void telechargerExport('docx')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs font-semibold hover:bg-enp-blue-ice transition-colors text-center font-sans"
-                title="Exporter au format Word"
-              >
-                Word
+                <span>Excel</span>
               </button>
             </div>
           </div>
         }
       />
 
-      {/* Cartes d'avancement horaire adaptées au mobile en grille 2 colonnes */}
-      {ues.length > 0 && avancements.size > 0 && (
-        <div className="bg-white border border-enp-border p-3 sm:p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-enp-blue-deep mb-2.5 font-sans">
-            Avancement horaire des Unités d'Enseignement
+      {/* Message de succès temporaire */}
+      {messageSucces && (
+        <Alert variant="success" onClose={() => setMessageSucces(null)}>
+          {messageSucces}
+        </Alert>
+      )}
+
+      {/* Bannière d'attention immédiate pour les enseignants : séances à viser */}
+      {peutViser && nbEnAttente > 0 && (
+        <div className="p-3.5 bg-enp-gold/15 border-l-4 border-enp-gold text-enp-blue-deep flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-subtle">
+          <div className="flex items-center gap-2.5">
+            <Stamp className="w-5 h-5 text-enp-gold shrink-0" />
+            <div>
+              <p className="text-xs font-bold font-sans">
+                {nbEnAttente} séance{nbEnAttente > 1 ? 's' : ''} en attente de votre visa
+              </p>
+              <p className="text-[11px] text-enp-gray-medium">
+                Vérifiez les heures et le contenu consignés par les délégués, puis validez d'un simple clic.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltreVisa('en_attente')}
+            className={`border-enp-gold/40 text-enp-blue-deep shrink-0 text-xs font-bold ${
+              filtreVisa === 'en_attente' ? 'bg-white shadow-subtle' : 'bg-white/80 hover:bg-white'
+            }`}
+          >
+            {filtreVisa === 'en_attente' ? 'Filtre actif' : 'Afficher uniquement celles-ci'}
+          </Button>
+        </div>
+      )}
+
+      {/* Raccourcis par UE : sélecteur horizontal épuré */}
+      {ues.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-bold text-enp-gray-medium uppercase tracking-wider">
+            Matières dispensées :
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+            <button
+              type="button"
+              onClick={() => setFiltreUe('all')}
+              className={`px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors border select-none ${
+                filtreUe === 'all'
+                  ? 'bg-enp-blue-deep text-white border-enp-blue-deep shadow-subtle'
+                  : 'bg-white text-enp-black border-enp-border hover:bg-slate-50'
+              }`}
+            >
+              Toutes les UE ({seances.length})
+            </button>
+
             {ues.map((u) => {
+              const estActif = String(u.ueId) === filtreUe;
               const av = avancements.get(u.ueId);
               const heuresRealisees = av
                 ? av.heuresEffectuees.cm + av.heuresEffectuees.td + av.heuresEffectuees.tp
-                : 0;
-              const volumePrevu = av
-                ? av.heuresPrevues.cm + av.heuresPrevues.td + av.heuresPrevues.tp
-                : 45;
-              const pct = volumePrevu > 0 ? Math.min(100, Math.round((heuresRealisees / volumePrevu) * 100)) : 0;
+                : null;
+              const nbSeancesUe = seances.filter((s) => s.ueId === u.ueId).length;
 
               return (
-                <div key={u.ueId} className="p-2.5 sm:p-3 border border-enp-border/80 bg-enp-blue-ice/30 space-y-1.5 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-bold font-mono text-enp-blue-deep truncate">{u.code}</span>
-                    <span className="text-xs font-bold text-enp-black shrink-0 font-sans">{pct}%</span>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-enp-gray-medium truncate font-sans" title={u.intitule}>
+                <button
+                  key={u.ueId}
+                  type="button"
+                  onClick={() => setFiltreUe(String(u.ueId))}
+                  className={`px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors border flex items-center gap-2 select-none ${
+                    estActif
+                      ? 'bg-enp-blue-deep text-white border-enp-blue-deep shadow-subtle'
+                      : 'bg-white text-enp-black border-enp-border hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="font-mono">{u.code}</span>
+                  <span className="text-[11px] opacity-80 truncate max-w-[140px] font-normal">
                     {u.intitule}
-                  </p>
-                  <ProgressBar
-                    value={pct}
-                    showPercent={false}
-                    size="sm"
-                    variant={pct >= 80 ? 'success' : 'primary'}
-                  />
-                  <p className="text-[10px] sm:text-[11px] text-enp-gray-medium font-sans truncate">
-                    {heuresRealisees}h / {volumePrevu}h prévues
-                  </p>
-                </div>
+                  </span>
+                  <span
+                    className={`text-[10px] px-1 py-0.2 ${
+                      estActif ? 'bg-white/20 text-white' : 'bg-slate-100 text-enp-gray-medium'
+                    }`}
+                  >
+                    {heuresRealisees !== null ? `${heuresRealisees}h` : `${nbSeancesUe}`}
+                  </span>
+                </button>
               );
             })}
           </div>
         </div>
       )}
 
-      {/* Barre de contrôle ergonomique mobile : Recherche, Filtres & Bascule de vue */}
-      <div className="bg-white border border-enp-border p-3 sm:p-4 space-y-2.5 sm:space-y-3">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3">
-          <div className="w-full lg:max-w-sm lg:flex-1">
+      {/* Barre de recherche et filtres simples */}
+      <div className="bg-white border border-enp-border p-3.5 space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Recherche rapide */}
+          <div className="flex-1 max-w-md">
             <Input
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Rechercher séance, contenu..."
-              startIcon={<Search className="w-4 h-4" />}
+              placeholder="Rechercher par thème, leçon, mot-clé..."
+              startIcon={<Search className="w-4 h-4 text-enp-gray-medium" />}
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
-            <div className="col-span-2 sm:w-44">
-              <Select
-                value={filtreUe}
-                onChange={(e) => setFiltreUe(e.target.value)}
-                aria-label="Filtrer par unité d'enseignement"
-              >
-                <option value="all">Toutes les UE</option>
-                {ues.map((u) => (
-                  <option key={u.ueId} value={u.ueId}>
-                    {u.code} : {u.intitule}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="col-span-1 sm:w-28">
-              <Select
-                value={filtreType}
-                onChange={(e) => setFiltreType(e.target.value)}
-                aria-label="Filtrer par type de séance"
-              >
-                <option value="all">Tous types</option>
-                <option value="CM">CM</option>
-                <option value="TD">TD</option>
-                <option value="TP">TP</option>
-                <option value="AUTRE">Autre</option>
-              </Select>
-            </div>
-
-            <div className="col-span-1 sm:w-36">
-              <Select
-                value={filtreVisa}
-                onChange={(e) => setFiltreVisa(e.target.value)}
-                aria-label="Filtrer par statut de visa"
-              >
-                <option value="all">Tous visas</option>
-                <option value="en_attente">En attente</option>
-                <option value="vise">Visées</option>
-                <option value="conteste">Contestées</option>
-              </Select>
-            </div>
-
-            {/* Sélecteur de mode d'affichage */}
-            <div className="col-span-2 sm:col-span-auto flex items-center border border-enp-border sm:ml-auto justify-end">
+          {/* Filtres par état de visa */}
+          <div className="flex items-center gap-1 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setFiltreVisa('all')}
+              className={`px-2.5 py-1.5 text-xs font-semibold border transition-colors ${
+                filtreVisa === 'all'
+                  ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                  : 'bg-white text-enp-gray-medium border-enp-border hover:text-enp-black'
+              }`}
+            >
+              Toutes ({seances.length})
+            </button>
+            {(peutViser || peutSaisir || aRole('chef_departement') || aRole('scolarite')) && (
               <button
                 type="button"
-                onClick={() => setMode('chronologique')}
-                className={`flex-1 sm:flex-none p-2 transition-colors flex items-center justify-center ${
-                  mode === 'chronologique'
-                    ? 'bg-enp-blue-primary text-white'
-                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
+                onClick={() => setFiltreVisa('en_attente')}
+                className={`px-2.5 py-1.5 text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
+                  filtreVisa === 'en_attente'
+                    ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                    : 'bg-white text-enp-gray-medium border-enp-border hover:text-enp-black'
                 }`}
-                aria-label="Vue chronologique"
-                title="Vue chronologique"
               >
-                <List className="w-4 h-4" />
+                <span>À viser</span>
+                {nbEnAttente > 0 && (
+                  <span className="w-2 h-2 bg-enp-gold rounded-full" />
+                )}
               </button>
-              <button
-                type="button"
-                onClick={() => setMode('tableau')}
-                className={`flex-1 sm:flex-none p-2 border-l border-enp-border transition-colors flex items-center justify-center ${
-                  mode === 'tableau'
-                    ? 'bg-enp-blue-primary text-white'
-                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
-                }`}
-                aria-label="Vue tableau"
-                title="Vue tableau structuré"
-              >
-                <TableIcon className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('calendrier')}
-                className={`flex-1 sm:flex-none p-2 border-l border-enp-border transition-colors flex items-center justify-center ${
-                  mode === 'calendrier'
-                    ? 'bg-enp-blue-primary text-white'
-                    : 'bg-white text-enp-gray-medium hover:text-enp-black'
-                }`}
-                aria-label="Vue calendrier"
-                title="Vue calendrier"
-              >
-                <CalendarIcon className="w-4 h-4" />
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setFiltreVisa('vise')}
+              className={`px-2.5 py-1.5 text-xs font-semibold border transition-colors ${
+                filtreVisa === 'vise'
+                  ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                  : 'bg-white text-enp-gray-medium border-enp-border hover:text-enp-black'
+              }`}
+            >
+              Visées
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltreVisa('conteste')}
+              className={`px-2.5 py-1.5 text-xs font-semibold border transition-colors ${
+                filtreVisa === 'conteste'
+                  ? 'bg-enp-blue-primary text-white border-enp-blue-primary'
+                  : 'bg-white text-enp-gray-medium border-enp-border hover:text-enp-black'
+              }`}
+            >
+              Réserves
+            </button>
+          </div>
+
+          {/* Filtre par type */}
+          <div className="w-28 shrink-0">
+            <Select
+              value={filtreType}
+              onChange={(e) => setFiltreType(e.target.value)}
+              aria-label="Type de cours"
+            >
+              <option value="all">Tous types</option>
+              <option value="CM">CM</option>
+              <option value="TD">TD</option>
+              <option value="TP">TP</option>
+              <option value="AUTRE">Autre</option>
+            </Select>
           </div>
         </div>
       </div>
 
-      {/* Contenu selon le mode sélectionné */}
+      {/* Liste chronologique épurée des séances */}
       {chargement ? (
-        <div className="py-12 text-center text-enp-gray-medium text-sm">
-          Chargement des séances officielles…
+        <div className="py-12 text-center text-enp-gray-medium text-xs">
+          Chargement du cahier de texte…
         </div>
       ) : erreur ? (
-        <Alert variant="danger" title="Erreur">{erreur}</Alert>
+        <Alert variant="danger" title="Erreur de chargement">
+          {erreur}
+        </Alert>
       ) : seancesFiltrees.length === 0 ? (
         <EmptyState
-          title="Aucune séance trouvée"
+          title="Aucune séance ne correspond aux critères"
           description={
-            peutSaisir
-              ? "Aucune séance ne correspond aux filtres appliqués. Cliquez sur « Nouvelle séance » pour consigner une heure de cours."
-              : "Aucune séance consignée pour ces critères."
+            filtreVisa === 'en_attente'
+              ? "Toutes les séances ont déjà été visées. Vous êtes parfaitement à jour !"
+              : "Aucune séance enregistrée pour cette matière ou ce filtre."
           }
-          actionLabel={peutSaisir ? "Nouvelle séance" : undefined}
-          onAction={peutSaisir ? () => navigate('/cahier-texte/nouvelle') : undefined}
+          actionLabel={filtreVisa !== 'all' || filtreUe !== 'all' ? 'Réinitialiser les filtres' : undefined}
+          onAction={() => {
+            setFiltreVisa('all');
+            setFiltreUe('all');
+            setFiltreType('all');
+            setRecherche('');
+          }}
         />
-      ) : mode === 'tableau' ? (
-        // VUE 1 : TABLEAU STRUCTURÉ
-        <Table<Seance>
-          columns={[
-            {
-              key: 'date',
-              header: 'Date & Horaires',
-              render: (s) => (
-                <div>
-                  <span className="font-semibold text-enp-blue-deep block">
-                    {formaterDateFr(s.date)}
-                  </span>
-                  <span className="text-xs text-enp-gray-medium">
-                    {s.debut} - {s.fin}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              key: 'ue',
-              header: 'UE',
-              render: (s) => (
-                <div>
-                  <span className="font-mono text-xs font-bold text-enp-blue-deep bg-enp-blue-light px-1.5 py-0.5 border border-enp-blue-primary/20">
-                    {s.ueCode}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              key: 'type',
-              header: 'Type',
-              render: (s) => (
-                <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
-                  {s.type}
-                </span>
-              ),
-            },
-            {
-              key: 'intitule',
-              header: 'Intitulé & Contenu',
-              render: (s) => (
-                <div className="max-w-md">
-                  <p className="font-bold text-enp-black truncate">{s.intitule}</p>
-                  <p className="text-xs text-enp-gray-medium line-clamp-1">{s.contenu}</p>
-                </div>
-              ),
-            },
-            {
-              key: 'visa',
-              header: 'Visa enseignant',
-              render: (s) => {
-                const conf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
-                return <Badge variant={conf.variant}>{conf.label}</Badge>;
-              },
-            },
-            {
-              key: 'actions',
-              header: 'Détails',
-              align: 'right',
-              render: (s) => (
-                <Link to={`/cahier-texte/${s.id}`}>
-                  <Button variant="outline" size="sm">
-                    Consulter
-                  </Button>
-                </Link>
-              ),
-            },
-          ]}
-          data={seancesFiltrees}
-          keyExtractor={(s) => s.id}
-          onRowClick={(s) => navigate(`/cahier-texte/${s.id}`)}
-        />
-      ) : mode === 'calendrier' ? (
-        // VUE 2 : CALENDRIER HEBDOMADAIRE / MENSUEL RECTILIGNE
-        <div className="bg-white border border-enp-border p-5">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-enp-border">
-            <span className="text-sm font-bold text-enp-blue-deep">
-              Vue Calendaire des Enseignements
-            </span>
-            <span className="text-xs text-enp-gray-medium">
-              {seancesFiltrees.length} séance(s) répertoriée(s)
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {seancesFiltrees.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => navigate(`/cahier-texte/${s.id}`)}
-                className="p-3.5 border border-enp-border hover:border-enp-blue-primary bg-white cursor-pointer transition-colors space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-enp-blue-deep">
-                    {formaterDateFr(s.date)}
-                  </span>
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border">
-                    {s.type}
-                  </span>
-                </div>
-                <p className="text-sm font-bold text-enp-black truncate">{s.intitule}</p>
-                <p className="text-xs text-enp-gray-medium line-clamp-2">{s.contenu}</p>
-                <div className="pt-2 border-t border-enp-border flex items-center justify-between text-xs">
-                  <span className="text-enp-gray-medium">{s.debut} - {s.fin}</span>
-                  <Badge variant={LIBELLES_VISA[s.visa.statut]?.variant || 'neutral'}>
-                    {LIBELLES_VISA[s.visa.statut]?.label || s.visa.statut}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       ) : (
-        // VUE 3 : CHRONOLOGIQUE ÉLÉGANTE (PAR DÉFAUT)
         <div className="space-y-3">
           {seancesFiltrees.map((s) => {
-            const visaConf = LIBELLES_VISA[s.visa.statut] ?? { label: s.visa.statut, variant: 'neutral' };
-            const bordureStatut =
-              s.visa.statut === 'vise'
-                ? 'border-l-4 border-l-enp-green-valid'
-                : s.visa.statut === 'conteste'
-                ? 'border-l-4 border-l-enp-red-error'
-                : 'border-l-4 border-l-[#D97706]';
+            const visaInfo = LIBELLES_VISA[s.visa.statut] ?? {
+              label: s.visa.statut,
+              variant: 'neutral' as const,
+            };
+            const estEnAttente = s.visa.statut === 'en_attente';
+            const enCoursSurCetteSeance = seanceEnCoursVisa === s.id;
 
             return (
               <div
                 key={s.id}
-                className={`bg-white border border-enp-border hover:border-enp-blue-primary/80 transition-colors p-3.5 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 ${bordureStatut}`}
+                className={`bg-white border p-4 sm:p-5 transition-all space-y-3 ${
+                  estEnAttente
+                    ? 'border-l-4 border-l-enp-gold border-enp-border shadow-subtle'
+                    : s.visa.statut === 'conteste'
+                    ? 'border-l-4 border-l-enp-red-error border-enp-border'
+                    : 'border-l-4 border-l-enp-green-valid border-enp-border'
+                }`}
               >
-                <div className="space-y-2 flex-1 min-w-0">
+                {/* Ligne 1 : Date, UE, Type et Statut du visa */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-enp-border/70">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
+                    {/* Badge date et heure */}
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-enp-blue-deep bg-enp-blue-ice px-2.5 py-1 border border-enp-border">
+                      <Calendar className="w-3.5 h-3.5 text-enp-blue-primary" />
+                      <span>{formaterDateFr(s.date)}</span>
+                      <span className="text-enp-gray-medium">•</span>
+                      <Clock className="w-3.5 h-3.5 text-enp-gray-medium" />
+                      <span>{s.debut} - {s.fin}</span>
+                    </span>
+
+                    {/* Badge code UE */}
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
                       {s.ueCode}
                     </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 bg-enp-bg border border-enp-border font-sans">
+
+                    {/* Badge type */}
+                    <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-enp-black border border-enp-border">
                       {s.type}
-                    </span>
-                    <Badge variant={visaConf.variant}>{visaConf.label}</Badge>
-                    <span className="text-xs text-enp-gray-medium font-sans">
-                      {LIBELLES_STATUT[s.statut] || s.statut}
                     </span>
                   </div>
 
-                  <h3 className="text-sm sm:text-base font-bold text-enp-black font-sans break-words">
-                    {s.intitule}
-                  </h3>
-
-                  <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed line-clamp-2 font-sans">
-                    {s.contenu}
-                  </p>
-
-                  <div className="flex items-center gap-3 sm:gap-4 text-xs text-enp-gray-medium pt-0.5 font-sans flex-wrap">
-                    <span className="flex items-center gap-1 font-medium text-enp-blue-deep">
-                      <CalendarIcon className="w-3.5 h-3.5" />
-                      {formaterDateFr(s.date)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      {s.debut} à {s.fin}
-                    </span>
+                  {/* Statut du visa */}
+                  <div className="flex items-center gap-2">
+                    <Badge variant={visaInfo.variant} size="sm">
+                      {visaInfo.label}
+                    </Badge>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 pt-2 lg:pt-0 w-full lg:w-auto">
-                  <Link to={`/cahier-texte/${s.id}`} className="w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center font-semibold min-h-[40px] whitespace-nowrap">
-                      Détail & Historique
-                    </Button>
-                  </Link>
-                  {peutViser && s.visa.statut === 'en_attente' && (
-                    <Link to="/visas" className="w-full sm:w-auto">
-                      <Button variant="primary" size="sm" className="w-full sm:w-auto justify-center font-bold min-h-[40px] whitespace-nowrap" leftIcon={<Stamp className="w-4 h-4" />}>
-                        Viser
-                      </Button>
-                    </Link>
+                {/* Ligne 2 : Titre de la leçon & Contenu pédagogique */}
+                <div className="space-y-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-enp-black">
+                    {s.intitule || 'Séance sans titre'}
+                  </h3>
+                  {s.contenu && (
+                    <p className="text-xs sm:text-sm text-enp-gray-dark leading-relaxed">
+                      {s.contenu}
+                    </p>
                   )}
+                </div>
+
+                {/* Travail à faire / Devoirs (si présent) */}
+                {s.travailAFaire && (
+                  <div className="p-2.5 bg-slate-50 border border-enp-border/80 text-xs flex items-start gap-2">
+                    <FileText className="w-4 h-4 text-enp-blue-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-enp-blue-deep">Travail à faire : </span>
+                      <span className="text-enp-black">{s.travailAFaire}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Commentaire de contestation si existant */}
+                {s.visa.statut === 'conteste' && s.visa.commentaire && (
+                  <div className="p-2.5 bg-enp-red-light border-l-2 border-enp-red-error text-xs text-enp-red-error flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Motif de la réserve : </span>
+                      <span>{s.visa.commentaire}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ligne 3 : Barre d'action rapide pour le professeur */}
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="text-[11px] text-enp-gray-medium">
+                    {s.visa.statut === 'vise' && s.visa.date && (
+                      <span className="text-enp-green-valid font-medium inline-flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        Visée le {new Date(s.visa.date).toLocaleDateString('fr-FR')}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Actions de visa directes pour les profs */}
+                    {peutViser && estEnAttente && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={enCoursSurCetteSeance}
+                          onClick={() => void viserDirectement(s)}
+                          className="px-3.5 py-1.5 bg-enp-green-valid hover:bg-enp-teal-dark text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-subtle disabled:opacity-50"
+                          title="Valider et viser cette séance en 1 clic"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>{enCoursSurCetteSeance ? 'Validation…' : 'Viser la séance'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={enCoursSurCetteSeance}
+                          onClick={() => {
+                            setSeanceAContester(s);
+                            setMotifContestation('');
+                            setErreurContestation(null);
+                          }}
+                          className="px-3 py-1.5 bg-white border border-enp-border hover:border-enp-red-error text-enp-red-error text-xs font-semibold transition-colors flex items-center gap-1.5"
+                          title="Signaler une erreur ou émettre une réserve"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Réserve</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Lien vers consultation détaillée */}
+                    <Link to={`/cahier-texte/${s.id}`}>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 bg-white border border-enp-border hover:bg-slate-50 text-enp-black text-xs font-medium transition-colors inline-flex items-center gap-1"
+                      >
+                        <span>Détails</span>
+                        <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                      </button>
+                    </Link>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Modale simple pour émettre une réserve (Contestation) */}
+      <Modal
+        isOpen={Boolean(seanceAContester)}
+        onClose={() => setSeanceAContester(null)}
+        title="Émettre une réserve sur la séance"
+        subtitle={
+          seanceAContester
+            ? `${seanceAContester.ueCode} • ${formaterDateFr(seanceAContester.date)} (${seanceAContester.debut}-${seanceAContester.fin})`
+            : undefined
+        }
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={envoiContestation}
+              onClick={() => setSeanceAContester(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              isLoading={envoiContestation}
+              onClick={() => void soumettreContestation()}
+            >
+              Enregistrer la réserve
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 text-left">
+          <p className="text-xs text-enp-gray-medium leading-relaxed">
+            Indiquez le motif précis de la réserve (ex : horaires réels différents, enseignement reporté, contenu non conforme).
+          </p>
+
+          <textarea
+            rows={3}
+            value={motifContestation}
+            onChange={(e) => setMotifContestation(e.target.value)}
+            placeholder="Ex : Le cours a duré 1h30 au lieu de 2h..."
+            className="w-full text-xs p-2.5 border border-enp-border focus:border-enp-blue-primary focus:outline-none"
+            autoFocus
+          />
+
+          {erreurContestation && (
+            <p className="text-xs text-enp-red-error font-medium">{erreurContestation}</p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

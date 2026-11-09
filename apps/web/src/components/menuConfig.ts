@@ -5,30 +5,22 @@ export interface EntreeMenu {
   libelle: string;
   icone: string;
   roles: Role[];
-  section?: string;
+  section?: string | ((role: Role) => string);
 }
 
 export const ENTREES_MENU: EntreeMenu[] = [
-  {
-    chemin: "/notifications",
-    libelle: "Notifications",
-    icone: "Bell",
-    roles: [
-      "etudiant",
-      "delegue",
-      "enseignant",
-      "chef_departement",
-      "scolarite",
-      "directeur_campus",
-      "directeur_general",
-      "admin",
-    ],
-    section: "Général",
-  },
+  // --- 1. ÉTUDIANT & DÉLÉGUÉ ---
   {
     chemin: "/evaluations",
     libelle: "Mes évaluations",
     icone: "ClipboardCheck",
+    roles: ["etudiant", "delegue"],
+    section: "Évaluation & Pédagogie",
+  },
+  {
+    chemin: "/restitution",
+    libelle: "Restitution des résultats",
+    icone: "FileText",
     roles: ["etudiant", "delegue"],
     section: "Évaluation & Pédagogie",
   },
@@ -46,13 +38,8 @@ export const ENTREES_MENU: EntreeMenu[] = [
     roles: ["etudiant", "delegue"],
     section: "Dossier Académique",
   },
-  {
-    chemin: "/restitution",
-    libelle: "Restitution",
-    icone: "FileText",
-    roles: ["etudiant", "delegue"],
-    section: "Évaluation & Pédagogie",
-  },
+
+  // --- 2. CAHIER DE TEXTE (Délégué, Enseignant, Chef, Scolarité) ---
   {
     chemin: "/cahier-texte",
     libelle: "Cahier de texte",
@@ -64,15 +51,23 @@ export const ENTREES_MENU: EntreeMenu[] = [
       "chef_departement",
       "scolarite",
     ],
-    section: "Cahier de Texte",
+    section: (r: Role) => {
+      if (r === "etudiant") return "Vie Pédagogique";
+      if (r === "delegue") return "Cahier de Texte (Délégué)";
+      if (r === "enseignant") return "Cahier de Texte";
+      if (r === "chef_departement") return "Cahier de Texte";
+      return "Supervision Académique";
+    },
   },
   {
-    chemin: "/resultats",
-    libelle: "Résultats des UE",
-    icone: "BarChart3",
-    roles: ["enseignant", "chef_departement", "scolarite", "directeur_campus", "directeur_general"],
-    section: "Évaluation & Pédagogie",
+    chemin: "/cahier-texte/nouvelle",
+    libelle: "Renseigner une séance",
+    icone: "PlusCircle",
+    roles: ["delegue"],
+    section: "Cahier de Texte (Délégué)",
   },
+
+  // --- 3. ENSEIGNANT ---
   {
     chemin: "/enseignant/notes",
     libelle: "Saisie des notes",
@@ -88,75 +83,85 @@ export const ENTREES_MENU: EntreeMenu[] = [
     section: "Dossier Académique",
   },
   {
-    chemin: "/visas",
-    libelle: "Séances à viser",
-    icone: "Stamp",
-    roles: ["enseignant"],
-    section: "Cahier de Texte",
+    chemin: "/resultats",
+    libelle: "Résultats des UE",
+    icone: "BarChart3",
+    roles: [
+      "enseignant",
+      "chef_departement",
+      "scolarite",
+      "directeur_campus",
+      "directeur_general",
+    ],
+    section: (r: Role) => {
+      if (r === "enseignant") return "Évaluation Pédagogique";
+      if (r === "chef_departement") return "Pilotage Départemental";
+      if (r === "scolarite") return "Supervision Académique";
+      return "Gouvernance & Études";
+    },
   },
+
+  // --- 4. CHEF DE DÉPARTEMENT ---
   {
     chemin: "/participation",
     libelle: "Participation",
     icone: "Users",
     roles: ["chef_departement"],
-    section: "Pilotage & Participation",
+    section: "Pilotage Départemental",
   },
   {
     chemin: "/synthese",
-    libelle: "Synthèse",
+    libelle: "Synthèse départementale",
     icone: "LineChart",
     roles: ["chef_departement"],
-    section: "Pilotage & Participation",
+    section: "Pilotage Départemental",
   },
-  {
-    chemin: "/scolarite",
-    libelle: "Tableau de bord",
-    icone: "LayoutDashboard",
-    roles: ["scolarite"],
-    section: "Gestion Scolarité",
-  },
+
+  // --- 5. GESTION SCOLARITÉ ---
   {
     chemin: "/scolarite/campagnes",
-    libelle: "Campagnes",
+    libelle: "Campagnes d'évaluation",
     icone: "Megaphone",
     roles: ["scolarite"],
-    section: "Gestion Scolarité",
-  },
-  {
-    chemin: "/scolarite/comptes",
-    libelle: "Comptes",
-    icone: "UserCog",
-    roles: ["scolarite", "admin"],
-    section: "Gestion Scolarité",
-  },
-  {
-    chemin: "/scolarite/imports",
-    libelle: "Imports",
-    icone: "Upload",
-    roles: ["scolarite", "admin"],
-    section: "Gestion Scolarité",
+    section: "Campagnes & Évaluation",
   },
   {
     chemin: "/scolarite/moderation",
-    libelle: "Modération",
+    libelle: "Modération des avis",
     icone: "MessageSquare",
     roles: ["scolarite"],
-    section: "Gestion Scolarité",
+    section: "Campagnes & Évaluation",
+  },
+  {
+    chemin: "/scolarite/restitution",
+    libelle: "Restitution officielle",
+    icone: "FileText",
+    roles: ["scolarite"],
+    section: "Campagnes & Évaluation",
   },
   {
     chemin: "/scolarite/deliberations",
     libelle: "Délibération des examens",
     icone: "ClipboardCheck",
     roles: ["scolarite"],
-    section: "Gestion Scolarité",
+    section: "Examens & Dossiers",
   },
   {
-    chemin: "/scolarite/restitution",
-    libelle: "Restitution",
-    icone: "FileText",
-    roles: ["scolarite"],
-    section: "Gestion Scolarité",
+    chemin: "/scolarite/comptes",
+    libelle: "Gestion des comptes",
+    icone: "UserCog",
+    roles: ["scolarite", "admin"],
+    section: (r: Role) => (r === "admin" ? "Administration Système" : "Examens & Dossiers"),
   },
+  {
+    chemin: "/scolarite/imports",
+    libelle: "Imports de données",
+    icone: "Upload",
+    roles: ["scolarite", "admin"],
+    section: (r: Role) => (r === "admin" ? "Administration Système" : "Examens & Dossiers"),
+  },
+
+  // --- 6. DIRECTION (CAMPUS & GÉNÉRALE) ---
   {
     chemin: "/direction/statistiques",
     libelle: "Statistiques du campus",
@@ -172,37 +177,55 @@ export const ENTREES_MENU: EntreeMenu[] = [
     section: "Gouvernance & Études",
   },
   {
+    chemin: "/direction/controles",
+    libelle: "Contrôles académiques",
+    icone: "ShieldCheck",
+    roles: ["directeur_campus", "directeur_general"],
+    section: "Gouvernance & Études",
+  },
+  {
     chemin: "/direction/commentaires",
     libelle: "Commentaires (lecture)",
     icone: "MessageSquare",
     roles: ["directeur_campus", "directeur_general"],
     section: "Gouvernance & Études",
   },
+
+  // --- 7. ADMINISTRATION SYSTÈME & TECHNIQUE ---
   {
     chemin: "/administration",
-    libelle: "Administration",
+    libelle: "Référentiels & Campus",
     icone: "Settings",
     roles: ["admin"],
-    section: "Supervision Technique",
+    section: "Administration Système",
   },
   {
     chemin: "/archives-annuelles",
     libelle: "Archives annuelles",
     icone: "Archive",
     roles: ["admin"],
-    section: "Supervision Technique",
+    section: "Sécurité & Traçabilité",
   },
   {
     chemin: "/journal-audit",
     libelle: "Journal d'audit",
     icone: "ScrollText",
     roles: ["admin", "scolarite"],
-    section: "Administration & Audit",
+    section: (r: Role) => (r === "admin" ? "Sécurité & Traçabilité" : "Supervision Académique"),
   },
 ];
 
-export function entreesPourRoles(roles: Role[]): EntreeMenu[] {
-  return ENTREES_MENU.filter((e) => e.roles.some((r) => roles.includes(r)));
+export function entreesPourRoles(roles: Role[]): (EntreeMenu & { section: string })[] {
+  const activeRole = roles[0];
+  return ENTREES_MENU.filter((e) => e.roles.some((r) => roles.includes(r))).map((e) => ({
+    ...e,
+    section:
+      typeof e.section === "function" && activeRole
+        ? e.section(activeRole)
+        : typeof e.section === "string"
+          ? e.section
+          : "Général",
+  }));
 }
 
 export const LIBELLES_ROLES: Record<Role, string> = {

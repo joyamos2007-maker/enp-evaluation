@@ -1,17 +1,12 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
-  AlertCircle,
   Send,
   CheckCircle2,
-  Lock,
   Info,
-  ShieldCheck,
   Check,
-  RotateCcw,
-  MessageSquare,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { JetonVote, Note, Questionnaire, UeAEvaluer } from '@/api/types';
@@ -25,20 +20,18 @@ import {
   Button,
   Alert,
   PageHeader,
-  ProgressBar,
   Stepper,
   Textarea,
-  Badge,
   InfoBubble,
 } from '@/components/ui';
 
 const OPTIONS_NOTATION: { valeur: Note; libelle: string; code: string }[] = [
-  { valeur: 1, libelle: "Pas du tout d'accord", code: '1' },
-  { valeur: 2, libelle: "Plutôt pas d'accord", code: '2' },
-  { valeur: 3, libelle: "Neutre / Moyen", code: '3' },
-  { valeur: 4, libelle: "Plutôt d'accord", code: '4' },
-  { valeur: 5, libelle: "Tout à fait d'accord", code: '5' },
-  { valeur: null, libelle: "Sans avis", code: 'N/A' },
+  { valeur: 1, libelle: "Pas d'accord", code: '1' },
+  { valeur: 2, libelle: 'Insuffisant', code: '2' },
+  { valeur: 3, libelle: 'Moyen', code: '3' },
+  { valeur: 4, libelle: 'Satisfaisant', code: '4' },
+  { valeur: 5, libelle: 'Très bien', code: '5' },
+  { valeur: null, libelle: 'Sans avis', code: 'N/A' },
 ];
 
 const MAX_COMMENTAIRE = 2000;
@@ -46,16 +39,13 @@ const MAX_COMMENTAIRE = 2000;
 type Phase =
   | 'chargement'
   | 'erreur-chargement'
-  | 'introduction'
   | 'section'
-  | 'commentaires'
-  | 'recapitulatif'
+  | 'finalisation'
   | 'remerciement';
 
 export function EvaluationUE() {
   const { ueId } = useParams<{ ueId: string }>();
   const [params] = useSearchParams();
-  const navigate = useNavigate();
 
   const [phase, setPhase] = useState<Phase>('chargement');
   const [erreurChargement, setErreurChargement] = useState<string | null>(null);
@@ -74,9 +64,24 @@ export function EvaluationUE() {
 
   const ueIdNum = Number(ueId);
 
-  /* ------------------------------------------------------------------ */
-  /*  Chargement initial : détection UE & reprise de brouillon           */
-  /* ------------------------------------------------------------------ */
+  const sauvegarder = useCallback(
+    (etape: number, rep: Record<number, Note>, pf: string, pa: string, j: JetonVote | null, campId: number) => {
+      if (!j || !campId) return;
+      const brouillon: BrouillonEvaluation = {
+        jeton: j,
+        reponses: rep,
+        pointsForts: pf,
+        pointsAAmeliorer: pa,
+        etape,
+      };
+      sauvegarderBrouillon(ueIdNum, campId, brouillon);
+      setDernierEnregistrement(
+        new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      );
+    },
+    [ueIdNum],
+  );
+
   const initialiser = useCallback(async () => {
     if (!ueId || Number.isNaN(ueIdNum)) {
       setErreurChargement("Identifiant d'UE invalide dans l'adresse.");
@@ -96,13 +101,11 @@ export function EvaluationUE() {
       const activeCampagneId = trouve.campagneId;
       setCampagneId(activeCampagneId);
 
-      // Si déjà terminée
       if (trouve.etat === 'terminee') {
         setPhase('remerciement');
         return;
       }
 
-      // Vérifier si un brouillon existe en session
       const brouillon = chargerBrouillon(ueIdNum, activeCampagneId);
       if (brouillon) {
         setJeton(brouillon.jeton);
@@ -118,7 +121,16 @@ export function EvaluationUE() {
         return;
       }
 
-      setPhase('introduction');
+      // Démarrage direct sans écran intermédiaire superflu
+      const [j, q] = await Promise.all([
+        api.obtenirJeton(ueIdNum, activeCampagneId),
+        api.questionnaire(activeCampagneId),
+      ]);
+      setJeton(j);
+      setQuestionnaire(q);
+      setIndexSection(0);
+      sauvegarder(0, {}, '', '', j, activeCampagneId);
+      setPhase('section');
     } catch (err) {
       setErreurChargement(
         err instanceof ApiError
@@ -127,62 +139,17 @@ export function EvaluationUE() {
       );
       setPhase('erreur-chargement');
     }
-  }, [ueId, ueIdNum]);
+  }, [ueId, ueIdNum, sauvegarder]);
 
   useEffect(() => {
     void initialiser();
   }, [initialiser]);
 
-  /* ------------------------------------------------------------------ */
-  /*  Sauvegarde automatique sécurisée du brouillon                     */
-  /* ------------------------------------------------------------------ */
-  const sauvegarder = useCallback(
-    (etape: number, rep: Record<number, Note>, pf: string, pa: string, j: JetonVote | null) => {
-      if (!j || !campagneId) return;
-      const brouillon: BrouillonEvaluation = {
-        jeton: j,
-        reponses: rep,
-        pointsForts: pf,
-        pointsAAmeliorer: pa,
-        etape,
-      };
-      sauvegarderBrouillon(ueIdNum, campagneId, brouillon);
-      setDernierEnregistrement(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    },
-    [ueIdNum, campagneId],
-  );
-
   useEffect(() => {
-    if (jeton && (phase === 'section' || phase === 'commentaires')) {
-      sauvegarder(indexSection, reponses, pointsForts, pointsAAmeliorer, jeton);
+    if (jeton && (phase === 'section' || phase === 'finalisation')) {
+      sauvegarder(indexSection, reponses, pointsForts, pointsAAmeliorer, jeton, campagneId);
     }
-  }, [reponses, indexSection, jeton, phase, pointsForts, pointsAAmeliorer, sauvegarder]);
-
-  /* ------------------------------------------------------------------ */
-  /*  Émission du jeton anonyme et chargement du questionnaire         */
-  /* ------------------------------------------------------------------ */
-  async function demarrer() {
-    if (!campagneId) return;
-    setEnCours(true);
-    setErreurAction(null);
-    try {
-      const j = await api.obtenirJeton(ueIdNum, campagneId);
-      setJeton(j);
-      const q = await api.questionnaire(campagneId);
-      setQuestionnaire(q);
-      setIndexSection(0);
-      sauvegarder(0, {}, '', '', j);
-      setPhase('section');
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setErreurAction(err.messages.join(' '));
-      } else {
-        setErreurAction("Impossible d'émettre le jeton de vote anonyme. Contactez la Scolarité.");
-      }
-    } finally {
-      setEnCours(false);
-    }
-  }
+  }, [reponses, indexSection, jeton, phase, pointsForts, pointsAAmeliorer, campagneId, sauvegarder]);
 
   function setNote(critereId: number, valeur: Note) {
     setReponses((prev) => ({ ...prev, [critereId]: valeur }));
@@ -195,9 +162,6 @@ export function EvaluationUE() {
     return s.criteres.every((c) => c.id in reponses && reponses[c.id] !== undefined);
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Soumission finale du bulletin anonyme dans l'urne                */
-  /* ------------------------------------------------------------------ */
   async function executerEnvoiFinal() {
     if (!jeton || !questionnaire) return;
     setEnCours(true);
@@ -231,14 +195,11 @@ export function EvaluationUE() {
     }
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Rendu : Phase Chargement ou Erreur                               */
-  /* ------------------------------------------------------------------ */
   if (phase === 'chargement') {
     return (
-      <div className="max-w-3xl mx-auto py-12 text-center space-y-4">
-        <div className="w-8 h-8 border-2 border-enp-border border-t-enp-blue-primary animate-spin mx-auto" />
-        <p className="text-sm text-enp-gray-medium">Initialisation du questionnaire officiel…</p>
+      <div className="max-w-3xl mx-auto py-12 text-center space-y-3">
+        <div className="w-7 h-7 border-2 border-enp-border border-t-enp-blue-primary animate-spin mx-auto" />
+        <p className="text-sm text-enp-gray-medium">Ouverture sécurisée du bulletin anonyme…</p>
       </div>
     );
   }
@@ -258,373 +219,263 @@ export function EvaluationUE() {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Phase 1 : Encart d'introduction et engagements réglementaires     */
-  /* ------------------------------------------------------------------ */
-  if (phase === 'introduction') {
+  if (phase === 'remerciement') {
     return (
-      <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6 animate-fade-in">
+      <div className="max-w-2xl mx-auto py-8 space-y-6 text-center animate-fade-in">
+        <div className="w-16 h-16 bg-enp-green-light border border-enp-green-valid mx-auto flex items-center justify-center text-enp-green-valid">
+          <CheckCircle2 className="w-10 h-10 stroke-[2]" />
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-enp-green-valid">
+            Participation enregistrée
+          </span>
+          <h1 className="text-2xl font-bold font-serif text-enp-blue-deep">
+            Votre bulletin anonyme a été déposé avec succès
+          </h1>
+          <p className="text-xs sm:text-sm text-enp-gray-medium max-w-md mx-auto leading-relaxed">
+            Merci pour votre contribution à la qualité pédagogique de l'École Nationale Polytechnique.
+            Votre vote a été intégré à l'urne numérique scellée.
+          </p>
+        </div>
+
+        <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link to="/evaluations" className="w-full sm:w-auto">
+            <Button variant="primary" size="md" className="w-full sm:w-auto font-bold">
+              Continuer mes évaluations
+            </Button>
+          </Link>
+          <Link to="/" className="w-full sm:w-auto">
+            <Button variant="outline" size="md" className="w-full sm:w-auto font-semibold">
+              Retour à l'accueil
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!questionnaire) return null;
+
+  const totalSections = questionnaire.sections.length;
+  const totalCriteres = questionnaire.sections.reduce((acc, s) => acc + s.criteres.length, 0);
+  const nbRepondu = Object.keys(reponses).length;
+
+  const steps = [
+    ...questionnaire.sections.map((s, idx) => ({
+      id: s.code,
+      title: `Section ${s.code}`,
+      subtitle: s.titre,
+      isCompleted: sectionEstComplete(idx),
+    })),
+    {
+      id: 'finalisation',
+      title: 'Avis & Envoi',
+      subtitle: 'Dépôt du bulletin',
+      isCompleted: false,
+    },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-5 animate-fade-in pb-6">
+      <div className="flex items-center justify-between gap-2">
         <Link
           to="/evaluations"
           className="inline-flex items-center gap-1.5 text-xs text-enp-blue-primary hover:text-enp-blue-deep font-semibold"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          Retour à la liste des UE
+          Quitter (brouillon sauvegardé)
         </Link>
 
-        <PageHeader
-          title={`Évaluation : ${ue?.code}`}
-          description={ue?.intitule}
-          badge={
-            <InfoBubble
-              triggerVariant="pill"
-              triggerLabel="Protocole d'anonymat"
-              title="Protocole solennel d'évaluation anonyme (ENP)"
-              badge="SÉCURITÉ DU SCRUTIN"
-              icon="shield"
-              duration={8000}
-              content={
-                <div className="space-y-2 text-xs leading-relaxed">
-                  <p>
-                    <strong>Anonymat certifié :</strong> Un jeton cryptographique à usage unique est émis. Vos réponses sont déposées dans une urne numérique isolée sans aucune mention de votre identité ou matricule.
-                  </p>
-                  <p>
-                    <strong>Soumission unique et définitive :</strong> Une seule soumission est autorisée par unité d'enseignement.
-                  </p>
-                  <p className="text-[11px] text-enp-gray-medium border-t border-enp-border pt-1.5">
-                    Seuil de dépouillement : Au minimum 5 répondants requis pour assurer la confidentialité intégrale.
-                  </p>
-                </div>
-              }
-            />
-          }
-        />
-
-        <div className="p-4 sm:p-5 bg-white border border-enp-border space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-enp-blue-light text-enp-blue-deep flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-enp-blue-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-enp-blue-deep">
-                Scrutin anonyme officiel de l'École Nationale Polytechnique
-              </h2>
-              <p className="text-xs text-enp-gray-medium">
-                Vos réponses permettent d'ajuster les maquettes et contenus de formation.
-              </p>
-            </div>
-          </div>
-          <p className="text-xs text-enp-black leading-relaxed">
-            Le questionnaire évalue 5 axes pédagogiques (objectifs, cours magistraux, travaux dirigés, charge de travail, supports) suivis d'un espace de remarques constructives. Votre progression est sauvegardée automatiquement.
-          </p>
-        </div>
-
-        {erreurAction && (
-          <Alert variant="danger" title="Impossible de démarrer l'évaluation">
-            {erreurAction}
-          </Alert>
-        )}
-
-        <div className="pt-2 flex justify-end border-t border-enp-border">
-          <Button
-            variant="primary"
-            size="lg"
-            className="w-full sm:w-auto justify-center font-bold"
-            isLoading={enCours}
-            onClick={() => void demarrer()}
-            rightIcon={<ArrowRight className="w-5 h-5" />}
-          >
-            Débuter l'évaluation
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ------------------------------------------------------------------ */
-  /*  Phase 2 : Questionnaire par sections (A à E)                      */
-  /* ------------------------------------------------------------------ */
-  if (phase === 'section' && questionnaire) {
-    const sectionCourante = questionnaire.sections[indexSection];
-    const totalSections = questionnaire.sections.length;
-    const estComplete = sectionEstComplete(indexSection);
-
-    const steps = [
-      ...questionnaire.sections.map((s, idx) => ({
-        id: s.code,
-        title: `Section ${s.code}`,
-        subtitle: s.titre,
-        isCompleted: sectionEstComplete(idx),
-      })),
-      {
-        id: 'commentaires',
-        title: 'Commentaires',
-        subtitle: 'Points forts & axes',
-        isCompleted: Boolean(pointsForts || pointsAAmeliorer),
-      },
-      {
-        id: 'recap',
-        title: 'Vérification',
-        subtitle: 'Dépôt du bulletin',
-        isCompleted: false,
-      },
-    ];
-
-    return (
-      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <Link
-            to="/evaluations"
-            className="inline-flex items-center gap-1.5 text-xs text-enp-blue-primary hover:text-enp-blue-deep font-medium"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Quitter (brouillon sauvegardé)
-          </Link>
-
+        <div className="flex items-center gap-3">
           {dernierEnregistrement && (
             <span className="text-[11px] text-enp-green-valid font-medium flex items-center gap-1">
               <Check className="w-3.5 h-3.5 stroke-[3]" />
-              Brouillon enregistré ({dernierEnregistrement})
+              Sauvegardé ({dernierEnregistrement})
             </span>
           )}
-        </div>
-
-        <div>
-          <span className="text-xs font-mono font-bold px-2 py-0.5 bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20">
-            {ue?.code}
-          </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-enp-blue-deep mt-1 truncate">
-            {ue?.intitule}
-          </h1>
-        </div>
-
-        {/* Stepper horizontal */}
-        <Stepper
-          steps={steps}
-          currentStepIndex={indexSection}
-          onStepClick={(idx) => {
-            if (idx < totalSections) {
-              setIndexSection(idx);
-            } else if (idx === totalSections) {
-              setPhase('commentaires');
+          <InfoBubble
+            triggerVariant="pill"
+            triggerLabel="Anonymat garanti"
+            title="Protocole d'évaluation anonyme (ENP)"
+            badge="SCRUTIN ANONYME"
+            icon="shield"
+            duration={7000}
+            content={
+              <p className="text-xs leading-relaxed">
+                Un jeton cryptographique à usage unique protège votre vote. Vos réponses sont déposées dans une urne isolée sans aucun lien avec votre identité.
+              </p>
             }
-          }}
-        />
+          />
+        </div>
+      </div>
 
-        {/* Titre de la section active */}
-        <div className="bg-white border border-enp-border p-5">
-          <div className="border-b border-enp-border pb-3 mb-5">
-            <span className="text-xs font-bold text-enp-blue-primary uppercase tracking-wider">
-              Section {sectionCourante.code} sur {totalSections}
-            </span>
-            <h2 className="text-lg font-bold text-enp-black mt-0.5">
-              {sectionCourante.titre}
-            </h2>
-          </div>
+      <PageHeader
+        title={`${ue?.code} • ${ue?.intitule}`}
+        description={`Progression : ${nbRepondu} / ${totalCriteres} critères renseignés`}
+      />
 
-          {/* Critères de notation */}
-          <div className="space-y-6">
-            {sectionCourante.criteres.map((critere, critIdx) => {
-              const noteActuelle = reponses[critere.id];
+      <Stepper
+        steps={steps}
+        currentStepIndex={phase === 'finalisation' ? totalSections : indexSection}
+        onStepClick={(idx) => {
+          if (idx < totalSections) {
+            setIndexSection(idx);
+            setPhase('section');
+          } else {
+            setPhase('finalisation');
+          }
+        }}
+      />
 
-              return (
-                <div
-                  key={critere.id}
-                  className="p-4 border border-enp-border bg-[#FAFAFA] space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-6 h-6 bg-white border border-enp-border text-xs font-bold text-enp-blue-deep flex items-center justify-center shrink-0">
-                        {critIdx + 1}
-                      </span>
-                      <p className="text-sm font-semibold text-enp-black leading-snug">
-                        {critere.libelle}
-                      </p>
-                    </div>
-                    {noteActuelle !== undefined && (
-                      <span className="text-[11px] font-bold text-enp-green-valid px-2 py-0.5 bg-enp-green-light border border-enp-green-valid/30 shrink-0">
-                        Renseigné
-                      </span>
-                    )}
+      {phase === 'section' ? (
+        <div className="bg-white border border-enp-border p-4 sm:p-6 space-y-5 shadow-xs">
+          {(() => {
+            const sectionCourante = questionnaire.sections[indexSection];
+            return (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-enp-border pb-3">
+                  <div>
+                    <span className="text-xs font-bold text-enp-blue-primary uppercase tracking-wider">
+                      Section {sectionCourante.code} sur {totalSections}
+                    </span>
+                    <h2 className="text-base sm:text-lg font-bold text-enp-black">
+                      {sectionCourante.titre}
+                    </h2>
                   </div>
-
-                  {/* Grille de sélection des 5 notes + Sans avis */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
-                    {OPTIONS_NOTATION.map((opt) => {
-                      const estSelectionne = noteActuelle === opt.valeur;
-
-                      return (
-                        <button
-                          key={String(opt.valeur)}
-                          type="button"
-                          onClick={() => setNote(critere.id, opt.valeur)}
-                          className={`p-2 sm:p-2.5 border text-center transition-all select-none min-h-[48px] flex flex-col items-center justify-center ${
-                            estSelectionne
-                              ? 'bg-enp-blue-primary text-white border-enp-blue-primary font-bold shadow-subtle'
-                              : 'bg-white text-enp-black border-enp-border hover:border-enp-blue-primary/60 hover:bg-enp-blue-ice/30'
-                          }`}
-                        >
-                          <span className="text-sm font-bold leading-tight">{opt.code}</span>
-                          <span
-                            className={`text-[10px] leading-tight mt-0.5 line-clamp-2 max-w-full ${
-                              estSelectionne ? 'text-white/95' : 'text-enp-gray-medium'
-                            }`}
-                          >
-                            {opt.libelle}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <span className="text-[11px] text-enp-gray-medium">
+                    1 = Pas du tout d'accord • 5 = Tout à fait d'accord
+                  </span>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Navigation entre sections */}
-          <div className="pt-6 mt-6 border-t border-enp-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <Button
-              variant="outline"
-              size="md"
-              disabled={indexSection === 0}
-              onClick={() => setIndexSection((prev) => Math.max(0, prev - 1))}
-              leftIcon={<ArrowLeft className="w-4 h-4" />}
-              className="w-full sm:w-auto"
-            >
-              Section précédente
-            </Button>
+                <div className="space-y-4">
+                  {sectionCourante.criteres.map((critere, critIdx) => {
+                    const noteActuelle = reponses[critere.id];
 
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => {
-                if (indexSection < totalSections - 1) {
-                  setIndexSection((prev) => prev + 1);
-                } else {
-                  setPhase('commentaires');
-                }
-              }}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-              className="w-full sm:w-auto"
-            >
-              {indexSection < totalSections - 1 ? 'Section suivante' : 'Passer aux remarques'}
-            </Button>
-          </div>
+                    return (
+                      <div
+                        key={critere.id}
+                        className="p-3.5 sm:p-4 border border-enp-border bg-[#FAFAFA] space-y-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs sm:text-sm font-semibold text-enp-black leading-snug">
+                            <span className="font-mono font-bold text-enp-blue-primary mr-2">
+                              {critIdx + 1}.
+                            </span>
+                            {critere.libelle}
+                          </p>
+                          {noteActuelle !== undefined && (
+                            <Check className="w-4 h-4 text-enp-green-valid shrink-0" />
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-6 gap-1.5">
+                          {OPTIONS_NOTATION.map((opt) => {
+                            const estSelectionne = noteActuelle === opt.valeur;
+                            return (
+                              <button
+                                key={String(opt.valeur)}
+                                type="button"
+                                onClick={() => setNote(critere.id, opt.valeur)}
+                                className={`py-2 px-1 border text-center transition-all select-none flex flex-col items-center justify-center ${
+                                  estSelectionne
+                                    ? 'bg-enp-blue-primary text-white border-enp-blue-primary font-bold shadow-xs'
+                                    : 'bg-white text-enp-black border-enp-border hover:border-enp-blue-primary/60 hover:bg-enp-blue-ice/30'
+                                }`}
+                              >
+                                <span className="text-xs sm:text-sm font-bold leading-tight">
+                                  {opt.code}
+                                </span>
+                                <span
+                                  className={`text-[9px] sm:text-[10px] leading-tight mt-0.5 truncate max-w-full ${
+                                    estSelectionne ? 'text-white/95' : 'text-enp-gray-medium'
+                                  }`}
+                                >
+                                  {opt.libelle}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 border-t border-enp-border flex items-center justify-between gap-3">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    disabled={indexSection === 0}
+                    onClick={() => setIndexSection((prev) => Math.max(0, prev - 1))}
+                    leftIcon={<ArrowLeft className="w-4 h-4" />}
+                  >
+                    Précédent
+                  </Button>
+
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => {
+                      if (indexSection < totalSections - 1) {
+                        setIndexSection((prev) => prev + 1);
+                      } else {
+                        setPhase('finalisation');
+                      }
+                    }}
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                  >
+                    {indexSection < totalSections - 1
+                      ? 'Section suivante'
+                      : 'Terminer & déposer'}
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </div>
-      </div>
-    );
-  }
-
-  /* ------------------------------------------------------------------ */
-  /*  Phase 3 : Commentaires (Points forts & Points à améliorer)        */
-  /* ------------------------------------------------------------------ */
-  if (phase === 'commentaires' && questionnaire) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-        <PageHeader
-          title="Remarques et suggestions qualitatives"
-          description={`UE ${ue?.code} : Vos commentaires aident les équipes à faire évoluer la formation.`}
-        />
-
-        <Alert
-          variant="institutional"
-          title="Consigne de déontologie et protection de l'anonymat"
-          icon={<Info className="w-5 h-5 text-enp-gold shrink-0 mt-0.5" />}
-        >
-          Ces retours sont transmis de façon collégiale et anonymisée.
-          Veillez à <strong>ne mentionner aucun prénom, nom, note d'examen ou événement personnel</strong> permettant de vous identifier formellement.
-        </Alert>
-
-        <div className="bg-white border border-enp-border p-6 space-y-5">
-          <Textarea
-            label="Points forts de l'enseignement"
-            value={pointsForts}
-            onChange={(e) => setPointsForts(e.target.value)}
-            maxLength={MAX_COMMENTAIRE}
-            maxLengthIndicator={true}
-            placeholder="Ex : clarté des explications, qualité des supports de cours, disponibilité, rigueur des travaux pratiques..."
-            helperText="Ce qui vous a paru particulièrement formateur et réussi dans ce cours."
-          />
-
-          <Textarea
-            label="Axes de progrès & suggestions d'amélioration"
-            value={pointsAAmeliorer}
-            onChange={(e) => setPointsAAmeliorer(e.target.value)}
-            maxLength={MAX_COMMENTAIRE}
-            maxLengthIndicator={true}
-            placeholder="Ex : rythme trop rapide sur le chapitre 3, équilibre cours/TD, compléments bibliographiques souhaités..."
-            helperText="Suggestions constructives pour les prochaines promotions."
-          />
-
-          <div className="pt-4 border-t border-enp-border flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => {
-                setIndexSection(questionnaire.sections.length - 1);
-                setPhase('section');
-              }}
-              leftIcon={<ArrowLeft className="w-4 h-4" />}
-            >
-              Retour aux critères
-            </Button>
-
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => setPhase('recapitulatif')}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Vérifier mon bulletin
-            </Button>
+      ) : (
+        /* ÉTAPE FINALE UNIFIÉE : COMMENTAIRES + DÉPÔT DU BULLETIN */
+        <div className="bg-white border border-enp-border p-5 sm:p-6 space-y-5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-enp-border pb-3">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-enp-blue-deep">
+                Observations facultatives & Dépôt définitif
+              </h2>
+              <p className="text-xs text-enp-gray-medium">
+                {nbRepondu} sur {totalCriteres} critères évalués • Vos remarques sont anonymes.
+              </p>
+            </div>
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  /* ------------------------------------------------------------------ */
-  /*  Phase 4 : Récapitulatif avant envoi définitif                     */
-  /* ------------------------------------------------------------------ */
-  if (phase === 'recapitulatif' && questionnaire) {
-    const totalCriteres = questionnaire.sections.reduce((acc, s) => acc + s.criteres.length, 0);
-    const nbRepondu = Object.keys(reponses).length;
+          <Alert
+            variant="institutional"
+            title="Respect de l'anonymat"
+            icon={<Info className="w-4 h-4 text-enp-gold shrink-0 mt-0.5" />}
+          >
+            Ne mentionnez aucun nom, prénom ou élément personnel permettant de vous identifier.
+          </Alert>
 
-    return (
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-        <PageHeader
-          title="Récapitulatif avant dépôt définitif"
-          description={`Vérification intégrale des réponses pour l'UE ${ue?.code}`}
-        />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Textarea
+              label="Points forts de l'enseignement (facultatif)"
+              value={pointsForts}
+              onChange={(e) => setPointsForts(e.target.value)}
+              maxLength={MAX_COMMENTAIRE}
+              maxLengthIndicator={true}
+              rows={3}
+              placeholder="Clarté du cours, qualité des supports, disponibilité..."
+            />
 
-        <Alert
-          variant="warning"
-          title="Attention : l'envoi est irréversible"
-          icon={<AlertCircle className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />}
-        >
-          Une fois votre bulletin déposé dans l'urne numérique, il est définitivement scellé.
-          Vous ne pourrez plus modifier vos réponses ni réévaluer cette unité d'enseignement.
-        </Alert>
-
-        <div className="bg-white border border-enp-border p-6 space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-enp-blue-deep border-b border-enp-border pb-2">
-            Synthèse de votre saisie
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
-            <div className="p-3 bg-enp-blue-ice/50 border border-enp-border">
-              <span className="text-enp-gray-medium block">Critères évalués :</span>
-              <strong className="text-base text-enp-blue-deep font-bold">
-                {nbRepondu} / {totalCriteres} critères renseignés
-              </strong>
-            </div>
-            <div className="p-3 bg-enp-blue-ice/50 border border-enp-border">
-              <span className="text-enp-gray-medium block">Commentaires formulés :</span>
-              <strong className="text-base text-enp-blue-deep font-bold">
-                {pointsForts ? 'Points forts saisis' : 'Aucun point fort'} •{' '}
-                {pointsAAmeliorer ? 'Axes de progrès saisis' : 'Aucun axe'}
-              </strong>
-            </div>
+            <Textarea
+              label="Axes d'amélioration souhaités (facultatif)"
+              value={pointsAAmeliorer}
+              onChange={(e) => setPointsAAmeliorer(e.target.value)}
+              maxLength={MAX_COMMENTAIRE}
+              maxLengthIndicator={true}
+              rows={3}
+              placeholder="Rythme, équilibre cours/TD, exercices supplémentaires..."
+            />
           </div>
 
           {erreurAction && (
@@ -633,9 +484,8 @@ export function EvaluationUE() {
             </Alert>
           )}
 
-          {/* Validation d'engagement directe sans popup répétitif */}
           <div className="pt-4 border-t border-enp-border space-y-4">
-            <label className="flex items-start gap-2.5 cursor-pointer text-xs sm:text-sm text-enp-black select-none">
+            <label className="flex items-start gap-2.5 cursor-pointer text-xs sm:text-sm text-enp-black select-none bg-enp-blue-ice/40 p-3 border border-enp-border">
               <input
                 type="checkbox"
                 checked={confirmerEnvoi}
@@ -643,7 +493,7 @@ export function EvaluationUE() {
                 className="mt-0.5 w-4 h-4 text-enp-blue-primary border-enp-border focus:ring-enp-blue-primary shrink-0"
               />
               <span className="leading-snug">
-                Je certifie avoir relu mes réponses et confirme leur dépôt <strong>définitif et irréversible</strong> dans l'urne électronique officielle de l'ENP.
+                Je confirme le dépôt <strong>définitif et irréversible</strong> de mon bulletin anonyme dans l'urne électronique officielle de l'ENP.
               </span>
             </label>
 
@@ -651,11 +501,13 @@ export function EvaluationUE() {
               <Button
                 variant="outline"
                 size="md"
-                onClick={() => setPhase('commentaires')}
+                onClick={() => {
+                  setIndexSection(totalSections - 1);
+                  setPhase('section');
+                }}
                 leftIcon={<ArrowLeft className="w-4 h-4" />}
-                className="w-full sm:w-auto"
               >
-                Modifier mes réponses
+                Retour aux critères
               </Button>
 
               <Button
@@ -665,51 +517,14 @@ export function EvaluationUE() {
                 isLoading={enCours}
                 onClick={() => void executerEnvoiFinal()}
                 rightIcon={<Send className="w-4 h-4" />}
-                className="w-full sm:w-auto font-bold"
+                className="font-bold"
               >
                 Déposer mon bulletin dans l'urne
               </Button>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  /* ------------------------------------------------------------------ */
-  /*  Phase 5 : Écran de succès officiel                                */
-  /* ------------------------------------------------------------------ */
-  return (
-    <div className="max-w-2xl mx-auto py-8 space-y-6 text-center animate-fade-in">
-      <div className="w-16 h-16 bg-enp-green-light border border-enp-green-valid mx-auto flex items-center justify-center text-enp-green-valid">
-        <CheckCircle2 className="w-10 h-10 stroke-[2]" />
-      </div>
-
-      <div className="space-y-2">
-        <span className="text-xs font-bold uppercase tracking-widest text-enp-green-valid">
-          Participation enregistrée
-        </span>
-        <h1 className="text-2xl font-bold font-serif text-enp-blue-deep">
-          Votre bulletin anonyme a été déposé avec succès
-        </h1>
-        <p className="text-xs sm:text-sm text-enp-gray-medium max-w-md mx-auto leading-relaxed">
-          Merci pour votre contribution citoyenne à la qualité pédagogique de l'École Nationale Polytechnique.
-          Votre vote a été intégré à l'urne électorale numérique scellée.
-        </p>
-      </div>
-
-      <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-        <Link to="/evaluations" className="w-full sm:w-auto">
-          <Button variant="primary" size="md" className="w-full sm:w-auto font-bold">
-            Continuer mes évaluations
-          </Button>
-        </Link>
-        <Link to="/" className="w-full sm:w-auto">
-          <Button variant="outline" size="md" className="w-full sm:w-auto font-semibold">
-            Retour au tableau de bord
-          </Button>
-        </Link>
-      </div>
+      )}
     </div>
   );
 }

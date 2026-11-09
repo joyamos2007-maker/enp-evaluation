@@ -4,7 +4,7 @@ import { ApiError } from './error';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 /**
- * Envoi du bulletin de vote — SÉPARÉ du client authentifié.
+ * Envoi du bulletin de vote : SÉPARÉ du client authentifié.
  *
  * fetch avec credentials: "omit" et SANS en-tête Authorization : le serveur
  * ne doit pas pouvoir identifier l'étudiant. Aucun horodatage dans le corps.

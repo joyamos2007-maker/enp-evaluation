@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ClipboardCheck,
   BookOpen,
@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Award,
   ScrollText,
-  Calendar,
   Clock,
   ArrowRight,
   GraduationCap,
@@ -20,15 +19,12 @@ import {
   Activity,
   PlusCircle,
   Info,
-  ChevronRight,
+  CalendarCheck,
+  Building2,
+  Archive,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
-import {
-  StatCard,
-  Button,
-  Badge,
-  InfoBubble,
-} from '@/components/ui';
+import { Button, InfoBubble } from '@/components/ui';
 import { api } from '@/api';
 import type { UeAEvaluer, Seance, TableauDeBordScolarite } from '@/api/types';
 
@@ -39,7 +35,6 @@ export function Accueil() {
   const [uesEtudiant, setUesEtudiant] = useState<UeAEvaluer[]>([]);
   const [seancesAttente, setSeancesAttente] = useState<Seance[]>([]);
   const [tbScolarite, setTbScolarite] = useState<TableauDeBordScolarite | null>(null);
-  const [chargement, setChargement] = useState(true);
 
   const role = utilisateur?.activeRole;
 
@@ -47,7 +42,6 @@ export function Accueil() {
     let actif = true;
     async function chargerDonneesRole() {
       if (!role) return;
-      setChargement(true);
       try {
         if (role === 'etudiant' || role === 'delegue') {
           const ues = await api.listeEvaluations();
@@ -61,8 +55,6 @@ export function Accueil() {
         }
       } catch {
         // Mode silencieux si API non joignable
-      } finally {
-        if (actif) setChargement(false);
       }
     }
     void chargerDonneesRole();
@@ -73,7 +65,6 @@ export function Accueil() {
 
   if (!utilisateur) return null;
 
-  // Métriques étudiant
   const uesAFaire = uesEtudiant.filter((u) => u.etat === 'a_faire');
   const uesTerminees = uesEtudiant.filter((u) => u.etat === 'terminee');
   const totalUes = uesEtudiant.length || 6;
@@ -82,11 +73,10 @@ export function Accueil() {
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in max-w-7xl mx-auto pb-4">
       {/* ======================================================== */}
-      {/* 1. ESPACE ÉTUDIANT & DÉLÉGUÉ                             */}
+      {/* 1. ESPACE ÉTUDIANT                                       */}
       {/* ======================================================== */}
-      {(role === 'etudiant' || role === 'delegue') && (
+      {role === 'etudiant' && (
         <div className="space-y-4 sm:space-y-6">
-          {/* CARTE HERO ULTRA-ÉPURÉE & MODERNE */}
           {uesAFaire.length > 0 ? (
             <div className="bg-white border border-enp-border border-l-4 border-l-enp-blue-primary p-4 sm:p-6 shadow-xs space-y-3.5">
               <div className="flex items-center justify-between gap-2">
@@ -122,7 +112,6 @@ export function Accueil() {
                   <span>Progression : {uesTerminees.length} sur {totalUes} évaluée(s)</span>
                   <span className="font-bold text-enp-blue-deep">{tauxCompletion}%</span>
                 </div>
-                {/* Barre de progression rectiligne */}
                 <div className="w-full bg-enp-blue-ice border border-enp-border h-2 overflow-hidden mt-1.5">
                   <div
                     className="bg-enp-blue-primary h-full transition-all duration-300"
@@ -151,23 +140,9 @@ export function Accueil() {
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-enp-blue-deep font-sans">
-                      Toutes vos évaluations sont à jour
-                    </h2>
-                    <InfoBubble
-                      triggerVariant="compact"
-                      title="Bulletins officiels enregistrés"
-                      badge="VALIDATION ACADÉMIQUE"
-                      icon="shield"
-                      duration={5000}
-                      content={
-                        <p className="text-xs leading-relaxed font-sans">
-                          Vos bulletins électroniques ont été scellés et intégrés anonymement dans l'urne numérique de l'ENP. Merci pour votre participation citoyenne.
-                        </p>
-                      }
-                    />
-                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-enp-blue-deep font-sans">
+                    Toutes vos évaluations sont à jour
+                  </h2>
                   <p className="text-xs text-enp-gray-medium mt-0.5 font-sans">
                     100% de complétion • Merci pour votre contribution à l'excellence polytechnique.
                   </p>
@@ -183,10 +158,11 @@ export function Accueil() {
             </div>
           )}
 
-          {/* GRILLE D'INDICATEURS 2X2 SUR MOBILE, 4 SUR DESKTOP (NON-REDUNDANT) */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          {/* GRILLE UNIQUE ÉTUDIANT */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
             <div
-              className={`bg-white border p-3 sm:p-5 ${
+              onClick={() => navigate('/evaluations')}
+              className={`bg-white border p-3.5 sm:p-5 cursor-pointer transition-colors hover:bg-enp-blue-ice/30 ${
                 uesAFaire.length > 0
                   ? 'border-l-4 border-l-[#D97706] border-t-enp-border border-r-enp-border border-b-enp-border'
                   : 'border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border'
@@ -198,35 +174,17 @@ export function Accueil() {
                 </span>
                 <ClipboardCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                {uesAFaire.length}
+              <div className="text-xl sm:text-2xl font-bold text-enp-black tracking-tight font-sans">
+                {uesAFaire.length} UE
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Sur un total de {totalUes} UE inscrites
-              </p>
-            </div>
-
-            <div
-              onClick={() => navigate('/mes-resultats')}
-              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
-            >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Complétées
-                </span>
-                <CheckCircle2 className="w-4 h-4 text-enp-blue-primary shrink-0" />
-              </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                {uesTerminees.length}
-              </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                {tauxCompletion}% • Consulter mes bilans
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Sur {totalUes} inscrites
               </p>
             </div>
 
             <div
               onClick={() => navigate('/cahier-texte')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -234,17 +192,17 @@ export function Accueil() {
                 </span>
                 <BookOpen className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Consulter
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Séances
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Séances tenues et devoirs
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Contenus et devoirs
               </p>
             </div>
 
             <div
               onClick={() => navigate('/mes-notes')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -252,113 +210,218 @@ export function Accueil() {
                 </span>
                 <GraduationCap className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Résultats
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Relevé
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Notes et assiduité officielle
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Devoirs et examens
               </p>
             </div>
-          </div>
 
-          {/* ACTIONS PRIORITAIRES RAPIDES & TACTILES (DESTINATIONS UNIQUES) */}
-          <div className="bg-white border border-enp-border p-3.5 sm:p-5">
-            <h3 className="text-xs sm:text-sm font-bold text-enp-blue-deep uppercase tracking-wider mb-3">
-              Accès prioritaires
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-              <Link
-                to="/cahier-texte"
-                className="p-3 sm:p-4 border border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/40 transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 bg-enp-blue-light text-enp-blue-deep flex items-center justify-center shrink-0">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep truncate">
-                      Cahier de texte officiel
-                    </h4>
-                    <p className="text-[11px] text-enp-gray-medium truncate">
-                      Contenus & devoirs de cours
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-enp-gray-medium group-hover:text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </Link>
+            <div
+              onClick={() => navigate('/mes-presences')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Présences
+                </span>
+                <CalendarCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Assiduité
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Historique et taux
+              </p>
+            </div>
 
-              <Link
-                to="/mes-resultats"
-                className="p-3 sm:p-4 border border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/40 transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 bg-enp-blue-light text-enp-blue-deep flex items-center justify-center shrink-0">
-                    <BarChart3 className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep truncate">
-                      Fiches de résultats & bilans
-                    </h4>
-                    <p className="text-[11px] text-enp-gray-medium truncate">
-                      Consultation des synthèses par UE
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-enp-gray-medium group-hover:text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </Link>
-
-              <Link
-                to="/mes-notes"
-                className="p-3 sm:p-4 border border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/40 transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 bg-enp-blue-light text-enp-blue-deep flex items-center justify-center shrink-0">
-                    <GraduationCap className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep truncate">
-                      Dossier & Notes d'examen
-                    </h4>
-                    <p className="text-[11px] text-enp-gray-medium truncate">
-                      Notes et relevé d'assiduité
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-enp-gray-medium group-hover:text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </Link>
-
-              {role === 'delegue' && (
-                <Link
-                  to="/cahier-texte/nouvelle"
-                  className="p-3 sm:p-4 border border-enp-blue-primary bg-enp-blue-ice/40 hover:bg-enp-blue-light transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 bg-enp-blue-primary text-white flex items-center justify-center shrink-0">
-                      <PlusCircle className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep truncate">
-                        Renseigner une séance
-                      </h4>
-                      <p className="text-[11px] text-enp-gray-medium truncate">
-                        Saisie officielle délégué de cours
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-                </Link>
-              )}
+            <div
+              onClick={() => navigate('/restitution')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40 col-span-2 sm:col-span-1"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Restitution
+                </span>
+                <FileText className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Rapports
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Bilans et suites (Art. 77)
+              </p>
             </div>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 2. ESPACE ENSEIGNANT                                     */}
+      {/* 2. ESPACE DÉLÉGUÉ DE PROMOTION                           */}
+      {/* ======================================================== */}
+      {role === 'delegue' && (
+        <div className="space-y-4 sm:space-y-6">
+          <div className="bg-white border-l-4 border-l-enp-blue-primary border-t border-r border-b border-enp-border p-4 sm:p-6 shadow-xs">
+            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-enp-blue-primary flex items-center gap-1.5 font-sans">
+                <PlusCircle className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                Mandat officiel de Délégué de cours
+              </span>
+              <InfoBubble
+                triggerVariant="pill"
+                triggerLabel="Rôle du Délégué"
+                title="Attributions officielles du Délégué"
+                badge="RÈGLEMENT DES ÉTUDES"
+                icon="book"
+                duration={6000}
+                content={
+                  <div className="space-y-2 text-xs leading-relaxed font-sans">
+                    <p>
+                      En tant que délégué, vous êtes chargé de <strong>renseigner chaque séance de cours</strong> dispensée (date, durée, thème, travail à faire) dans le cahier de texte officiel.
+                    </p>
+                    <p className="text-[11px] text-enp-gray-medium border-t border-enp-border pt-1.5">
+                      L'enseignant responsable dispose ensuite de 72h pour apposer son visa académique.
+                    </p>
+                  </div>
+                }
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-enp-blue-deep font-sans">
+                  Tenue du Cahier de Texte officiel
+                </h2>
+                <p className="text-xs text-enp-gray-medium mt-1">
+                  Enregistrez les séances tenues pour certification par vos professeurs.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => navigate('/cahier-texte/nouvelle')}
+                  variant="primary"
+                  className="font-bold flex items-center justify-center gap-2 py-2.5 px-4 text-sm shadow-xs"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Renseigner une séance</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+                <Button
+                  onClick={() => navigate('/cahier-texte')}
+                  variant="outline"
+                  className="font-semibold text-xs py-2.5 px-3"
+                >
+                  Consulter le cahier
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* GRILLE UNIQUE DÉLÉGUÉ */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
+            <div
+              onClick={() => navigate('/cahier-texte/nouvelle')}
+              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Saisie séance
+                </span>
+                <PlusCircle className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Renseigner
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Nouvelle fiche de cours
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/cahier-texte')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Cahier de texte
+                </span>
+                <BookOpen className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Historique
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Suivi des visas professeurs
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/evaluations')}
+              className={`bg-white border p-3.5 sm:p-5 cursor-pointer transition-colors hover:bg-enp-blue-ice/30 ${
+                uesAFaire.length > 0
+                  ? 'border-l-4 border-l-[#D97706] border-t-enp-border border-r-enp-border border-b-enp-border'
+                  : 'border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Évaluations
+                </span>
+                <ClipboardCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-enp-black tracking-tight font-sans">
+                {uesAFaire.length} UE
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Restantes à évaluer
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/mes-notes')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Mes notes
+                </span>
+                <GraduationCap className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Relevé
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Devoirs et examens
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/mes-presences')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40 col-span-2 sm:col-span-1"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Présences
+                </span>
+                <CalendarCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Assiduité
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Historique et retards
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. ESPACE ENSEIGNANT                                     */}
       {/* ======================================================== */}
       {role === 'enseignant' && (
         <div className="space-y-4 sm:space-y-6">
-          {/* HERO ENSEIGNANT */}
           {seancesAttente.length > 0 ? (
             <div className="bg-white border-l-4 border-l-[#D97706] border-t border-r border-b border-enp-border p-4 sm:p-6 shadow-xs">
               <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
@@ -392,16 +455,16 @@ export function Accueil() {
                     {seancesAttente.length} séance(s) en attente de visa
                   </h2>
                   <p className="text-xs text-enp-gray-medium mt-1">
-                    Saisie(s) par vos délégués de cours en attente de certification
+                    Validez-les en 1 clic directement depuis le cahier de texte
                   </p>
                 </div>
                 <Button
-                  onClick={() => navigate('/visas')}
+                  onClick={() => navigate('/cahier-texte')}
                   variant="primary"
                   className="w-full sm:w-auto font-bold flex items-center justify-center gap-2 py-2.5 px-4 text-sm"
                 >
                   <Stamp className="w-4 h-4" />
-                  <span>Viser les séances</span>
+                  <span>Viser dans le cahier de texte</span>
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
@@ -413,23 +476,9 @@ export function Accueil() {
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-enp-blue-deep">
-                      Toutes les séances de cours sont visées
-                    </h2>
-                    <InfoBubble
-                      triggerVariant="compact"
-                      title="Cahier de texte à jour"
-                      badge="CONFORMITÉ"
-                      icon="shield"
-                      duration={5000}
-                      content={
-                        <p className="text-xs leading-relaxed">
-                          Aucune séance en attente de validation. Le cahier de texte officiel de vos promotions est parfaitement conforme.
-                        </p>
-                      }
-                    />
-                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-enp-blue-deep">
+                    Toutes les séances de cours sont visées
+                  </h2>
                   <p className="text-xs text-enp-gray-medium mt-0.5">
                     Votre cahier de texte académique est certifié à jour.
                   </p>
@@ -445,10 +494,11 @@ export function Accueil() {
             </div>
           )}
 
-          {/* GRILLE 2X2 MOBILE (NON-REDUNDANT) */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          {/* GRILLE UNIQUE ENSEIGNANT */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div
-              className={`bg-white border p-3 sm:p-5 ${
+              onClick={() => navigate('/cahier-texte')}
+              className={`bg-white border p-3.5 sm:p-5 cursor-pointer transition-colors hover:bg-enp-blue-ice/30 ${
                 seancesAttente.length > 0
                   ? 'border-l-4 border-l-[#D97706] border-t-enp-border border-r-enp-border border-b-enp-border'
                   : 'border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border'
@@ -456,21 +506,57 @@ export function Accueil() {
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  À viser
+                  Cahier & Visas
                 </span>
-                <Stamp className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <BookOpen className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                {seancesAttente.length}
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight font-sans truncate">
+                {seancesAttente.length > 0 ? `${seancesAttente.length} à viser` : 'À jour'}
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Validation du cahier de texte
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Séances, visas et exports
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/enseignant/notes')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Saisie notes
+                </span>
+                <ClipboardCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Notes
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Devoirs et examens
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/enseignant/presences')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Présences
+                </span>
+                <CalendarCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Appel 1-clic
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Assiduité des promotions
               </p>
             </div>
 
             <div
               onClick={() => navigate('/resultats')}
-              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -481,91 +567,16 @@ export function Accueil() {
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
                 Fiches UE
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
                 Évaluations anonymes
               </p>
-            </div>
-
-            <div
-              onClick={() => navigate('/enseignant/notes')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
-            >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Saisie notes
-                </span>
-                <ClipboardCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
-              </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Devoirs
-              </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Barèmes et moyennes
-              </p>
-            </div>
-
-            <div
-              onClick={() => navigate('/enseignant/presences')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
-            >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Présences
-                </span>
-                <CheckCircle2 className="w-4 h-4 text-enp-blue-primary shrink-0" />
-              </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Pointage
-              </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Assiduité des promotions
-              </p>
-            </div>
-          </div>
-
-          {/* ACCÈS DIRECTS ENSEIGNANT (DESTINATIONS UNIQUES) */}
-          <div className="bg-white border border-enp-border p-3.5 sm:p-5">
-            <h3 className="text-xs sm:text-sm font-bold text-enp-blue-deep uppercase tracking-wider mb-3">
-              Accès directs
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-              <Link
-                to="/cahier-texte"
-                className="p-3 sm:p-4 border border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/40 transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-              >
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep">Cahier de texte</h4>
-                  <p className="text-[11px] text-enp-gray-medium">Vue chronologique et exports</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-enp-gray-medium group-hover:text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </Link>
-              <Link
-                to="/resultats"
-                className="p-3 sm:p-4 border border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/40 transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-              >
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep">Fiches de résultats</h4>
-                  <p className="text-[11px] text-enp-gray-medium">Évaluations anonymes par UE</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-enp-gray-medium group-hover:text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </Link>
-              <Link
-                to="/enseignant/notes"
-                className="p-3 sm:p-4 border border-enp-border hover:border-enp-blue-primary hover:bg-enp-blue-ice/40 transition-colors flex items-center justify-between group active:bg-enp-blue-ice"
-              >
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-enp-blue-deep">Saisie des notes</h4>
-                  <p className="text-[11px] text-enp-gray-medium">Notes d'examen et devoirs</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-enp-gray-medium group-hover:text-enp-blue-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </Link>
             </div>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 3. ESPACE CHEF DE DÉPARTEMENT                            */}
+      {/* 4. ESPACE CHEF DE DÉPARTEMENT                            */}
       {/* ======================================================== */}
       {role === 'chef_departement' && (
         <div className="space-y-4 sm:space-y-6">
@@ -616,10 +627,10 @@ export function Accueil() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div
               onClick={() => navigate('/participation')}
-              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -630,50 +641,50 @@ export function Accueil() {
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
                 En direct
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
                 Suivi des répondants par UE
               </p>
             </div>
 
             <div
               onClick={() => navigate('/synthese')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Synthèse
                 </span>
-                <BarChart3 className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <Award className="w-4 h-4 text-[#D97706] shrink-0" />
               </div>
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Rapports
+                Plan d'actions
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Moyennes par section A-E
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Moyennes A-E et suites
               </p>
             </div>
 
             <div
-              onClick={() => navigate('/synthese')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              onClick={() => navigate('/resultats')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Correctifs
+                  Résultats UE
                 </span>
-                <Award className="w-4 h-4 text-[#D97706] shrink-0" />
+                <BarChart3 className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Actions
+                Fiches UE
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Engagements d'amélioration
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Détails par enseignement
               </p>
             </div>
 
             <div
               onClick={() => navigate('/cahier-texte')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
@@ -684,7 +695,7 @@ export function Accueil() {
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
                 Contrôle
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
                 Avancement horaire global
               </p>
             </div>
@@ -693,7 +704,7 @@ export function Accueil() {
       )}
 
       {/* ======================================================== */}
-      {/* 4. ESPACE SCOLARITÉ                                      */}
+      {/* 5. ESPACE SCOLARITÉ                                      */}
       {/* ======================================================== */}
       {role === 'scolarite' && (
         <div className="space-y-4 sm:space-y-6">
@@ -744,80 +755,116 @@ export function Accueil() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
             <div
               onClick={() => navigate('/scolarite/campagnes')}
-              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Campagnes
                 </span>
                 <Megaphone className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
+              <div className="text-xl sm:text-2xl font-bold text-enp-black tracking-tight font-sans">
                 {tbScolarite?.campagnesOuvertes ?? '1'}
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                En cours de consultation
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                En cours
               </p>
             </div>
 
             <div
               onClick={() => navigate('/scolarite/moderation')}
-              className={`bg-white border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 ${
+              className={`bg-white border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 ${
                 Number(tbScolarite?.commentairesAModerer || 0) > 0
                   ? 'border-l-4 border-l-[#D97706] border-t-enp-border border-r-enp-border border-b-enp-border'
                   : 'border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border'
               }`}
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Modération
                 </span>
                 <ShieldCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
+              <div className="text-xl sm:text-2xl font-bold text-enp-black tracking-tight font-sans">
                 {tbScolarite?.commentairesAModerer ?? '0'}
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Avis qualitatifs à traiter
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Avis à traiter
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/scolarite/deliberations')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Examens
+                </span>
+                <ClipboardCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Délibérer
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Jurys et publication
               </p>
             </div>
 
             <div
               onClick={() => navigate('/scolarite/comptes')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Comptes
                 </span>
                 <Users className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
+              <div className="text-xl sm:text-2xl font-bold text-enp-black tracking-tight font-sans">
                 {tbScolarite?.comptesSansMotDePasse ?? '12'}
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Codes d'activation à émettre
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                À activer
               </p>
             </div>
 
             <div
               onClick={() => navigate('/scolarite/imports')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Imports
                 </span>
                 <Upload className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
                 CSV
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Étudiants, UE, affectations
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Assistant 3 étapes
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/scolarite/restitution')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Restitution
+                </span>
+                <FileText className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Article 77
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Bilan aux étudiants
               </p>
             </div>
           </div>
@@ -825,7 +872,7 @@ export function Accueil() {
       )}
 
       {/* ======================================================== */}
-      {/* 5. ESPACE DES DIRECTIONS DE CAMPUS ET GÉNÉRALE           */}
+      {/* 6. ESPACE DES DIRECTIONS DE CAMPUS ET GÉNÉRALE           */}
       {/* ======================================================== */}
       {(role === 'directeur_campus' || role === 'directeur_general') && (
         <div className="space-y-4 sm:space-y-6">
@@ -864,7 +911,7 @@ export function Accueil() {
                 <h2 className="text-xl sm:text-2xl font-bold text-enp-blue-deep font-sans">
                   {role === 'directeur_general'
                     ? 'Participation consolidée ENP : 78.4%'
-                    : 'Participation de votre campus : —'}
+                    : 'Pilotage statistique du campus'}
                 </h2>
                 <p className="text-xs text-enp-gray-medium mt-1">
                   {role === 'directeur_general'
@@ -884,76 +931,76 @@ export function Accueil() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div
               onClick={() => navigate('/direction/statistiques')}
-              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
+              className="bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Participation
+                  Statistiques
                 </span>
                 <Activity className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                {role === 'directeur_general' ? '78.4%' : '—'}
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight font-sans">
+                {role === 'directeur_general' ? '78.4%' : 'Campus'}
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                {role === 'directeur_general' ? 'Moyenne tous campus ENP' : 'Moyenne de votre campus'}
-              </p>
-            </div>
-
-            <div
-              onClick={() => navigate('/direction/statistiques')}
-              className="bg-white border border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
-            >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Départements
-                </span>
-                <Award className="w-4 h-4 text-enp-green-valid shrink-0" />
-              </div>
-              <div className="text-xl sm:text-3xl font-bold text-enp-black tracking-tight font-sans">
-                {role === 'directeur_general' ? '6 / 6' : '—'}
-              </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                {role === 'directeur_general' ? 'Tous départements actifs' : 'Départements de votre campus'}
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                {role === 'directeur_general' ? 'Moyenne tous campus ENP' : 'Indicateurs de votre campus'}
               </p>
             </div>
 
             <div
               onClick={() => navigate('/direction/controles')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Contrôles
                 </span>
-                <ShieldCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-enp-green-valid shrink-0" />
               </div>
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                {role === 'directeur_general' ? 'Conforme' : 'Consulter'}
+                Conformité
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
                 Cohérence des référentiels
               </p>
             </div>
 
             <div
               onClick={() => navigate('/resultats')}
-              className="bg-white border border-enp-border p-3 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Résultats UE
                 </span>
-                <BookOpen className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <BarChart3 className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
               <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Consulter
+                Fiches UE
               </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5 hidden sm:block">
-                Synthèses pédagogiques accessibles
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Synthèses pédagogiques
+              </p>
+            </div>
+
+            <div
+              onClick={() => navigate('/direction/commentaires')}
+              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Commentaires
+                </span>
+                <FileText className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Lecture
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Avis modérés des campagnes
               </p>
             </div>
           </div>
@@ -961,7 +1008,7 @@ export function Accueil() {
       )}
 
       {/* ======================================================== */}
-      {/* 6. ESPACE ADMINISTRATEUR TECHNIQUE                       */}
+      {/* 7. ESPACE ADMINISTRATEUR TECHNIQUE                       */}
       {/* ======================================================== */}
       {role === 'admin' && (
         <div className="space-y-4 sm:space-y-6">
@@ -976,94 +1023,125 @@ export function Accueil() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-enp-blue-deep font-sans">
-                  Outils d’administration
+                  Configuration & Sécurité de la plateforme
                 </h2>
                 <p className="text-xs text-enp-gray-medium mt-1">
-                  Gérez les comptes et accédez aux fonctions de suivi de la plateforme.
+                  Gérez les référentiels institutionnels, les comptes, les imports et le journal d'audit.
                 </p>
               </div>
               <Button
-                onClick={() => navigate('/scolarite/comptes')}
+                onClick={() => navigate('/administration')}
                 variant="primary"
                 className="w-full sm:w-auto font-bold flex items-center justify-center gap-2 py-2.5 px-4 text-sm"
               >
-                <Users className="w-4 h-4" />
-                <span>Gérer les comptes</span>
+                <Building2 className="w-4 h-4" />
+                <span>Gérer les référentiels</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
             <button
               type="button"
-              onClick={() => navigate('/scolarite/comptes')}
-              className="text-left bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30"
+              onClick={() => navigate('/administration')}
+              className="text-left bg-white border border-l-4 border-l-enp-blue-primary border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors hover:bg-enp-blue-ice/30"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Comptes
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Référentiels
                 </span>
-                <Users className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <Building2 className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
-                Gérer les comptes
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Structures
               </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Campus, dépts, cursus
+              </p>
             </button>
 
             <button
               type="button"
-              onClick={() => navigate('/journal-audit')}
-              className="text-left bg-white border border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30"
+              onClick={() => navigate('/scolarite/comptes')}
+              className="text-left bg-white border border-enp-border p-3.5 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Audit
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Comptes
                 </span>
-                <ScrollText className="w-4 h-4 text-enp-green-valid shrink-0" />
+                <Users className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
-                Consulter le journal
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Utilisateurs
               </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Rôles et activations
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/scolarite/imports')}
+              className="text-left bg-white border border-enp-border p-3.5 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Imports
+                </span>
+                <Upload className="w-4 h-4 text-enp-blue-primary shrink-0" />
+              </div>
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                CSV
+              </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Données de masse
+              </p>
             </button>
 
             <button
               type="button"
               onClick={() => navigate('/archives-annuelles')}
-              className="text-left bg-white border border-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              className="text-left bg-white border border-enp-border p-3.5 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
                   Archives
                 </span>
-                <Award className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <Archive className="w-4 h-4 text-enp-blue-primary shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
-                Gérer les archives
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Millésimes
               </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Clôture annuelle
+              </p>
             </button>
 
             <button
               type="button"
-              onClick={() => navigate('/administration')}
-              className="text-left bg-white border border-enp-border p-3 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
+              onClick={() => navigate('/journal-audit')}
+              className="text-left bg-white border border-l-4 border-l-enp-green-valid border-t-enp-border border-r-enp-border border-b-enp-border p-3.5 sm:p-5 transition-colors hover:bg-enp-blue-ice/30 col-span-2 sm:col-span-1"
             >
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Serveurs
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
+                  Audit
                 </span>
-                <ShieldCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
+                <ScrollText className="w-4 h-4 text-enp-green-valid shrink-0" />
               </div>
-              <div className="text-base sm:text-2xl font-bold text-enp-blue-deep tracking-tight">
-                Paramètres
+              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
+                Journal
               </div>
+              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
+                Traçabilité système
+              </p>
             </button>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* MENTION RÉGLEMENTAIRE SOUS FORME DE BULLE RAPIDE         */}
+      {/* MENTION RÉGLEMENTAIRE DISCRÈTE                           */}
       {/* ======================================================== */}
       <div className="p-3 sm:p-4 bg-white border border-enp-border flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-enp-gray-medium">
         <div className="flex items-center gap-2 text-center sm:text-left">

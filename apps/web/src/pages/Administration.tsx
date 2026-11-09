@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
-import { AlertCircle, Building2, Layers3, Plus, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Building2, Layers3, Plus, RefreshCw, Landmark } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import type { ReferentielsAdministration } from '@/api/types';
-import { Tabs } from '@/components/ui';
+import { PageHeader, Button, Alert, Tabs, StatCard, Badge } from '@/components/ui';
 
 export function Administration() {
   const [data, setData] = useState<ReferentielsAdministration | null>(null);
@@ -35,13 +34,17 @@ export function Administration() {
           : referentiels.departements[0]?.id ?? '',
       );
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Erreur réseau lors du chargement.');
+      setErreur(
+        err instanceof ApiError ? err.messages.join(' ') : 'Erreur réseau lors du chargement.',
+      );
     } finally {
       setChargement(false);
     }
   }, []);
 
-  useEffect(() => { void charger(); }, [charger]);
+  useEffect(() => {
+    void charger();
+  }, [charger]);
 
   async function executer(cle: string, operation: () => Promise<unknown>, succes: string) {
     setAction(cle);
@@ -52,7 +55,11 @@ export function Administration() {
       setConfirmation(succes);
       await charger();
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.messages.join(' ') : 'Erreur réseau pendant l’enregistrement.');
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Erreur réseau pendant l’enregistrement.',
+      );
     } finally {
       setAction(null);
     }
@@ -62,7 +69,7 @@ export function Administration() {
     event.preventDefault();
     const nom = campusNom.trim();
     if (!nom) return;
-    void executer('campus', () => api.administrationCreerCampus(nom), 'Campus ajouté.');
+    void executer('campus', () => api.administrationCreerCampus(nom), 'Campus ajouté avec succès.');
     setCampusNom('');
   }
 
@@ -73,7 +80,7 @@ export function Administration() {
     void executer(
       'departement',
       () => api.administrationCreerDepartement(Number(campusId), nom),
-      'Département ajouté.',
+      'Département ajouté avec succès.',
     );
     setDepartementNom('');
   }
@@ -85,249 +92,283 @@ export function Administration() {
     void executer(
       'programme',
       () => api.administrationCreerProgramme(Number(departmentId), nom),
-      'Programme ajouté.',
+      'Programme ajouté avec succès.',
     );
     setProgrammeNom('');
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-enp-ink">
-            Administration
-          </h1>
-          <p className="mt-1 text-sm text-enp-ink-soft">
-            Configurez les campus, départements et programmes utilisés par les campagnes.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void charger()}
-          disabled={chargement}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-enp-border bg-white px-3 py-2 text-sm font-medium text-enp-ink hover:bg-enp-sky disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={chargement ? 'animate-spin' : ''} aria-hidden="true" />
-          Actualiser
-        </button>
-      </div>
+    <div className="space-y-5 max-w-6xl mx-auto animate-fade-in pb-6">
+      <PageHeader
+        title="Référentiels & Structures"
+        description="Configurez les campus, départements et programmes académiques de l'École Nationale Polytechnique."
+        breadcrumbs={[
+          { label: 'Accueil', href: '/' },
+          { label: 'Référentiels & Campus' },
+        ]}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={chargement}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />}
+            onClick={() => void charger()}
+          >
+            Actualiser
+          </Button>
+        }
+      />
 
       {erreur && (
-        <div className="flex items-start gap-2 rounded-lg border border-enp-bordeaux/15 bg-enp-bordeaux-light p-4 text-enp-bordeaux" role="alert">
-          <AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <span>{erreur}</span>
+        <Alert variant="danger" title="Erreur" onClose={() => setErreur(null)}>
+          {erreur}
+        </Alert>
+      )}
+
+      {confirmation && (
+        <Alert variant="success" title="Confirmation" onClose={() => setConfirmation(null)}>
+          {confirmation}
+        </Alert>
+      )}
+
+      {chargement && !data ? (
+        <div className="bg-white border border-enp-border p-12 text-center text-sm text-enp-gray-medium">
+          Chargement des référentiels institutionnels…
         </div>
-      )}
-      {confirmation && <p className="rounded-lg bg-enp-teal-light p-3 text-sm font-medium text-enp-teal" role="status">{confirmation}</p>}
-      {chargement && !data && <p className="text-sm text-enp-ink-soft" role="status">Chargement des référentiels…</p>}
-
-      {data && (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Statistique titre="Campus" valeur={data.campus.length} />
-            <Statistique titre="Départements" valeur={data.departements.length} />
-            <Statistique titre="Programmes" valeur={data.programmes.length} />
-          </div>
-
-          <section
-            className="grid grid-cols-1 gap-4 xl:grid-cols-3"
-            aria-label="Créer des référentiels"
-          >
-            <Formulaire titre="Ajouter un campus" enCours={action === 'campus'} onSubmit={soumettreCampus}>
-              <ChampNom valeur={campusNom} changer={setCampusNom} libelle="Nom du campus" />
-            </Formulaire>
-
-            <Formulaire
-              titre="Ajouter un département"
-              enCours={action === 'departement'}
-              desactive={data.campus.length === 0}
-              onSubmit={soumettreDepartement}
-            >
-              <label className="block space-y-1 text-sm font-medium text-enp-ink">
-                <span>Campus</span>
-                <select
-                  value={campusId}
-                  onChange={(event) => setCampusId(event.target.value ? Number(event.target.value) : '')}
-                  required
-                  disabled={data.campus.length === 0}
-                  className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink"
-                >
-                  <option value="">Sélectionner un campus</option>
-                  {data.campus.map((campus) => <option key={campus.id} value={campus.id}>{campus.nom}</option>)}
-                </select>
-              </label>
-              <ChampNom valeur={departementNom} changer={setDepartementNom} libelle="Nom du département" />
-            </Formulaire>
-
-            <Formulaire
-              titre="Ajouter un programme"
-              enCours={action === 'programme'}
-              desactive={data.departements.length === 0}
-              onSubmit={soumettreProgramme}
-            >
-              <label className="block space-y-1 text-sm font-medium text-enp-ink">
-                <span>Département</span>
-                <select
-                  value={departmentId}
-                  onChange={(event) => setDepartmentId(event.target.value ? Number(event.target.value) : '')}
-                  required
-                  disabled={data.departements.length === 0}
-                  className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink"
-                >
-                  <option value="">Sélectionner un département</option>
-                  {data.departements.map((departement) => (
-                    <option key={departement.id} value={departement.id}>
-                      {departement.nom} — {departement.campus}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <ChampNom valeur={programmeNom} changer={setProgrammeNom} libelle="Nom du programme" />
-            </Formulaire>
-          </section>
-
-          <Tabs
-            tabs={[
-              { id: 'campus', label: 'Campus institutionnels', count: data.campus.length },
-              { id: 'departements', label: 'Départements', count: data.departements.length },
-              { id: 'programmes', label: 'Programmes', count: data.programmes.length },
-            ]}
-            activeTab={onglet}
-            onChange={setOnglet}
-          />
-
-          {onglet === 'campus' ? (
-            <section className="overflow-hidden rounded-xl border border-enp-border bg-white shadow-card">
-              <h2 className="flex items-center gap-2 bg-enp-teal-dark px-4 py-3 font-semibold text-white">
-                <Building2 size={18} aria-hidden="true" />
-                Campus institutionnels
-                <span className="ml-auto text-xs font-normal">{data.campus.length}</span>
-              </h2>
-              {data.campus.length > 0 ? (
-                <ul className="divide-y divide-enp-border">
-                  {data.campus.map((campus) => (
-                    <li key={campus.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                      <span className="text-enp-ink">{campus.nom}</span>
-                      <span className="shrink-0 font-mono text-enp-ink-soft">ID : {campus.id}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="px-4 py-5 text-sm text-enp-ink-soft">Aucun campus enregistré.</p>
-              )}
-            </section>
-          ) : onglet === 'departements' ? (
-            <ListeReferentiel
-              titre="Départements"
-              icone={<Building2 size={18} aria-hidden="true" />}
-              elements={data.departements.map((departement) => ({
-                id: departement.id,
-                libelle: `${departement.nom} — ${departement.campus}`,
-              }))}
-            />
-          ) : (
-            <ListeReferentiel
-              titre="Programmes"
-              icone={<Layers3 size={18} aria-hidden="true" />}
-              elements={data.programmes.map((programme) => ({
-                libelle: `${programme.nom} — ${programme.departement}`,
-              }))}
-            />
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function Statistique({ titre, valeur }: { titre: string; valeur: number }) {
-  return (
-    <div className="rounded-xl border border-enp-border bg-white p-4 shadow-card">
-      <p className="text-2xl font-bold text-enp-ink">{valeur}</p>
-      <p className="text-sm text-enp-ink-soft">{titre}</p>
-    </div>
-  );
-}
-
-function Formulaire({
-  titre,
-  enCours,
-  desactive = false,
-  onSubmit,
-  children,
-}: {
-  titre: string;
-  enCours: boolean;
-  desactive?: boolean;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  children: ReactNode;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-xl border border-enp-border bg-white p-4 shadow-card">
-      <h2 className="font-semibold text-enp-ink">{titre}</h2>
-      {children}
-      <button
-        type="submit"
-        disabled={enCours || desactive}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-enp-primary px-4 py-2 font-semibold text-white hover:bg-enp-primary-dark disabled:opacity-60"
-      >
-        <Plus size={17} aria-hidden="true" /> {enCours ? 'Enregistrement…' : 'Ajouter'}
-      </button>
-    </form>
-  );
-}
-
-function ChampNom({
-  valeur,
-  changer,
-  libelle,
-}: {
-  valeur: string;
-  changer: (value: string) => void;
-  libelle: string;
-}) {
-  return (
-    <label className="block space-y-1 text-sm font-medium text-enp-ink">
-      <span>{libelle}</span>
-      <input
-        value={valeur}
-        onChange={(event) => changer(event.target.value)}
-        maxLength={150}
-        required
-        className="min-h-[44px] w-full rounded-lg border border-enp-border bg-white px-3 py-2 text-enp-ink outline-none focus:border-enp-primary focus:ring-2 focus:ring-enp-primary/20"
-      />
-    </label>
-  );
-}
-
-function ListeReferentiel({
-  titre,
-  icone,
-  elements,
-}: {
-  titre: string;
-  icone: ReactNode;
-  elements: { id?: number; libelle: string }[];
-}) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-enp-border bg-white shadow-card">
-      <h2 className="flex items-center gap-2 bg-enp-teal-dark px-4 py-3 font-semibold text-white">
-        {icone} {titre} <span className="ml-auto text-xs font-normal">{elements.length}</span>
-      </h2>
-      {elements.length > 0 ? (
-        <ul className="divide-y divide-enp-border">
-          {elements.map((element, index) => (
-            <li key={`${element.id ?? element.libelle}-${index}`} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-              <span className="text-enp-ink">{element.libelle}</span>
-              {element.id !== undefined && (
-                <span className="shrink-0 font-mono text-enp-ink-soft">ID : {element.id}</span>
-              )}
-            </li>
-          ))}
-        </ul>
       ) : (
-        <p className="px-4 py-5 text-sm text-enp-ink-soft">Aucune donnée.</p>
+        data && (
+          <>
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+              <StatCard
+                title="Campus"
+                value={data.campus.length}
+                icon={<Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-enp-blue-primary" />}
+                description="Sites ENP"
+                className="p-3 sm:p-4"
+              />
+              <StatCard
+                title="Départements"
+                value={data.departements.length}
+                icon={<Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-enp-blue-deep" />}
+                description="Unités pédagogiques"
+                className="p-3 sm:p-4"
+              />
+              <StatCard
+                title="Programmes"
+                value={data.programmes.length}
+                icon={<Layers3 className="w-4 h-4 sm:w-5 sm:h-5 text-enp-green-valid" />}
+                description="Cursus et filières"
+                className="p-3 sm:p-4"
+              />
+            </div>
+
+            <Tabs
+              tabs={[
+                { id: 'campus', label: '1. Campus institutionnels', count: data.campus.length },
+                { id: 'departements', label: '2. Départements', count: data.departements.length },
+                { id: 'programmes', label: '3. Programmes & Cursus', count: data.programmes.length },
+              ]}
+              activeTab={onglet}
+              onChange={(id) => {
+                setOnglet(id);
+                setConfirmation(null);
+                setErreur(null);
+              }}
+            />
+
+            {/* ONGLET 1 : CAMPUS */}
+            {onglet === 'campus' && (
+              <section className="bg-white border border-enp-border shadow-xs overflow-hidden space-y-0">
+                <form
+                  onSubmit={soumettreCampus}
+                  className="p-4 bg-enp-blue-ice/40 border-b border-enp-border flex flex-col sm:flex-row sm:items-end gap-3"
+                >
+                  <label className="flex-1 block text-xs font-bold text-enp-blue-deep">
+                    Nouveau campus institutionnel
+                    <input
+                      value={campusNom}
+                      onChange={(event) => setCampusNom(event.target.value)}
+                      maxLength={150}
+                      required
+                      placeholder="Ex. Campus de Lomé"
+                      className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal text-enp-black outline-none focus:border-enp-blue-primary min-h-[40px]"
+                    />
+                  </label>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    isLoading={action === 'campus'}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Ajouter le campus
+                  </Button>
+                </form>
+
+                {data.campus.length > 0 ? (
+                  <ul className="divide-y divide-enp-border">
+                    {data.campus.map((campus) => (
+                      <li
+                        key={campus.id}
+                        className="flex items-center justify-between gap-4 px-4 py-3 text-sm hover:bg-enp-blue-ice/20"
+                      >
+                        <span className="font-semibold text-enp-black">{campus.nom}</span>
+                        <Badge variant="outline">ID #{campus.id}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-8 text-center text-sm text-enp-gray-medium">
+                    Aucun campus enregistré.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {/* ONGLET 2 : DÉPARTEMENTS */}
+            {onglet === 'departements' && (
+              <section className="bg-white border border-enp-border shadow-xs overflow-hidden">
+                <form
+                  onSubmit={soumettreDepartement}
+                  className="p-4 bg-enp-blue-ice/40 border-b border-enp-border grid grid-cols-1 sm:grid-cols-[240px_1fr_auto] gap-3 items-end"
+                >
+                  <label className="block text-xs font-bold text-enp-blue-deep">
+                    Campus de rattachement
+                    <select
+                      value={campusId}
+                      onChange={(event) =>
+                        setCampusId(event.target.value ? Number(event.target.value) : '')
+                      }
+                      required
+                      disabled={data.campus.length === 0}
+                      className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal text-enp-black outline-none focus:border-enp-blue-primary min-h-[40px]"
+                    >
+                      <option value="">Sélectionner un campus</option>
+                      {data.campus.map((campus) => (
+                        <option key={campus.id} value={campus.id}>
+                          {campus.nom}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-xs font-bold text-enp-blue-deep">
+                    Nom du département
+                    <input
+                      value={departementNom}
+                      onChange={(event) => setDepartementNom(event.target.value)}
+                      maxLength={150}
+                      required
+                      placeholder="Ex. Génie Électrique et Informatique"
+                      className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal text-enp-black outline-none focus:border-enp-blue-primary min-h-[40px]"
+                    />
+                  </label>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    disabled={data.campus.length === 0}
+                    isLoading={action === 'departement'}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Ajouter le département
+                  </Button>
+                </form>
+
+                {data.departements.length > 0 ? (
+                  <ul className="divide-y divide-enp-border">
+                    {data.departements.map((dept) => (
+                      <li
+                        key={dept.id}
+                        className="flex items-center justify-between gap-4 px-4 py-3 text-sm hover:bg-enp-blue-ice/20"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-enp-black">{dept.nom}</span>
+                          <Badge variant="institutional">{dept.campus}</Badge>
+                        </div>
+                        <Badge variant="outline">ID #{dept.id}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-8 text-center text-sm text-enp-gray-medium">
+                    Aucun département enregistré.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {/* ONGLET 3 : PROGRAMMES */}
+            {onglet === 'programmes' && (
+              <section className="bg-white border border-enp-border shadow-xs overflow-hidden">
+                <form
+                  onSubmit={soumettreProgramme}
+                  className="p-4 bg-enp-blue-ice/40 border-b border-enp-border grid grid-cols-1 sm:grid-cols-[280px_1fr_auto] gap-3 items-end"
+                >
+                  <label className="block text-xs font-bold text-enp-blue-deep">
+                    Département de rattachement
+                    <select
+                      value={departmentId}
+                      onChange={(event) =>
+                        setDepartmentId(event.target.value ? Number(event.target.value) : '')
+                      }
+                      required
+                      disabled={data.departements.length === 0}
+                      className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal text-enp-black outline-none focus:border-enp-blue-primary min-h-[40px]"
+                    >
+                      <option value="">Sélectionner un département</option>
+                      {data.departements.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.nom} ({dept.campus})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-xs font-bold text-enp-blue-deep">
+                    Intitulé du programme / cursus
+                    <input
+                      value={programmeNom}
+                      onChange={(event) => setProgrammeNom(event.target.value)}
+                      maxLength={150}
+                      required
+                      placeholder="Ex. Cycle Ingénieur Génie Civil"
+                      className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal text-enp-black outline-none focus:border-enp-blue-primary min-h-[40px]"
+                    />
+                  </label>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    disabled={data.departements.length === 0}
+                    isLoading={action === 'programme'}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Ajouter le programme
+                  </Button>
+                </form>
+
+                {data.programmes.length > 0 ? (
+                  <ul className="divide-y divide-enp-border">
+                    {data.programmes.map((prog, index) => (
+                      <li
+                        key={`${prog.nom}-${index}`}
+                        className="flex items-center justify-between gap-4 px-4 py-3 text-sm hover:bg-enp-blue-ice/20"
+                      >
+                        <span className="font-semibold text-enp-black">{prog.nom}</span>
+                        <Badge variant="institutional">{prog.departement}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-8 text-center text-sm text-enp-gray-medium">
+                    Aucun programme enregistré.
+                  </p>
+                )}
+              </section>
+            )}
+          </>
+        )
       )}
-    </section>
+    </div>
   );
 }
