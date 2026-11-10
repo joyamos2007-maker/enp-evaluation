@@ -1,13 +1,19 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   ClipboardList,
-  AlertCircle,
-  Clock,
-  CheckCircle2,
   Printer,
   Award,
   BookOpen,
 } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { api, ApiError } from '@/api';
 import type { NoteEtudiant } from '@/api/types';
 import {
@@ -55,48 +61,76 @@ export function EtudiantNotes() {
 
   const stats = useMemo(() => {
     if (notes.length === 0) return null;
-    const notesDispos = notes.filter((n) => n.deliberee && n.note !== null);
-    if (notesDispos.length === 0) {
-      return {
-        total: notes.length,
-        notesSaisies: 0,
-        enAttente: notes.filter((n) => !n.deliberee).length,
-        moyenneSur20: '-',
-      };
-    }
+    const notesDispos = notes.filter((n) => n.note !== null);
 
-    // Normalisation sur 20 pour chaque note
     const notesSur20 = notesDispos.map((n) => ((n.note as number) / n.bareme) * 20);
-    const moyenne = notesSur20.reduce((acc, curr) => acc + curr, 0) / notesSur20.length;
+    const moyenne = notesSur20.length > 0
+      ? notesSur20.reduce((acc, curr) => acc + curr, 0) / notesSur20.length
+      : null;
 
     return {
       total: notes.length,
       notesSaisies: notesDispos.length,
-      enAttente: notes.filter((n) => !n.deliberee).length,
-      moyenneSur20: (Math.round(moyenne * 100) / 100).toFixed(2),
+      moyenneSur20: moyenne === null ? '-' : (Math.round(moyenne * 100) / 100).toFixed(2),
     };
+  }, [notes]);
+
+  const progressions = useMemo(() => {
+    const parCours = new Map<
+      number,
+      {
+        code: string;
+        intitule: string;
+        evaluations: {
+          date: string;
+          libelle: string;
+          noteSur20: number;
+        }[];
+      }
+    >();
+    for (const note of notes) {
+      if (note.note === null) continue;
+      const cours = parCours.get(note.coursId) ?? {
+        code: note.code,
+        intitule: note.intitule,
+        evaluations: [],
+      };
+      cours.evaluations.push({
+        date: note.createdAt,
+        libelle: note.libelle,
+        noteSur20: (note.note / note.bareme) * 20,
+      });
+      parCours.set(note.coursId, cours);
+    }
+    return [...parCours.entries()].map(([coursId, cours]) => ({
+      coursId,
+      ...cours,
+      evaluations: cours.evaluations
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((evaluation) => ({
+          ...evaluation,
+          dateLabel: `${new Date(evaluation.date).toLocaleDateString('fr-FR')} · ${evaluation.libelle}`,
+        })),
+    }));
   }, [notes]);
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in pb-4">
       <PageHeader
         title="Relevé individuel de notes"
-        subtitle="Consultation de vos résultats aux devoirs continus et examens délibérés."
+        subtitle="Consultation des notes de devoir saisies par vos enseignants."
         badge={
           <InfoBubble
             triggerVariant="pill"
             triggerLabel="Notice des jurys"
-            title="Modalités d'affichage des notes et délibérations"
-            badge="DÉLIBÉRATIONS OFFICIELLES"
+            title="Consultation des notes de devoir"
+            badge="NOTES DE DEVOIR"
             icon="info"
             duration={7000}
             content={
               <div className="space-y-2 text-xs leading-relaxed font-sans">
                 <p>
-                  Les notes de devoirs et contrôles continus sont consultables dès publication par votre enseignant.
-                </p>
-                <p>
-                  Les notes d'examens terminaux font l'objet d'une délibération en jury avant d'être rendues visibles. Ce document est à usage personnel et ne se substitue pas à une attestation officielle.
+                  Les notes de devoir apparaissent ici après leur saisie par votre enseignant. Ce relevé est à usage personnel et ne se substitue pas à une attestation officielle.
                 </p>
               </div>
             }
@@ -127,14 +161,12 @@ export function EtudiantNotes() {
         </Alert>
       )}
 
-      {/* Notice de confidentialité et délibération (masquée sur mobile car disponible via la bulle 'i' ci-dessus) */}
+      {/* Notice de confidentialité (masquée sur mobile car disponible via la bulle 'i' ci-dessus) */}
       <div className="hidden sm:block bg-enp-bg border-l-4 border-enp-blue-primary border-r border-t border-b border-enp-border p-4 text-xs text-enp-gray-medium leading-relaxed font-sans">
         <span className="font-bold text-enp-blue-deep block mb-0.5 font-sans">
-          Information officielle de la Scolarité :
+          Information :
         </span>
-        Les notes de devoirs et contrôles continus sont consultables dès publication par votre enseignant.
-        Les notes d'examens terminaux font l'objet d'une délibération en jury avant d'être rendues
-        visibles. Ce document est à usage personnel et ne se substitue pas à une attestation officielle.
+        Les notes de devoir sont consultables après leur saisie par votre enseignant. Ce relevé est à usage personnel et ne se substitue pas à une attestation officielle.
       </div>
 
       {chargement ? (
@@ -154,14 +186,14 @@ export function EtudiantNotes() {
         </div>
       ) : (
         <>
-          {/* Statistiques synthétiques adaptées au mobile en grille 2x2 */}
+          {/* Statistiques des devoirs */}
           {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
               <StatCard
                 title="Moyenne"
                 value={`${stats.moyenneSur20} / 20`}
                 icon={<Award className="w-4 h-4 sm:w-5 sm:h-5 text-enp-blue-primary" />}
-                description="Moyenne indicative"
+                description="Sur les notes saisies"
                 variant="primary"
                 className="p-3 sm:p-5"
               />
@@ -169,26 +201,54 @@ export function EtudiantNotes() {
                 title="Inscrites"
                 value={stats.total}
                 icon={<BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-enp-gray-medium" />}
-                description="Évaluations prévues"
-                className="p-3 sm:p-5"
-              />
-              <StatCard
-                title="Publiées"
-                value={stats.notesSaisies}
-                icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-enp-green-valid" />}
-                description="Délibérées"
-                variant="success"
-                className="p-3 sm:p-5"
-              />
-              <StatCard
-                title="En attente"
-                value={stats.enAttente}
-                icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-enp-gold" />}
-                description="Examens jury"
-                variant="warning"
+                description={`${stats.notesSaisies} note(s) saisie(s)`}
                 className="p-3 sm:p-5"
               />
             </div>
+          )}
+
+          {progressions.length > 0 && (
+            <section className="space-y-4 rounded-lg border border-enp-border bg-white p-4">
+              <div>
+                <h3 className="font-bold text-enp-blue-deep">Évolution par UE</h3>
+                <p className="text-xs text-enp-gray-medium">
+                  Notes normalisées sur 20, dans l’ordre des devoirs.
+                </p>
+              </div>
+              {progressions.map((progression) => (
+                <article
+                  key={progression.coursId}
+                  className="space-y-2 border-t border-enp-border pt-3"
+                >
+                  <h4 className="text-sm font-semibold text-enp-ink">
+                    {progression.code} — {progression.intitule}
+                  </h4>
+                  <div className="h-56 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={progression.evaluations}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="dateLabel" minTickGap={20} />
+                        <YAxis domain={[0, 20]} />
+                        <Tooltip
+                          formatter={(value) => [
+                            `${Number(value).toFixed(2)} / 20`,
+                            'Note',
+                          ]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="noteSur20"
+                          name="Note / 20"
+                          stroke="#1d4ed8"
+                          strokeWidth={2}
+                          dot
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </article>
+              ))}
+            </section>
           )}
 
           {/* Tableau des notes */}
@@ -205,13 +265,10 @@ export function EtudiantNotes() {
             {/* VUE MOBILE : Cartes de notes claires et lisibles sur téléphone */}
             <div className="block sm:hidden p-2.5 space-y-2.5 bg-enp-bg">
               {notes.map((ligne) => {
-                const estExamenNonDelibere = !ligne.deliberee;
                 const sansNote = ligne.note === null;
                 const noteValide = ligne.note !== null && ligne.note >= ligne.bareme / 2;
 
-                const bordureNote = estExamenNonDelibere
-                  ? 'border-l-4 border-l-[#D97706]'
-                  : sansNote
+                const bordureNote = sansNote
                   ? 'border-l-4 border-l-enp-border'
                   : noteValide
                   ? 'border-l-4 border-l-enp-green-valid'
@@ -228,9 +285,7 @@ export function EtudiantNotes() {
                           <span className="font-mono text-xs font-bold bg-enp-blue-light text-enp-blue-deep border border-enp-blue-primary/20 px-1.5 py-0.2">
                             {ligne.code}
                           </span>
-                          <Badge variant={ligne.type === 'devoir' ? 'default' : 'institutional'}>
-                            {ligne.type === 'devoir' ? 'Devoir continu' : 'Examen'}
-                          </Badge>
+                          <Badge variant="default">Devoir</Badge>
                         </div>
                         <p className="font-bold text-sm text-enp-black font-sans truncate">
                           {ligne.intitule}
@@ -241,14 +296,7 @@ export function EtudiantNotes() {
                       </div>
 
                       <div className="text-right shrink-0">
-                        {estExamenNonDelibere ? (
-                          <div className="space-y-1">
-                            <span className="text-[11px] text-[#D97706] font-bold block font-sans">
-                              En délibération
-                            </span>
-                            <Badge variant="warning">En attente jury</Badge>
-                          </div>
-                        ) : sansNote ? (
+                        {sansNote ? (
                           <div className="space-y-1">
                             <span className="text-[11px] text-enp-gray-medium italic block font-sans">
                               Non renseignée
@@ -281,14 +329,12 @@ export function EtudiantNotes() {
                   <TableRow>
                     <TableHead>Unité d'Enseignement (UE)</TableHead>
                     <TableHead>Évaluation</TableHead>
-                    <TableHead className="text-center">Nature</TableHead>
                     <TableHead className="text-right">Note obtenue</TableHead>
                     <TableHead className="text-center">Statut</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {notes.map((ligne) => {
-                    const estExamenNonDelibere = !ligne.deliberee;
                     const sansNote = ligne.note === null;
 
                     return (
@@ -306,17 +352,8 @@ export function EtudiantNotes() {
                         <TableCell className="text-sm font-medium text-enp-blue-deep font-sans">
                           {ligne.libelle}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant={ligne.type === 'devoir' ? 'default' : 'institutional'}>
-                            {ligne.type === 'devoir' ? 'Devoir continu' : 'Examen terminal'}
-                          </Badge>
-                        </TableCell>
                         <TableCell className="text-right font-mono font-bold text-base">
-                          {estExamenNonDelibere ? (
-                            <span className="text-xs text-enp-gold font-sans font-medium">
-                              En délibération
-                            </span>
-                          ) : sansNote ? (
+                          {sansNote ? (
                             <span className="text-xs text-enp-gray-medium font-sans font-normal italic">
                               Non renseignée
                             </span>
@@ -327,9 +364,7 @@ export function EtudiantNotes() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          {estExamenNonDelibere ? (
-                            <Badge variant="warning">En attente jury</Badge>
-                          ) : sansNote ? (
+                          {sansNote ? (
                             <Badge variant="outline">Non noté</Badge>
                           ) : (
                             <Badge variant="success">Publié</Badge>

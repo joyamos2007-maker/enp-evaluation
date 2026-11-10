@@ -22,7 +22,11 @@ import {
 import { Acces } from '../auth/acces.decorator';
 import { ImportsService } from './imports.service';
 import { FileUploadDto } from './dto/file-upload.dto';
-import { AcademicImportsService, type TypeImportAcademique } from './academic-imports.service';
+import {
+  AcademicImportsService,
+  type ContexteImport,
+  type TypeImportAcademique,
+} from './academic-imports.service';
 
 const TYPES_IMPORT: TypeImportAcademique[] = [
   'etudiants',
@@ -32,6 +36,8 @@ const TYPES_IMPORT: TypeImportAcademique[] = [
   'affectations',
   'inscriptions',
   'delegues',
+  'catalogue',
+  'presences',
 ];
 
 @ApiTags('Imports CSV (Référentiels & Comptes)')
@@ -70,23 +76,34 @@ export class ImportsController {
   }
 
   @Post(':type/verification')
-  @ApiOperation({ summary: 'Valider un CSV académique sans modifier les référentiels' })
+  @ApiOperation({
+    summary: 'Vérifier un CSV ou un classeur XLSX sans appliquer les données',
+  })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('fichier', { limits: { fileSize: 2 * 1024 * 1024 } }))
   async verifierImport(
     @Param('type') typeBrut: string,
-    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @UploadedFile()
+    file: { buffer: Buffer; originalname: string } | undefined,
+    @Body() contexte: ContexteImport,
     @Req() requete: RequeteAuthentifiee,
   ) {
     const type = this.lireType(typeBrut);
-    if (!file) throw new BadRequestException('Aucun fichier CSV fourni');
+    if (!file) throw new BadRequestException('Aucun fichier fourni');
     const utilisateur = requete.utilisateur;
     if (!utilisateur) throw new UnauthorizedException('Jeton manquant');
     const campusId = await this.campusScope.forScolarite(
       utilisateur.id,
       [utilisateur.activeRole],
     );
-    return this.academicImports.verifier(type, file.buffer, utilisateur.id, campusId);
+    return this.academicImports.verifier(
+      type,
+      file.buffer,
+      utilisateur.id,
+      campusId,
+      file.originalname,
+      contexte,
+    );
   }
 
   @Post(':type/valider')

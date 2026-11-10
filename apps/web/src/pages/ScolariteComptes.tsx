@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Search,
   Send,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { api, ApiError } from '@/api';
@@ -24,6 +25,8 @@ export function ScolariteComptes() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [envoiActivation, setEnvoiActivation] = useState<number | 'groupe' | null>(null);
+  const [suppression, setSuppression] = useState<number | null>(null);
+  const [verificationSmtp, setVerificationSmtp] = useState(false);
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -123,6 +126,53 @@ export function ScolariteComptes() {
     }
   }
 
+  async function verifierSmtp() {
+    setVerificationSmtp(true);
+    setErreur(null);
+    setConfirmation(null);
+    try {
+      await api.scolariteVerifierSmtp();
+      setConfirmation(
+        'Connexion SMTP vérifiée. Aucun e-mail de test n’a été envoyé; la réception dépend aussi du fournisseur et de la boîte destinataire.',
+      );
+    } catch (err) {
+      setErreur(
+        err instanceof ApiError ? err.messages.join(' ') : 'Vérification SMTP impossible.',
+      );
+    } finally {
+      setVerificationSmtp(false);
+    }
+  }
+
+  async function supprimerCompte(compte: CompteAdministration) {
+    const identifiant = compte.matricule ?? compte.email ?? `compte ${compte.id}`;
+    if (
+      !window.confirm(
+        `Supprimer le compte ${compte.prenom} ${compte.nom} (${identifiant}) ? Le compte sera désactivé et anonymisé; les données académiques seront conservées.`,
+      )
+    ) {
+      return;
+    }
+    setSuppression(compte.id);
+    setErreur(null);
+    setConfirmation(null);
+    try {
+      await api.scolariteSupprimerCompte(compte.id);
+      setComptes((existants) => existants.filter((element) => element.id !== compte.id));
+      setConfirmation(
+        `Le compte ${identifiant} a été supprimé. L’action est inscrite au journal d’audit.`,
+      );
+    } catch (err) {
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : 'Erreur réseau lors de la suppression du compte.',
+      );
+    } finally {
+      setSuppression(null);
+    }
+  }
+
   const stats = useMemo(() => {
     const total = comptes.length;
     const actives = comptes.filter((c) => c.motDePasseConfigure).length;
@@ -152,6 +202,15 @@ export function ScolariteComptes() {
                 Envoyer les codes ({comptesAActiverFiltres.length})
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={verificationSmtp}
+              onClick={() => void verifierSmtp()}
+            >
+              {verificationSmtp ? 'Vérification SMTP…' : 'Tester SMTP'}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -320,6 +379,7 @@ export function ScolariteComptes() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
                       {!compte.motDePasseConfigure ? (
                         <Button
                           type="button"
@@ -336,6 +396,19 @@ export function ScolariteComptes() {
                       ) : (
                         <span className="text-xs text-enp-gray-medium">Opérationnel</span>
                       )}
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        disabled={suppression !== null}
+                        isLoading={suppression === compte.id}
+                        leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                        aria-label={`Supprimer le compte ${compte.prenom} ${compte.nom}`}
+                        onClick={() => void supprimerCompte(compte)}
+                      >
+                        Supprimer
+                      </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

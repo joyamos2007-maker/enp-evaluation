@@ -180,7 +180,7 @@ describe('CahierTexteService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('réinitialise le visa lors d’une nouvelle version après visa', async () => {
+  it('refuse la modification d’une séance déjà visée côté API', async () => {
     db.query.mockResolvedValueOnce([]);
     await expect(
       service.modifier(12, 8, {
@@ -194,8 +194,7 @@ describe('CahierTexteService', () => {
         contenu: 'Requêtes',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
-    expect(db.query.mock.calls[0][0]).toContain("visa_statut = 'en_attente'");
-    expect(db.query.mock.calls[0][0]).not.toContain("s.visa_statut <> 'vise'");
+    expect(db.query.mock.calls[0][0]).toContain("s.visa_statut <> 'vise'");
   });
 
   it('réserve les séances étudiantes aux cours inscrits et aux séances visées ou planifiées', async () => {
@@ -242,6 +241,30 @@ describe('CahierTexteService', () => {
       heuresPrevues: { cm: 30, td: 12, tp: 6 },
       heuresEffectuees: { cm: 2, td: 1.5, tp: 0 },
     });
-    expect(db.query.mock.calls[0][1]).toEqual([5, 12, false, true]);
+    expect(db.query.mock.calls[0][1]).toEqual([
+      5, 12, false, true, null, null, false,
+    ]);
+  });
+
+  it('limite les statistiques horaires au périmètre Scolarité', async () => {
+    db.query.mockResolvedValueOnce([]);
+    await expect(
+      service.avancement(12, ['scolarite'], 5, 8),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(db.query.mock.calls[0][0]).toContain('d.campus_id = $5');
+    expect(db.query.mock.calls[0][1]).toEqual([
+      5, 12, false, false, 8, null, false,
+    ]);
+  });
+
+  it('limite les statistiques horaires au département du chef', async () => {
+    db.query.mockResolvedValueOnce([]);
+    await expect(
+      service.avancement(12, ['chef_departement'], 5, null, 14),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(db.query.mock.calls[0][0]).toContain('p.department_id = $6');
+    expect(db.query.mock.calls[0][1]).toEqual([
+      5, 12, false, false, null, 14, false,
+    ]);
   });
 });

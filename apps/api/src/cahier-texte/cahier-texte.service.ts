@@ -248,6 +248,7 @@ export class CahierTexteService {
            updated_at = NOW()
        FROM ref.course co
        WHERE s.id = $1 AND co.id = $2
+         AND s.visa_statut <> 'vise'
          AND EXISTS (
            SELECT 1 FROM ref.class_delegate cd
            WHERE cd.program_id = co.program_id
@@ -600,7 +601,13 @@ export class CahierTexteService {
     return this.exports.generer(format, 'Cahier de texte', lignes);
   }
 
-  async avancement(userId: number, roles: string[], ueId: number) {
+  async avancement(
+    userId: number,
+    roles: string[],
+    ueId: number,
+    campusId: number | null = null,
+    departmentId: number | null = null,
+  ) {
     const rows = await this.db.query<{
       ue_id: number;
       heures_cm_prevues: number;
@@ -618,6 +625,8 @@ export class CahierTexteService {
               COALESCE(SUM(EXTRACT(EPOCH FROM (s.fin - s.debut)) / 3600)
                 FILTER (WHERE s.type = 'TP' AND s.statut = 'tenue'), 0) AS heures_tp_effectuees
        FROM ref.course co
+       JOIN ref.program p ON p.id = co.program_id
+       JOIN ref.department d ON d.id = p.department_id
        LEFT JOIN academic.class_sessions s ON s.course_id = co.id
        WHERE co.id = $1 AND (
          ($3::boolean AND EXISTS (
@@ -630,9 +639,20 @@ export class CahierTexteService {
            SELECT 1 FROM ref.course_teacher ct
            WHERE ct.course_id = co.id AND ct.teacher_id = $2
          ))
+         OR ($5::int IS NOT NULL AND d.campus_id = $5)
+         OR ($6::int IS NOT NULL AND p.department_id = $6)
+         OR $7::boolean
        )
        GROUP BY co.id`,
-      [ueId, userId, roles.includes('delegue'), roles.includes('enseignant')],
+      [
+        ueId,
+        userId,
+        roles.includes('delegue'),
+        roles.includes('enseignant'),
+        campusId,
+        departmentId,
+        roles.includes('directeur_general'),
+      ],
     );
     const row = rows[0];
     if (!row)

@@ -797,24 +797,6 @@ export function Accueil() {
             </div>
 
             <div
-              onClick={() => navigate('/scolarite/deliberations')}
-              className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
-            >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-enp-gray-medium truncate">
-                  Examens
-                </span>
-                <ClipboardCheck className="w-4 h-4 text-enp-blue-primary shrink-0" />
-              </div>
-              <div className="text-base sm:text-xl font-bold text-enp-blue-deep tracking-tight truncate">
-                Délibérer
-              </div>
-              <p className="text-[11px] text-enp-gray-medium truncate mt-0.5">
-                Jurys et publication
-              </p>
-            </div>
-
-            <div
               onClick={() => navigate('/scolarite/comptes')}
               className="bg-white border border-enp-border p-3.5 sm:p-5 transition-colors cursor-pointer hover:bg-enp-blue-ice/30 hover:border-enp-blue-primary/40"
             >

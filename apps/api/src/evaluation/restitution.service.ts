@@ -54,8 +54,12 @@ export class RestitutionService {
          SELECT id, $2::text, $3::text, $4::int FROM maj
          RETURNING campaign_id),
        trace AS (
-         INSERT INTO audit.journal (user_id, action, campaign_id, detail)
-         SELECT $4::int, 'restitution', id, 'close -> restituee' FROM maj
+         INSERT INTO audit.journal
+           (user_id, user_matricule, action, campaign_id, detail)
+         SELECT $4::int,
+                (SELECT matricule FROM identity.users WHERE id = $4::int),
+                'restitution', id, 'close -> restituee'
+         FROM maj
          RETURNING id)
        SELECT id FROM maj`,
       [campagneId, entree.resultats, entree.suites, userId, campusId],

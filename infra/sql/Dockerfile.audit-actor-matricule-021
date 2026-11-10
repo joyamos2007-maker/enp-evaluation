@@ -1,0 +1,7 @@
+FROM postgres:16-alpine
+
+COPY infra/sql/021_audit_actor_matricule.sql /migration/021_audit_actor_matricule.sql
+
+ENV PGSSLMODE=require PGCONNECT_TIMEOUT=30
+
+ENTRYPOINT ["psql", "-X", "--no-password", "--set=ON_ERROR_STOP=1", "--file", "/migration/021_audit_actor_matricule.sql"]

@@ -63,16 +63,18 @@ describe('ImportsService', () => {
   });
 
   it('autorise l’administration à affecter un compte Scolarité par campus dans le CSV', async () => {
-    db.query.mockResolvedValueOnce([]);
+    db.query
+      .mockResolvedValueOnce([{ id: 7 }])
+      .mockResolvedValueOnce([]);
     const csv = Buffer.from(
-      'matricule,email,nom,prenom,role,campusId,departmentId\nSC-2,sc2@example.test,DOE,Jo,Scolarite,7,\n',
+      'matricule,email,nom,prenom,role,campus,departement\nSC-2,sc2@example.test,DOE,Jo,Scolarite,Campus Nord,\n',
     );
     await expect(service.importUsers(csv, null, ['admin'])).resolves.toMatchObject({
       successCount: 1,
       errorCount: 0,
       courrielsActivationEnfiles: 1,
     });
-    expect(db.query.mock.calls[0][1]).toEqual([
+    expect(db.query.mock.calls[1][1]).toEqual([
       'SC-2',
       'sc2@example.test',
       'DOE',
@@ -85,10 +87,10 @@ describe('ImportsService', () => {
 
   it('rattache un Chef de département au département fourni par l’administration', async () => {
     db.query
-      .mockResolvedValueOnce([{ campus_id: 7 }])
+      .mockResolvedValueOnce([{ id: 3, campus_id: 7 }])
       .mockResolvedValueOnce([]);
     const csv = Buffer.from(
-      'matricule,email,nom,prenom,role,campusId,departmentId\nCD-1,cd@example.test,DOE,Jo,chef_departement,,3\n',
+      'matricule,email,nom,prenom,role,campus,departement\nCD-1,cd@example.test,DOE,Jo,chef_departement,,Informatique\n',
     );
     await expect(service.importUsers(csv, null, ['admin'])).resolves.toMatchObject({
       successCount: 1,
@@ -107,15 +109,17 @@ describe('ImportsService', () => {
   });
 
   it('rattache un Directeur de campus au campus fourni par l’administration', async () => {
-    db.query.mockResolvedValueOnce([]);
+    db.query
+      .mockResolvedValueOnce([{ id: 7 }])
+      .mockResolvedValueOnce([]);
     const csv = Buffer.from(
-      'matricule,email,nom,prenom,role,campusId\nDIRC-1,dirc@example.test,DOE,Jo,directeur_campus,7\n',
+      'matricule,email,nom,prenom,role,campus\nDIRC-1,dirc@example.test,DOE,Jo,directeur_campus,Campus Nord\n',
     );
     await expect(service.importUsers(csv)).resolves.toMatchObject({
       successCount: 1,
       errorCount: 0,
     });
-    expect(db.query.mock.calls[0][1]).toEqual([
+    expect(db.query.mock.calls[1][1]).toEqual([
       'DIRC-1',
       'dirc@example.test',
       'DOE',

@@ -42,8 +42,6 @@ import type {
   PeriodeDirection,
   StatistiquesDirection,
   ControlesAcademiques,
-  DetailsDeliberationExamen,
-  ExamenADeliberer,
   CoursDossier,
   CahierNotes,
   EntreeEvaluation,
@@ -55,7 +53,6 @@ import type {
   SeancePresence,
   DetailSeancePresence,
   StatutPresenceEtudiant,
-  TypeEvaluationAcademique,
   ArchiveAnnuelle,
   Notification,
   PieceJointe,
@@ -1069,24 +1066,11 @@ let evaluationsDossier: (EvaluationDossier & { courseId: number })[] = [
     id: evaluationDossierId,
     courseId: 401,
     libelle: "Devoir 1",
-    type: "devoir",
     bareme: 20,
-    deliberee: true,
     creeLe: "2026-09-20T12:00:00Z",
     notes: { 1001: 15, 1002: 17 },
   },
-  {
-    id: ++evaluationDossierId,
-    courseId: 401,
-    libelle: "Examen final",
-    type: "examen",
-    bareme: 50,
-    deliberee: false,
-    creeLe: "2026-10-10T12:00:00Z",
-    notes: { 1001: 42, 1002: 35 },
-  },
 ];
-const deliberationsExamensMemoire = new Map<number, string>();
 let presenceSessionId = 0;
 let presencesDossier: (SeancePresence & {
   courseId: number;
@@ -1561,9 +1545,7 @@ export async function dossierCahierNotes(
       .map((evaluation) => ({
         id: evaluation.id,
         libelle: evaluation.libelle,
-        type: evaluation.type,
         bareme: evaluation.bareme,
-        deliberee: evaluation.type === "devoir" || evaluation.deliberee,
         creeLe: evaluation.creeLe,
         notes: { ...evaluation.notes },
       })),
@@ -1604,7 +1586,6 @@ export async function dossierCreerEvaluation(
 ): Promise<{
   id: number;
   libelle: string;
-  type: TypeEvaluationAcademique;
   bareme: number;
 }> {
   await delai();
@@ -1615,9 +1596,7 @@ export async function dossierCreerEvaluation(
     id: ++evaluationDossierId,
     courseId,
     libelle: entree.libelle,
-    type: entree.type,
     bareme: entree.bareme,
-    deliberee: entree.type === "devoir",
     creeLe: new Date().toISOString(),
     notes: {},
   };
@@ -1625,7 +1604,6 @@ export async function dossierCreerEvaluation(
   return {
     id: evaluation.id,
     libelle: evaluation.libelle,
-    type: evaluation.type,
     bareme: evaluation.bareme,
   };
 }
@@ -1640,12 +1618,6 @@ export async function dossierEnregistrerNotes(
   );
   if (!evaluation)
     throw new ApiError({ message: "Évaluation introuvable.", statusCode: 404 });
-  if (evaluation.type === "examen" && evaluation.deliberee) {
-    throw new ApiError({
-      message: "Cet examen a été délibéré et ses notes sont verrouillées.",
-      statusCode: 409,
-    });
-  }
   if (
     etudiants.some(
       (ligne) =>
@@ -1767,13 +1739,9 @@ export async function dossierMesNotes(): Promise<NoteEtudiant[]> {
         code: cours.code,
         intitule: cours.intitule,
         libelle: evaluation.libelle,
-        type: evaluation.type,
         bareme: evaluation.bareme,
-        note:
-          evaluation.type === "devoir" || evaluation.deliberee
-            ? (evaluation.notes[etudiantId] ?? null)
-            : null,
-        deliberee: evaluation.type === "devoir" || evaluation.deliberee,
+        note: evaluation.notes[etudiantId] ?? null,
+        createdAt: evaluation.creeLe ?? new Date(0).toISOString(),
       },
     ];
   });
@@ -1791,6 +1759,7 @@ function calculerStatistiquesPresence(
   const presents = statuts.filter((statut) => statut === "present").length;
   const absents = statuts.filter((statut) => statut === "absent").length;
   const retards = statuts.filter((statut) => statut === "retard").length;
+  const justifiees = statuts.filter((statut) => statut === "justifie").length;
   const marques = presents + absents + retards;
   return {
     seancesTotal: total.length,
@@ -1798,6 +1767,7 @@ function calculerStatistiquesPresence(
     presents,
     absents,
     retards,
+    justifiees,
     tauxPresence:
       marques > 0 ? Math.round(((presents + retards) / marques) * 100) : null,
   };
@@ -1828,9 +1798,6 @@ export async function dossierMesPresences(): Promise<PresencesEtudiant> {
           },
         ];
       });
-  const sessionIdsEtudiant = new Set(
-    presences.map((presence) => presence.seanceId),
-  );
   const presents = presences.filter(
     (presence) => presence.statut === "present",
   ).length;
@@ -1840,10 +1807,13 @@ export async function dossierMesPresences(): Promise<PresencesEtudiant> {
   const retards = presences.filter(
     (presence) => presence.statut === "retard",
   ).length;
+  const justifiees = presences.filter(
+    (presence) => presence.statut === "justifie",
+  ).length;
   const seancesTotal = presencesDossier.filter((session) =>
     coursInscrits.has(session.courseId),
   ).length;
-  const seancesMarquees = sessionIdsEtudiant.size;
+  const seancesMarquees = presents + absents + retards;
   return {
     statistiques: {
       seancesTotal,
@@ -1851,6 +1821,7 @@ export async function dossierMesPresences(): Promise<PresencesEtudiant> {
       presents,
       absents,
       retards,
+      justifiees,
       tauxPresence:
         seancesMarquees > 0
           ? Math.round(((presents + retards) / seancesMarquees) * 100)
@@ -2621,6 +2592,8 @@ const EN_TETES_IMPORT: Record<TypeImport, string[][]> = {
     ["programid", "matricule", "anneeuniversitaire", "type", "debut", "fin"],
     ["matricule", "programme", "annee_universitaire"],
   ],
+  catalogue: [],
+  presences: [],
 };
 
 /* ------------------------------------------------------------------ */
@@ -2649,95 +2622,6 @@ export async function scolariteTableauDeBord(): Promise<TableauDeBordScolarite> 
 export async function scolariteCampagnes(): Promise<CampagneGestion[]> {
   await delai();
   return campagnesGestionMemoire.map((c) => ({ ...c }));
-}
-
-function examensDemonstration(): ExamenADeliberer[] {
-  return evaluationsDossier
-    .filter((evaluation) => evaluation.type === "examen")
-    .flatMap((evaluation) => {
-      const cours = UE_CAHIER.find((ue) => ue.ueId === evaluation.courseId);
-      if (!cours) return [];
-      return [
-        {
-          id: evaluation.id,
-          coursId: evaluation.courseId,
-          code: cours.code,
-          intitule: cours.intitule,
-          libelle: evaluation.libelle,
-          bareme: evaluation.bareme,
-          anneeUniversitaire: "2026-2027",
-          semestre: 5,
-          campus: "Campus Nord",
-          effectif: ETUDIANTS_DOSSIER.length,
-          notesSaisies: ETUDIANTS_DOSSIER.filter(
-            (etudiant) =>
-              evaluation.notes[etudiant.id] !== undefined &&
-              evaluation.notes[etudiant.id] !== null,
-          ).length,
-          delibereeLe: deliberationsExamensMemoire.get(evaluation.id) ?? null,
-        },
-      ];
-    });
-}
-
-export async function scolariteDeliberationsExamens(): Promise<
-  ExamenADeliberer[]
-> {
-  await delai();
-  return examensDemonstration();
-}
-
-export async function scolariteDetailsDeliberationExamen(
-  assessmentId: number,
-): Promise<DetailsDeliberationExamen> {
-  await delai();
-  const examen = examensDemonstration().find(
-    (ligne) => ligne.id === assessmentId,
-  );
-  const evaluation = evaluationsDossier.find(
-    (ligne) => ligne.id === assessmentId,
-  );
-  if (!examen || !evaluation) {
-    throw new ApiError({ message: "Examen introuvable.", statusCode: 404 });
-  }
-  return {
-    examen,
-    etudiants: ETUDIANTS_DOSSIER.map((etudiant) => ({
-      ...etudiant,
-      note: evaluation.notes[etudiant.id] ?? null,
-    })),
-  };
-}
-
-export async function scolariteDelibererExamen(
-  assessmentId: number,
-): Promise<{ id: number; delibereeLe: string }> {
-  await delai();
-  const evaluation = evaluationsDossier.find(
-    (ligne) => ligne.id === assessmentId,
-  );
-  if (!evaluation || evaluation.type !== "examen") {
-    throw new ApiError({ message: "Examen introuvable.", statusCode: 404 });
-  }
-  if (evaluation.deliberee) {
-    throw new ApiError({
-      message: "Cet examen a déjà été délibéré.",
-      statusCode: 409,
-    });
-  }
-  if (
-    ETUDIANTS_DOSSIER.some((etudiant) => evaluation.notes[etudiant.id] == null)
-  ) {
-    throw new ApiError({
-      message:
-        "Toutes les notes doivent être saisies avant de délibérer cet examen.",
-      statusCode: 400,
-    });
-  }
-  const delibereeLe = new Date().toISOString();
-  evaluation.deliberee = true;
-  deliberationsExamensMemoire.set(assessmentId, delibereeLe);
-  return { id: assessmentId, delibereeLe };
 }
 
 export async function scolariteCreerCampagne(
@@ -2863,6 +2747,21 @@ export async function scolariteComptes(): Promise<CompteAdministration[]> {
     motDePasseConfigure: true,
     roles: compte.roles as Role[],
   }));
+}
+
+export async function scolariteSupprimerCompte(id: number): Promise<ReponseSimple> {
+  await delai();
+  const index = COMPTES.findIndex((compte) => compte.id === id);
+  if (index < 0) {
+    throw new ApiError({ message: "Compte introuvable.", statusCode: 404 });
+  }
+  COMPTES.splice(index, 1);
+  return { ok: true };
+}
+
+export async function scolariteVerifierSmtp(): Promise<ReponseSimple> {
+  await delai();
+  return { ok: true };
 }
 
 export async function scolariteImporterUtilisateurs(
@@ -3052,8 +2951,20 @@ export async function scolariteGenererCodes(corps: {
 export async function scolariteVerifierImport(
   type: TypeImport,
   fichier: File,
+  _contexte?: {
+    campus?: string;
+    departement?: string;
+    programme?: string;
+    anneeUniversitaire?: string;
+  },
 ): Promise<RapportImport> {
   await delai();
+  if (type === "catalogue" || type === "presences") {
+    throw new ApiError({
+      message: "La vérification des classeurs XLSX nécessite l’API réelle.",
+      statusCode: 501,
+    });
+  }
   const texte = await fichier.text();
   const lignes = texte.split(/\r?\n/).filter((l) => l.trim());
   const setsAttendus = EN_TETES_IMPORT[type] ?? [];

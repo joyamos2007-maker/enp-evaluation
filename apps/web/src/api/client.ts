@@ -39,7 +39,6 @@ import type {
   ControlesAcademiques,
   CoursDossier,
   CahierNotes,
-  TypeEvaluationAcademique,
   EntreeEvaluation,
   EntreeNote,
   SeancePresence,
@@ -47,8 +46,6 @@ import type {
   EntreePresence,
   NoteEtudiant,
   PresencesEtudiant,
-  DetailsDeliberationExamen,
-  ExamenADeliberer,
   ArchiveAnnuelle,
   Notification,
   PieceJointe,
@@ -567,13 +564,11 @@ export async function dossierCreerEvaluation(
 ): Promise<{
   id: number;
   libelle: string;
-  type: TypeEvaluationAcademique;
   bareme: number;
 }> {
   return requete<{
     id: number;
     libelle: string;
-    type: TypeEvaluationAcademique;
     bareme: number;
   }>(`/dossier-academique/enseignant/ues/${courseId}/evaluations`, {
     method: "POST",
@@ -732,29 +727,6 @@ export async function scolariteCampagnes(): Promise<CampagneGestion[]> {
   return requete<CampagneGestion[]>("/campagnes");
 }
 
-export async function scolariteDeliberationsExamens(): Promise<
-  ExamenADeliberer[]
-> {
-  return requete<ExamenADeliberer[]>("/scolarite/deliberations-examens");
-}
-
-export async function scolariteDetailsDeliberationExamen(
-  assessmentId: number,
-): Promise<DetailsDeliberationExamen> {
-  return requete<DetailsDeliberationExamen>(
-    `/scolarite/deliberations-examens/${assessmentId}`,
-  );
-}
-
-export async function scolariteDelibererExamen(
-  assessmentId: number,
-): Promise<{ id: number; delibereeLe: string }> {
-  return requete<{ id: number; delibereeLe: string }>(
-    `/scolarite/deliberations-examens/${assessmentId}`,
-    { method: "POST" },
-  );
-}
-
 export async function scolariteCreerCampagne(
   corps: CampagneEntreeGestion,
 ): Promise<CampagneGestion> {
@@ -786,6 +758,20 @@ export async function scolariteDepartements(): Promise<DepartementOption[]> {
 
 export async function scolariteComptes(): Promise<CompteAdministration[]> {
   return requete<CompteAdministration[]>("/comptes");
+}
+
+export async function scolariteSupprimerCompte(
+  id: number,
+): Promise<ReponseSimple> {
+  return requete<ReponseSimple>(`/comptes/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function scolariteVerifierSmtp(): Promise<ReponseSimple> {
+  return requete<ReponseSimple>("/comptes/smtp-verification", {
+    method: "POST",
+  });
 }
 
 export async function scolariteImporterUtilisateurs(
@@ -865,9 +851,23 @@ export async function scolariteGenererCodes(corps: {
 export async function scolariteVerifierImport(
   type: TypeImport,
   fichier: File,
+  contexte?: {
+    campus?: string;
+    departement?: string;
+    programme?: string;
+    anneeUniversitaire?: string;
+  },
 ): Promise<RapportImport> {
   const formData = new FormData();
   formData.append("fichier", fichier);
+  if (contexte) {
+    if (contexte.campus) formData.append("campus", contexte.campus);
+    if (contexte.departement) formData.append("departement", contexte.departement);
+    if (contexte.programme) formData.append("programme", contexte.programme);
+    if (contexte.anneeUniversitaire) {
+      formData.append("anneeUniversitaire", contexte.anneeUniversitaire);
+    }
+  }
   const token = getAccessToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;

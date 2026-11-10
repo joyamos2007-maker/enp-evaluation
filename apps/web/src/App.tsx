@@ -26,7 +26,6 @@ import { ScolariteComptes } from "@/pages/ScolariteComptes";
 import { ScolariteImports } from "@/pages/ScolariteImports";
 import { ScolariteModeration } from "@/pages/ScolariteModeration";
 import { ScolariteRestitution } from "@/pages/ScolariteRestitution";
-import { ScolariteDeliberations } from "@/pages/ScolariteDeliberations";
 import { RestitutionEtudiant } from "@/pages/RestitutionEtudiant";
 import { EnseignantNotes } from "@/pages/EnseignantNotes";
 import { EnseignantPresences } from "@/pages/EnseignantPresences";
@@ -133,6 +132,8 @@ export default function App() {
                     "etudiant",
                     "chef_departement",
                     "scolarite",
+                    "directeur_campus",
+                    "directeur_general",
                   ]}
                 >
                   <CahierTexte />
@@ -302,14 +303,6 @@ export default function App() {
               element={
                 <RequireRole roles={["directeur_campus", "directeur_general"]}>
                   <ScolariteModeration />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/scolarite/deliberations"
-              element={
-                <RequireRole role="scolarite">
-                  <ScolariteDeliberations />
                 </RequireRole>
               }
             />

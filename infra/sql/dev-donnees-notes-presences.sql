@@ -26,7 +26,6 @@ END $$;
 WITH demo(course_code, teacher_matricule, libelle, type, bareme) AS (
   VALUES
     ('INF501', 'TEST-1001', 'TEST - Devoir 1', 'devoir', 20::numeric),
-    ('INF501', 'TEST-1001', 'TEST - Examen mi-semestre', 'examen', 40::numeric),
     ('INF502', 'TEST-1002', 'TEST - Devoir 1', 'devoir', 20::numeric)
 )
 INSERT INTO academic.assessment_columns (course_id, created_by, libelle, type, bareme)
@@ -54,11 +53,6 @@ WITH demo(course_code, libelle, type, student_matricule, note) AS (
     ('INF501', 'TEST - Devoir 1', 'devoir', 'TEST-0003', 12::numeric),
     ('INF501', 'TEST - Devoir 1', 'devoir', 'TEST-0004', 14::numeric),
     ('INF501', 'TEST - Devoir 1', 'devoir', 'TEST-0005', 16::numeric),
-    ('INF501', 'TEST - Examen mi-semestre', 'examen', 'TEST-0001', 32::numeric),
-    ('INF501', 'TEST - Examen mi-semestre', 'examen', 'TEST-0002', 28::numeric),
-    ('INF501', 'TEST - Examen mi-semestre', 'examen', 'TEST-0003', 25::numeric),
-    ('INF501', 'TEST - Examen mi-semestre', 'examen', 'TEST-0004', 30::numeric),
-    ('INF501', 'TEST - Examen mi-semestre', 'examen', 'TEST-0005', 35::numeric),
     ('INF502', 'TEST - Devoir 1', 'devoir', 'TEST-0001', 18::numeric),
     ('INF502', 'TEST - Devoir 1', 'devoir', 'TEST-0002', 16::numeric),
     ('INF502', 'TEST - Devoir 1', 'devoir', 'TEST-0003', 13::numeric)

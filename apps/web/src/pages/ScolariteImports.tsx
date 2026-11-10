@@ -13,16 +13,17 @@ import { api, ApiError } from '@/api';
 import type {
   ResultatImportUtilisateurs,
   ResultatImport,
+  RapportImport,
   TypeImport,
 } from '@/api/types';
 
 const TAILLE_MAX = 2 * 1024 * 1024; // 2 Mo
 
 // Modèles CSV simples et prêts à l'emploi
-const MODELE_COMPTES = `matricule,email,nom,prenom,role,campusId,departmentId
-TEST-2026-001,student1@enp.tg,KOUDASSE,Joy,etudiant,1,1
-TEST-2026-002,delegue1@enp.tg,CHEF,Lina,delegue,1,1
-TEST-2026-003,prof.dupont@enp.tg,DUPONT,Jean,enseignant,1,1
+const MODELE_COMPTES = `matricule,email,nom,prenom,role,campus,departement
+TEST-2026-001,student1@enp.tg,KOUDASSE,Joy,etudiant,ENP-CL,CPI
+TEST-2026-002,delegue1@enp.tg,CHEF,Lina,delegue,ENP-CL,CPI
+TEST-2026-003,prof.dupont@enp.tg,DUPONT,Jean,enseignant,ENP-CL,CPI
 `;
 
 const MODELES_ACADEMIQUES: Record<TypeImport, { label: string; colonnes: string; csv: string }> = {
@@ -33,23 +34,23 @@ const MODELES_ACADEMIQUES: Record<TypeImport, { label: string; colonnes: string;
   },
   offres: {
     label: 'Offres de cours semestrielles',
-    colonnes: 'ueCode, programId, anneeUniversitaire, semestre',
-    csv: 'ueCode,programId,anneeUniversitaire,semestre\nINF501,1,2026-2027,5\nMAT502,1,2026-2027,5\n',
+    colonnes: 'ueCode, campus, departement, programme, anneeUniversitaire, semestre',
+    csv: 'ueCode,campus,departement,programme,anneeUniversitaire,semestre\nINF501,ENP-CL,CPI,Cycle Préparatoire,2026-2027,1\n',
   },
   inscriptions: {
     label: 'Inscriptions des étudiants',
-    colonnes: 'courseId, matricule',
-    csv: 'courseId,matricule\n1,TEST-2026-001\n1,TEST-2026-002\n',
+    colonnes: 'ueCode, campus, departement, programme, anneeUniversitaire, semestre, matricule',
+    csv: 'ueCode,campus,departement,programme,anneeUniversitaire,semestre,matricule\nINF501,ENP-CL,CPI,Cycle Préparatoire,2026-2027,1,TEST-2026-001\n',
   },
   affectations: {
     label: 'Affectations enseignants',
-    colonnes: 'courseId, matricule',
-    csv: 'courseId,matricule\n1,TEST-1001\n2,TEST-1002\n',
+    colonnes: 'ueCode, campus, departement, programme, anneeUniversitaire, semestre, matricule',
+    csv: 'ueCode,campus,departement,programme,anneeUniversitaire,semestre,matricule\nINF501,ENP-CL,CPI,Cycle Préparatoire,2026-2027,1,TEST-1001\n',
   },
   delegues: {
     label: 'Mandats des délégués',
-    colonnes: 'programId, matricule, anneeUniversitaire, type, debut, fin',
-    csv: 'programId,matricule,anneeUniversitaire,type,debut,fin\n1,TEST-0002,2026-2027,titulaire,2026-09-01,2027-06-30\n',
+    colonnes: 'campus, departement, programme, matricule, anneeUniversitaire, type, debut, fin',
+    csv: 'campus,departement,programme,matricule,anneeUniversitaire,type,debut,fin\nENP-CL,CPI,Cycle Préparatoire,TEST-0002,2026-2027,titulaire,2026-09-01,2027-06-30\n',
   },
   etudiants: {
     label: 'Référentiel étudiants',
@@ -61,6 +62,16 @@ const MODELES_ACADEMIQUES: Record<TypeImport, { label: string; colonnes: string;
     colonnes: 'matricule, email, nom, prenom',
     csv: 'matricule,email,nom,prenom\nTEST-1001,mawuli.attiogbe@exemple.test,ATTIOGBE,Mawuli\n',
   },
+  catalogue: {
+    label: 'Catalogue Format 2 (XLSX)',
+    colonnes: 'Classeur XLSX fourni par l’établissement',
+    csv: '',
+  },
+  presences: {
+    label: 'Présences du semestre (XLSX)',
+    colonnes: 'Classeur XLSX de présences',
+    csv: '',
+  },
 };
 
 export function ScolariteImports() {
@@ -71,8 +82,19 @@ export function ScolariteImports() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [succesMessage, setSuccesMessage] = useState<string | null>(null);
   const [erreursLignes, setErreursLignes] = useState<{ ligne: number; message: string }[]>([]);
+  const [rapport, setRapport] = useState<RapportImport | null>(null);
+  const [resultatAcademique, setResultatAcademique] = useState<ResultatImport | null>(null);
+  const [campus, setCampus] = useState('ENP-CL');
+  const [departement, setDepartement] = useState('CPI');
+  const [programme, setProgramme] = useState(
+    'Cycle Préparatoire Intégré aux Études d’Ingénieur',
+  );
+  const [anneeUniversitaire, setAnneeUniversitaire] = useState('2026-2027');
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importXlsx =
+    categorie === 'academique' &&
+    (typeAcademique === 'catalogue' || typeAcademique === 'presences');
 
   // Télécharger le modèle CSV adapté
   function telechargerModele() {
@@ -80,6 +102,7 @@ export function ScolariteImports() {
       categorie === 'comptes'
         ? MODELE_COMPTES
         : MODELES_ACADEMIQUES[typeAcademique].csv;
+    if (!contenu) return;
     const nomFichier =
       categorie === 'comptes'
         ? 'modele-comptes-utilisateurs.csv'
@@ -99,9 +122,12 @@ export function ScolariteImports() {
     setErreur(null);
     setSuccesMessage(null);
     setErreursLignes([]);
+    setRapport(null);
+    setResultatAcademique(null);
 
-    if (!f.name.toLowerCase().endsWith('.csv')) {
-      setErreur('Veuillez sélectionner un fichier au format .csv uniquement.');
+    const extensionValide = f.name.toLowerCase().endsWith(importXlsx ? '.xlsx' : '.csv');
+    if (!extensionValide) {
+      setErreur(`Veuillez sélectionner un fichier au format ${importXlsx ? 'XLSX' : 'CSV'} uniquement.`);
       return;
     }
     if (f.size > TAILLE_MAX) {
@@ -143,25 +169,21 @@ export function ScolariteImports() {
           setErreursLignes(res.errors.map((e) => ({ ligne: e.ligne, message: e.erreur })));
         }
       } else {
-        // Données académiques : vérification puis application
-        const rapport = await api.scolariteVerifierImport(typeAcademique, fichier);
-
-        if (rapport.lignesValides === 0) {
-          setErreur(
-            rapport.erreurs[0]?.message ?? 'Aucune ligne valide trouvée dans le fichier.'
-          );
-          setErreursLignes(rapport.erreurs);
-          return;
-        }
-
-        const res: ResultatImport = await api.scolariteValiderImport(typeAcademique, rapport.importId);
-        setSuccesMessage(
-          `Importation réussie : ${res.crees} entrée(s) créée(s), ${res.misAJour} mise(s) à jour.`
+        const contexte = importXlsx
+          ? {
+              campus,
+              departement,
+              programme,
+              ...(typeAcademique === 'catalogue' ? { anneeUniversitaire } : {}),
+            }
+          : undefined;
+        const rapport = await api.scolariteVerifierImport(
+          typeAcademique,
+          fichier,
+          contexte,
         );
-
-        if (rapport.erreurs.length > 0) {
-          setErreursLignes(rapport.erreurs);
-        }
+        setRapport(rapport);
+        setErreursLignes(rapport.erreurs);
       }
     } catch (err) {
       if (err instanceof ApiError) {
@@ -174,12 +196,39 @@ export function ScolariteImports() {
     }
   }
 
+  async function appliquerImport() {
+    if (!rapport) return;
+    setEnCours(true);
+    setErreur(null);
+    try {
+      const resultat = await api.scolariteValiderImport(
+        typeAcademique,
+        rapport.importId,
+      );
+      setResultatAcademique(resultat);
+      setSuccesMessage(
+        `Importation réussie : ${resultat.crees} entrée(s) créée(s), ${resultat.misAJour} mise(s) à jour.`,
+      );
+      setRapport(null);
+    } catch (err) {
+      setErreur(
+        err instanceof ApiError
+          ? err.messages.join(' ')
+          : "Une erreur est survenue lors de l'application de l'import.",
+      );
+    } finally {
+      setEnCours(false);
+    }
+  }
+
   // Réinitialiser le formulaire
   function reinitialiser() {
     setFichier(null);
     setErreur(null);
     setSuccesMessage(null);
     setErreursLignes([]);
+    setRapport(null);
+    setResultatAcademique(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -191,7 +240,7 @@ export function ScolariteImports() {
           Importation de fichiers
         </h1>
         <p className="text-xs text-enp-gray-medium mt-1">
-          Chargez rapidement vos données via un fichier CSV (séparateur virgule, encodé en UTF-8).
+          Chargez vos données via CSV ou les classeurs XLSX fournis par l’établissement.
         </p>
       </div>
 
@@ -267,20 +316,46 @@ export function ScolariteImports() {
           </div>
         )}
 
+        {importXlsx && (
+          <div className="grid gap-3 border border-enp-border bg-enp-blue-ice/40 p-3.5 sm:grid-cols-2">
+            <label className="text-xs font-bold text-enp-blue-deep">
+              Campus
+              <input value={campus} onChange={(event) => setCampus(event.target.value)} className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal" required />
+            </label>
+            <label className="text-xs font-bold text-enp-blue-deep">
+              Département
+              <input value={departement} onChange={(event) => setDepartement(event.target.value)} className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal" required />
+            </label>
+            <label className="text-xs font-bold text-enp-blue-deep sm:col-span-2">
+              Programme
+              <input value={programme} onChange={(event) => setProgramme(event.target.value)} className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal" required />
+            </label>
+            {typeAcademique === 'catalogue' && (
+              <label className="text-xs font-bold text-enp-blue-deep">
+                Année universitaire
+                <input value={anneeUniversitaire} onChange={(event) => setAnneeUniversitaire(event.target.value)} pattern="\\d{4}-\\d{4}" className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal" required />
+              </label>
+            )}
+            <p className="text-[11px] text-enp-gray-medium sm:col-span-2">
+              Le campus doit correspondre à votre périmètre Scolarité. Les enseignants sont rapprochés par e-mail; aucun compte n’est créé. Pour les présences, appliquez d’abord le catalogue et vérifiez les inscriptions à l’UE.
+            </p>
+          </div>
+        )}
+
         {/* Étape 2 : Zone de dépôt du fichier */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-enp-blue-deep uppercase tracking-wider">
-              2. Fichier CSV
+              2. Fichier {categorie === 'comptes' || !importXlsx ? 'CSV' : 'XLSX'}
             </label>
-            <button
+            {!importXlsx && <button
               type="button"
               onClick={telechargerModele}
               className="text-xs text-enp-blue-primary hover:underline font-medium inline-flex items-center gap-1"
             >
               <Download className="w-3.5 h-3.5" />
               Télécharger le modèle CSV
-            </button>
+            </button>}
           </div>
 
           {fichier ? (
@@ -319,13 +394,13 @@ export function ScolariteImports() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept={importXlsx ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ".csv,text/csv"}
                 onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                 className="hidden"
               />
               <Upload className="w-7 h-7 text-enp-gray-medium mx-auto mb-2 opacity-70" />
               <p className="text-xs font-semibold text-enp-blue-deep">
-                Glissez votre fichier CSV ici
+                Glissez votre fichier {importXlsx ? 'XLSX' : 'CSV'} ici
               </p>
               <p className="text-[11px] text-enp-gray-medium mt-0.5">
                 ou <span className="text-enp-blue-primary underline">parcourez votre ordinateur</span>
@@ -379,11 +454,39 @@ export function ScolariteImports() {
           </div>
         )}
 
+        {rapport && (
+          <section className="space-y-2 border-t border-enp-border pt-3" aria-live="polite">
+            <h2 className="text-sm font-bold text-enp-blue-deep">Rapport de vérification</h2>
+            <p className="text-xs text-enp-gray-medium">
+              {rapport.lignesValides} ligne(s) valide(s) sur {rapport.lignesTotal}.
+            </p>
+            {rapport.avertissements?.map((avertissement, index) => (
+              <p key={`${avertissement.ligne}-${index}`} className="text-xs text-amber-700">
+                Ligne {avertissement.ligne} : {avertissement.message}
+              </p>
+            ))}
+            <button
+              type="button"
+              disabled={enCours || rapport.lignesValides === 0}
+              onClick={() => void appliquerImport()}
+              className="w-full py-2.5 px-4 bg-enp-green-valid text-white text-xs font-bold disabled:opacity-50"
+            >
+              Confirmer et appliquer les lignes valides
+            </button>
+          </section>
+        )}
+
+        {resultatAcademique && (
+          <p className="text-xs text-enp-green-valid" role="status">
+            Import appliqué : {resultatAcademique.crees} création(s), {resultatAcademique.misAJour} mise(s) à jour.
+          </p>
+        )}
+
         {/* Bouton d'action principal */}
         <div className="pt-2">
           <button
             type="button"
-            disabled={!fichier || enCours}
+            disabled={!fichier || enCours || (categorie === 'academique' && !!rapport)}
             onClick={() => void lancerImport()}
             className="w-full py-2.5 px-4 bg-enp-blue-primary hover:bg-enp-blue-dark text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -392,7 +495,7 @@ export function ScolariteImports() {
             ) : (
               <>
                 <Upload className="w-4 h-4" />
-                <span>Importer le fichier</span>
+                <span>{categorie === 'academique' ? 'Vérifier le fichier' : 'Importer le fichier'}</span>
               </>
             )}
           </button>

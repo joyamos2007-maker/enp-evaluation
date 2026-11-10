@@ -14,6 +14,7 @@ describe('CahierTexteController', () => {
   const campusScope = {
     forScolarite: jest.fn(),
     forChefDepartement: jest.fn(),
+    forDirecteurCampus: jest.fn(),
   };
   const controller = new CahierTexteController(cahier as never, campusScope as never);
   const delegue = {
@@ -29,6 +30,7 @@ describe('CahierTexteController', () => {
     jest.resetAllMocks();
     campusScope.forScolarite.mockResolvedValue(9);
     campusScope.forChefDepartement.mockResolvedValue(14);
+    campusScope.forDirecteurCampus.mockResolvedValue(8);
   });
 
   it('protège la création et modification pour les délégués, le visa pour les enseignants', () => {
@@ -50,6 +52,8 @@ describe('CahierTexteController', () => {
       'etudiant',
       'scolarite',
       'chef_departement',
+      'directeur_campus',
+      'directeur_general',
     ]);
   });
 
@@ -105,6 +109,36 @@ describe('CahierTexteController', () => {
       null,
       14,
     );
+  });
+
+  it('permet les statistiques de volume horaire dans le périmètre direction', async () => {
+    const directeur = {
+      headers: {},
+      utilisateur: {
+        id: 51,
+        roles: ['directeur_campus'],
+        activeRole: 'directeur_campus',
+      },
+    };
+    cahier.avancement.mockResolvedValue({});
+
+    await controller.avancement(directeur, '5');
+
+    expect(campusScope.forDirecteurCampus).toHaveBeenCalledWith(51, [
+      'directeur_campus',
+    ]);
+    expect(cahier.avancement).toHaveBeenCalledWith(
+      51,
+      ['directeur_campus'],
+      5,
+      8,
+      null,
+    );
+    const handler = Object.getOwnPropertyDescriptor(
+      CahierTexteController.prototype,
+      'avancement',
+    )?.value;
+    expect(Reflect.getMetadata(ROLES_KEY, handler)).toContain('scolarite');
   });
 
   it('rejette une séance tenue sans intitulé ni contenu', () => {

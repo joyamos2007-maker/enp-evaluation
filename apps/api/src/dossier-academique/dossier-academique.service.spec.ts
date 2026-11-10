@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { DossierAcademiqueService } from './dossier-academique.service';
@@ -32,6 +31,17 @@ describe('DossierAcademiqueService', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 
+  it('crée uniquement des colonnes de devoir', async () => {
+    db.query.mockResolvedValueOnce([
+      { id: 12, libelle: 'Devoir 1', bareme: 20 },
+    ]);
+    await expect(
+      service.creerEvaluation(43, 20, { libelle: 'Devoir 1', bareme: 20 }),
+    ).resolves.toEqual({ id: 12, libelle: 'Devoir 1', bareme: 20 });
+    expect(db.query.mock.calls[0][0]).toContain("SELECT co.id, $2, $3, 'devoir', $4");
+    expect(db.query.mock.calls[0][1]).toEqual([20, 43, 'Devoir 1', 20]);
+  });
+
   it('exporte les notes uniquement après chargement du cahier autorisé', async () => {
     db.query
       .mockResolvedValueOnce([{ id: 20 }])
@@ -50,10 +60,8 @@ describe('DossierAcademiqueService', () => {
         {
           id: 12,
           libelle: 'Devoir 1',
-          type: 'devoir',
           bareme: 20,
           created_at: '2025-01-01',
-          deliberee: false,
         },
       ])
       .mockResolvedValueOnce([
@@ -88,21 +96,19 @@ describe('DossierAcademiqueService', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 
-  it('verrouille les notes d’un examen déjà délibéré', async () => {
-    db.query.mockResolvedValueOnce([
-      { course_id: 20, bareme: 20, deliberee: true },
-    ]);
+  it('refuse la saisie des notes pour une ancienne évaluation d’examen', async () => {
+    db.query.mockResolvedValueOnce([]);
     await expect(
       service.enregistrerNotes(43, 12, [{ etudiantId: 71, note: 18 }]),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).toContain("a.type = 'devoir'");
   });
 
   it('ne persiste aucune note si un étudiant ne figure pas dans les inscriptions', async () => {
     db.query
       .mockResolvedValueOnce([{ course_id: 20, bareme: 20 }])
-      .mockResolvedValueOnce([{ input_count: 2, saved_count: 1 }])
-      .mockResolvedValueOnce([{ deliberee: false }]);
+      .mockResolvedValueOnce([{ input_count: 2, saved_count: 1 }]);
     await expect(
       service.enregistrerNotes(43, 12, [
         { etudiantId: 71, note: 11 },
@@ -114,31 +120,26 @@ describe('DossierAcademiqueService', () => {
     );
   });
 
-  it('ne lit les notes que pour l’identifiant de l’étudiant connecté', async () => {
+  it('n’expose que les notes de devoir à l’étudiant connecté', async () => {
     db.query.mockResolvedValueOnce([]);
     await expect(service.notesEtudiant(71)).resolves.toEqual([]);
     expect(db.query.mock.calls[0][0]).toContain('WHERE e.student_id = $1');
-    expect(db.query.mock.calls[0][0]).toContain(
-      "CASE WHEN a.type = 'devoir' OR d.assessment_id IS NOT NULL",
-    );
-    expect(db.query.mock.calls[0][0]).toContain(
-      'JOIN academic.assessment_deliberations d',
-    );
+    expect(db.query.mock.calls[0][0]).toContain("a.course_id = co.id AND a.type = 'devoir'");
+    expect(db.query.mock.calls[0][0]).not.toContain('assessment_deliberations');
     expect(db.query.mock.calls[0][1]).toEqual([71]);
   });
 
-  it('ne renvoie pas la note brute d’un examen avant sa délibération', async () => {
+  it('renvoie les notes de devoir sans métadonnées de délibération', async () => {
     db.query.mockResolvedValueOnce([
       {
         evaluation_id: 12,
         course_id: 20,
         code: 'INF501',
         intitule: 'Algorithmique',
-        libelle: 'Examen final',
-        type: 'examen',
-        bareme: 50,
-        note: null,
-        deliberee: false,
+        libelle: 'Devoir 1',
+        bareme: 20,
+        note: 16,
+        created_at: '2026-03-10T12:00:00Z',
       },
     ]);
     await expect(service.notesEtudiant(71)).resolves.toEqual([
@@ -147,11 +148,10 @@ describe('DossierAcademiqueService', () => {
         coursId: 20,
         code: 'INF501',
         intitule: 'Algorithmique',
-        libelle: 'Examen final',
-        type: 'examen',
-        bareme: 50,
-        note: null,
-        deliberee: false,
+        libelle: 'Devoir 1',
+        bareme: 20,
+        note: 16,
+        createdAt: '2026-03-10T12:00:00Z',
       },
     ]);
   });
@@ -165,6 +165,7 @@ describe('DossierAcademiqueService', () => {
         presents: 0,
         absents: 0,
         retards: 0,
+        justifiees: 0,
         tauxPresence: null,
       },
       presences: [],
@@ -182,7 +183,8 @@ describe('DossierAcademiqueService', () => {
         seances_marquees: 4,
         presents: 2,
         absents: 1,
-        retards: 1,
+        retards: 0,
+        justifiees: 1,
       },
     ]);
     await expect(service.presencesEtudiant(71)).resolves.toMatchObject({
@@ -191,10 +193,12 @@ describe('DossierAcademiqueService', () => {
         seancesMarquees: 4,
         presents: 2,
         absents: 1,
-        retards: 1,
-        tauxPresence: 75,
+        retards: 0,
+        justifiees: 1,
+        tauxPresence: 50,
       },
     });
+    expect(db.query.mock.calls[1][0]).toContain("p.statut = 'justifie'");
   });
 
   it('calcule les statistiques de présence dans le roster enseignant', async () => {
@@ -214,6 +218,7 @@ describe('DossierAcademiqueService', () => {
           presents: 1,
           absents: 1,
           retards: 0,
+          justifiees: 0,
         },
       ]);
     await expect(service.rosterPresence(43, 8)).resolves.toMatchObject({
@@ -226,6 +231,7 @@ describe('DossierAcademiqueService', () => {
             presents: 1,
             absents: 1,
             retards: 0,
+            justifiees: 0,
             tauxPresence: 50,
           },
         },

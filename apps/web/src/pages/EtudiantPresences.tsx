@@ -14,6 +14,7 @@ const LIBELLES_STATUT: Record<StatutPresenceEtudiant, string> = {
   present: 'Présent',
   absent: 'Absent',
   retard: 'En retard',
+  justifie: 'Absence justifiée',
 };
 
 export function EtudiantPresences() {
@@ -119,6 +120,13 @@ export function EtudiantPresences() {
                 variant={statistiques.absents > 0 ? 'danger' : 'default'}
                 className="p-3 sm:p-5"
               />
+              <StatCard
+                title="Absences justifiées"
+                value={statistiques.justifiees}
+                icon={<CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-violet-700" />}
+                description="Non comptées comme absences"
+                className="p-3 sm:p-5"
+              />
             </div>
           )}
 
@@ -204,7 +212,9 @@ export function EtudiantPresences() {
                                 ? 'success'
                                 : ligne.statut === 'retard'
                                   ? 'warning'
-                                  : 'danger'
+                                  : ligne.statut === 'justifie'
+                                    ? 'violet'
+                                    : 'danger'
                             }
                           >
                             {LIBELLES_STATUT[ligne.statut]}

@@ -9,6 +9,22 @@ export interface EntreeMenu {
 }
 
 export const ENTREES_MENU: EntreeMenu[] = [
+  {
+    chemin: "/notifications",
+    libelle: "Notifications",
+    icone: "Bell",
+    roles: [
+      "etudiant",
+      "delegue",
+      "enseignant",
+      "chef_departement",
+      "scolarite",
+      "directeur_campus",
+      "directeur_general",
+      "admin",
+    ],
+    section: "Général",
+  },
   // --- 1. ÉTUDIANT & DÉLÉGUÉ ---
   {
     chemin: "/evaluations",
@@ -140,25 +156,18 @@ export const ENTREES_MENU: EntreeMenu[] = [
     section: "Campagnes & Évaluation",
   },
   {
-    chemin: "/scolarite/deliberations",
-    libelle: "Délibération des examens",
-    icone: "ClipboardCheck",
-    roles: ["scolarite"],
-    section: "Examens & Dossiers",
-  },
-  {
     chemin: "/scolarite/comptes",
     libelle: "Gestion des comptes",
     icone: "UserCog",
     roles: ["scolarite", "admin"],
-    section: (r: Role) => (r === "admin" ? "Administration Système" : "Examens & Dossiers"),
+    section: (r: Role) => (r === "admin" ? "Administration Système" : "Gestion Scolarité"),
   },
   {
     chemin: "/scolarite/imports",
     libelle: "Imports de données",
     icone: "Upload",
     roles: ["scolarite", "admin"],
-    section: (r: Role) => (r === "admin" ? "Administration Système" : "Examens & Dossiers"),
+    section: (r: Role) => (r === "admin" ? "Administration Système" : "Gestion Scolarité"),
   },
 
   // --- 6. DIRECTION (CAMPUS & GÉNÉRALE) ---

@@ -20,12 +20,15 @@ import {
   type EntreeNote,
   type EntreePresence,
   type StatutPresence,
-  type TypeEvaluation,
 } from './dossier-academique.service';
 import type { FormatExport } from '../exports/export.service';
 
-const TYPES_EVALUATION: TypeEvaluation[] = ['devoir', 'examen'];
-const STATUTS_PRESENCE: StatutPresence[] = ['present', 'absent', 'retard'];
+const STATUTS_PRESENCE: StatutPresence[] = [
+  'present',
+  'absent',
+  'retard',
+  'justifie',
+];
 const FORMATS_EXPORT: FormatExport[] = ['pdf', 'xlsx', 'docx'];
 
 function utilisateur(requete: RequeteAuthentifiee) {
@@ -66,11 +69,8 @@ function aDeuxDecimales(valeur: number) {
 
 function validerEvaluation(corps: unknown): EntreeEvaluation {
   const entree = objet(corps);
-  if (
-    typeof entree.type !== 'string' ||
-    !TYPES_EVALUATION.includes(entree.type as TypeEvaluation)
-  ) {
-    throw new BadRequestException('type doit être devoir ou examen');
+  if (entree.type !== undefined && entree.type !== 'devoir') {
+    throw new BadRequestException('Seules les notes de devoir sont prises en charge');
   }
   if (
     typeof entree.bareme !== 'number' ||
@@ -85,7 +85,6 @@ function validerEvaluation(corps: unknown): EntreeEvaluation {
   }
   return {
     libelle: libelleValide(entree.libelle, 'libelle'),
-    type: entree.type as TypeEvaluation,
     bareme: entree.bareme,
   };
 }
@@ -146,7 +145,7 @@ function validerPresences(corps: unknown): EntreePresence[] {
       !STATUTS_PRESENCE.includes(item.statut as StatutPresence)
     ) {
       throw new BadRequestException(
-        'statut doit être present, absent ou retard',
+        'statut doit être present, absent, retard ou justifie',
       );
     }
     return {

@@ -111,6 +111,15 @@ Règles de sécurité :
 - Un compte peut cumuler, par exemple, les rôles `enseignant` et
   `chef_departement`. Le profil actif choisi à la connexion détermine seul les
   autorisations de la session ; les droits des deux rôles ne se cumulent pas.
+- Les comptes peuvent être supprimés logiquement par l’admin ou la Scolarité
+  depuis la liste des comptes. L’action est inscrite dans le journal d’audit;
+  la Scolarité reste limitée à son campus et les données académiques sont
+  conservées sous une identité anonymisée. Appliquer la migration
+  `infra/sql/020_account_deletion_audit.sql`.
+- À la création/import de comptes, les courriels d’activation sont mis en file
+  et envoyés en arrière-plan avec des tentatives de reprise. Le bouton
+  « Tester la connexion SMTP » vérifie le serveur et l’authentification sans
+  envoyer de message ; cela ne garantit pas la livraison en boîte de réception.
 
 Routes principales :
 
@@ -160,12 +169,12 @@ Routes principales :
   Appliquer `infra/sql/012_notes_presences.sql` pour créer les colonnes d’évaluation,
   les notes et les séances/émargements. Les droits sont limités aux UE affectées
   à l’enseignant ; l’étudiant ne consulte que ses propres notes et présences.
-- Les notes d’examen restent masquées aux étudiants jusqu’à la délibération de
-  chaque évaluation par la Scolarité dans `/scolarite/deliberations`. Une
-  délibération n’est possible que lorsque chaque étudiant inscrit a une note ;
-  après publication, l’enseignant ne peut plus modifier ces notes.
-- L'import CSV accepte les colonnes facultatives `campusId` et `departmentId`
-  pour rattacher respectivement un Service Scolarité et un Chef de département.
+- La saisie et la délibération des notes d’examen ne sont plus proposées. Les
+  anciennes notes restent conservées en base, mais ne sont pas exposées dans
+  les parcours courants ; les notes de devoir restent disponibles.
+- Les imports CSV utilisent les noms `campus` et `departement` plutôt que leurs
+  identifiants. Les imports académiques désignent les cours par `ueCode`,
+  `campus`, `departement`, `programme`, `anneeUniversitaire` et `semestre`.
 
 Les contrôles académiques rapportent les campagnes ouvertes échues ou sans cours
 ou critère, les campagnes clôturées sans date de clôture et les campagnes
@@ -186,7 +195,8 @@ compte propriétaire du schéma (pas le rôle applicatif `app_main`) :
 4. `infra/sql/011_chef_departement_pilotage.sql` : notes de synthèse et suites
    données par les Chefs de département.
 5. `infra/sql/012_notes_presences.sql` : notes configurables et présences par séance.
-6. `infra/sql/013_deliberation_examens.sql` : registre des délibérations des examens.
+6. `infra/sql/013_deliberation_examens.sql` : registre historique des délibérations
+   (les données existantes sont conservées ; la fonctionnalité applicative est retirée).
 7. `infra/sql/014_auth_lifecycle.sql` : codes à usage unique d’activation/réinitialisation,
    MFA TOTP et profil actif de session.
 8. `infra/sql/015_imports_affectations_archives.sql` : imports en deux phases,
@@ -217,6 +227,13 @@ psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_S
 psql -h <serveur> -p <port> -U <proprietaire> -d enp_evaluation -W -v ON_ERROR_STOP=1 -f infra/sql/019_directions_campus_general.sql
 ```
 
+Apres les migrations 001 a 019, executer aussi, dans l'ordre, les migrations
+020 (suppression auditee), 021 (matricule du journal d'audit), 022 (inscription
+aux UE du programme et de la meme annee), 023 (absences justifiees) et 024
+(imports XLSX académiques). Pour
+Azure, suivre les commandes de construction et d'execution des jobs dans
+`docs/deploiement-azure.md`.
+
 Après `014_auth_lifecycle.sql`, configurer les variables SMTP dans `.env`.
 Générer une clé de chiffrement aléatoire distincte par environnement avec
 `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` puis
@@ -231,7 +248,7 @@ dans **Sécurité du compte**. Les comptes multi-rôles disposent d’un sélect
 de profil actif ; l’API conserve ce choix lors du renouvellement de session.
 La migration 019 convertit les anciens rôles globaux `direction_etudes` en
 `directeur_general`, car ils ne portaient aucun rattachement de campus. Les
-nouveaux comptes `directeur_campus` doivent être importés avec leur `campusId`.
+nouveaux comptes `directeur_campus` doivent être importés avec le nom de leur `campus`.
 
 Après application de `016`, les délégués peuvent planifier une séance future ;
 les étudiants inscrits reçoivent un rappel intégré et un courriel dans les
@@ -262,8 +279,8 @@ la création des référentiels et du questionnaire actif. Il ne remplace pas
 
 Après les migrations 010 et 012, exécuter `infra/sql/dev-donnees-test.sql`,
 puis `infra/sql/dev-donnees-notes-presences.sql`. Ce dernier ajoute des colonnes
-de devoir/examen, des notes, trois séances et les statuts présent/absent/retard
-pour les comptes `TEST-1001` (enseignant), `TEST-1002` (enseignante) et les
+de devoirs, trois séances et les statuts présent/absent/retard pour les comptes
+`TEST-1001` (enseignant), `TEST-1002` (enseignante) et les
 étudiants `TEST-0001` à `TEST-0005`. Les scripts sont réservés au développement;
 ils ne remplacent pas les mots de passe des comptes de test.
 

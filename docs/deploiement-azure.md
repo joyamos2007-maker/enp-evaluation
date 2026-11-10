@@ -116,6 +116,66 @@ az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-
 La migration convertit les anciens comptes `direction_etudes` en
 `directeur_general`. Attendre le statut `Succeeded` avant de mettre a jour l'API.
 
+Pour activer la suppression auditee des comptes, construire et executer la
+migration 020 avant le deploiement de la nouvelle API :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-account-migration:<TAG> --file infra/sql/Dockerfile.account-deletion-020 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-account-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+Cette migration ajoute l'horodatage de suppression logique et le campus dans
+le journal d'audit. Les comptes sont anonymises, pas effaces physiquement, afin
+de conserver les liens des donnees academiques. La suppression invalide les
+sessions, les codes et les appareils MFA.
+
+Avant le deploiement de l'API qui inscrit les acteurs d'audit par matricule,
+executer les migrations 021 puis 022, dans cet ordre :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-audit-migration:<TAG> --file infra/sql/Dockerfile.audit-actor-matricule-021 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-audit-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+Apres confirmation de la reussite de 021, executer la migration des inscriptions :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-enrollment-migration:<TAG> --file infra/sql/Dockerfile.enrollment-program-year-022 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-enrollment-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+La migration 022 propage les inscriptions a toutes les UE du meme programme et
+de la meme annee universitaire, y compris les offres ajoutees ulterieurement.
+La migration 021 conserve `user_id` pour les liens internes et l'historique,
+tout en ajoutant le matricule stocke pour l'affichage du journal.
+
+La migration 023 doit etre appliquee avant d'enregistrer des absences
+justifiees :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-attendance-migration:<TAG> --file infra/sql/Dockerfile.justified-attendance-023 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-attendance-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+Le statut `justifie` reste distinct d'une absence non justifiee et ne compte
+pas comme une presence dans le taux d'assiduite.
+
+Avant le deploiement de l'API qui traite les classeurs Excel, executer la
+migration 024 apres les migrations 020 a 023 :
+
+```powershell
+az acr build --registry <NOM_ACR> --image enp-xlsx-migration:<TAG> --file infra/sql/Dockerfile.academic-xlsx-024 .
+az containerapp job update --resource-group <RESOURCE_GROUP> --name db-migration-job --image <NOM_ACR>.azurecr.io/enp-xlsx-migration:<TAG>
+az containerapp job start --resource-group <RESOURCE_GROUP> --name db-migration-job
+```
+
+Cette migration ajoute les métadonnées du catalogue, les contacts de cours et
+les types d'import XLSX au staging.
+
 `Dockerfile.azure` construit le frontend avec `VITE_USE_MOCK=false` et
 `VITE_API_BASE_URL=/api/v1` : le mode maquette n'est donc pas embarque en
 production ; le module contenant les comptes de demonstration est remplace
@@ -169,6 +229,12 @@ independantes : `DATABASE_URL`, `DATABASE_URL_BALLOT`, `DATABASE_URL_RESULTS`,
 `MFA_ENCRYPTION_KEY` doit etre de 64 caracteres hexadecimaux. Garder une copie
 securisee des secrets MFA : leur perte peut rendre les secrets TOTP existants
 illisibles.
+
+Les comptes crees/importes par l'admin ou la Scolarite mettent leur courriel
+d'activation dans `system.email_outbox`; le worker retente les echecs. Le bouton
+« Tester la connexion SMTP » dans Comptes appelle
+`POST /api/v1/comptes/smtp-verification` (admin/Scolarite) : il controle la
+connexion TLS, l'authentification et `SMTP_FROM`, sans envoyer d'e-mail.
 
 Le serveur PostgreSQL doit autoriser uniquement l'acces reseau requis par
 Container Apps. Activer TLS PostgreSQL, utiliser `sslmode=require` dans les

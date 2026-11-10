@@ -173,19 +173,21 @@ export function EnseignantPresences() {
   }
 
   const decompte = useMemo(() => {
-    if (!detail) return { presents: 0, retards: 0, absents: 0, nonMarques: 0 };
+    if (!detail) return { presents: 0, retards: 0, absents: 0, justifiees: 0, nonMarques: 0 };
     let presents = 0;
     let retards = 0;
     let absents = 0;
+    let justifiees = 0;
     let nonMarques = 0;
     for (const etu of detail.etudiants) {
       const s = statuts[etu.id];
       if (s === 'present') presents++;
       else if (s === 'retard') retards++;
       else if (s === 'absent') absents++;
+      else if (s === 'justifie') justifiees++;
       else nonMarques++;
     }
-    return { presents, retards, absents, nonMarques };
+    return { presents, retards, absents, justifiees, nonMarques };
   }, [detail, statuts]);
 
   const pretAEnregistrer = Boolean(
@@ -405,6 +407,9 @@ export function EnseignantPresences() {
                     <span className="text-enp-red-error font-semibold">
                       Absents : {decompte.absents}
                     </span>
+                    <span className="text-violet-700 font-semibold">
+                      Justifiées : {decompte.justifiees}
+                    </span>
                     {decompte.nonMarques > 0 && (
                       <span className="text-enp-gray-medium">
                         Reste à pointer : {decompte.nonMarques}
@@ -490,7 +495,7 @@ export function EnseignantPresences() {
                                   </span>
                                   <span className="text-enp-gray-medium">
                                     ({etudiant.statistiques.presents}P · {etudiant.statistiques.retards}R ·{' '}
-                                    {etudiant.statistiques.absents}A)
+                                    {etudiant.statistiques.absents}A · {etudiant.statistiques.justifiees}J)
                                   </span>
                                 </div>
                               ) : (
@@ -538,6 +543,18 @@ export function EnseignantPresences() {
                                 >
                                   <UserX className="w-3.5 h-3.5" />
                                   <span>Absent</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => definirStatut(etudiant.id, 'justifie')}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border transition-all min-h-[36px] ${
+                                    statutActuel === 'justifie'
+                                      ? 'bg-violet-700 text-white border-violet-700 shadow-xs'
+                                      : 'bg-white text-enp-black border-enp-border hover:border-violet-700 hover:text-violet-700'
+                                  }`}
+                                >
+                                  <CalendarCheck className="w-3.5 h-3.5" />
+                                  <span>Justifié</span>
                                 </button>
                               </div>
                             </td>

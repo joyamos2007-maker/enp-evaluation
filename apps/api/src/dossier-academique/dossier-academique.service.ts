@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,12 +11,10 @@ import {
   type ValeurExport,
 } from '../exports/export.service';
 
-export type TypeEvaluation = 'devoir' | 'examen';
-export type StatutPresence = 'present' | 'absent' | 'retard';
+export type StatutPresence = 'present' | 'absent' | 'retard' | 'justifie';
 
 export interface EntreeEvaluation {
   libelle: string;
-  type: TypeEvaluation;
   bareme: number;
 }
 
@@ -82,16 +79,12 @@ export class DossierAcademiqueService {
       this.db.query<{
         id: number;
         libelle: string;
-        type: TypeEvaluation;
         bareme: number;
         created_at: string;
-        deliberee: boolean;
       }>(
-        `SELECT a.id, a.libelle, a.type, a.bareme::float8 AS bareme,
-                a.created_at, (d.assessment_id IS NOT NULL) AS deliberee
+        `SELECT a.id, a.libelle, a.bareme::float8 AS bareme, a.created_at
          FROM academic.assessment_columns a
-         LEFT JOIN academic.assessment_deliberations d ON d.assessment_id = a.id
-         WHERE a.course_id = $1
+         WHERE a.course_id = $1 AND a.type = 'devoir'
          ORDER BY a.created_at, a.id`,
         [courseId],
       ),
@@ -103,7 +96,7 @@ export class DossierAcademiqueService {
         `SELECT n.assessment_id AS evaluation_id, n.student_id AS etudiant_id, n.note::float8 AS note
          FROM academic.assessment_scores n
          JOIN academic.assessment_columns a ON a.id = n.assessment_id
-         WHERE a.course_id = $1`,
+         WHERE a.course_id = $1 AND a.type = 'devoir'`,
         [courseId],
       ),
     ]);
@@ -121,10 +114,8 @@ export class DossierAcademiqueService {
       evaluations: evaluations.map((evaluation) => ({
         id: evaluation.id,
         libelle: evaluation.libelle,
-        type: evaluation.type,
         bareme: evaluation.bareme,
         creeLe: evaluation.created_at,
-        deliberee: evaluation.type === 'devoir' || evaluation.deliberee,
         notes: notesParEvaluation[evaluation.id] ?? {},
       })),
     };
@@ -180,18 +171,17 @@ export class DossierAcademiqueService {
     const rows = await this.db.query<{
       id: number;
       libelle: string;
-      type: TypeEvaluation;
       bareme: number;
     }>(
       `INSERT INTO academic.assessment_columns (course_id, created_by, libelle, type, bareme)
-       SELECT co.id, $2, $3, $4, $5
+       SELECT co.id, $2, $3, 'devoir', $4
        FROM ref.course co
        WHERE co.id = $1 AND EXISTS (
          SELECT 1 FROM ref.course_teacher ct
          WHERE ct.course_id = co.id AND ct.teacher_id = $2
        )
-       RETURNING id, libelle, type, bareme::float8 AS bareme`,
-      [courseId, enseignantId, entree.libelle, entree.type, entree.bareme],
+       RETURNING id, libelle, bareme::float8 AS bareme`,
+      [courseId, enseignantId, entree.libelle, entree.bareme],
     );
     if (!rows[0])
       throw new NotFoundException(
@@ -208,13 +198,10 @@ export class DossierAcademiqueService {
     const evaluations = await this.db.query<{
       course_id: number;
       bareme: number;
-      deliberee: boolean;
     }>(
-      `SELECT a.course_id, a.bareme::float8 AS bareme,
-              (d.assessment_id IS NOT NULL) AS deliberee
+      `SELECT a.course_id, a.bareme::float8 AS bareme
        FROM academic.assessment_columns a
-       LEFT JOIN academic.assessment_deliberations d ON d.assessment_id = a.id
-       WHERE a.id = $1 AND EXISTS (
+       WHERE a.id = $1 AND a.type = 'devoir' AND EXISTS (
          SELECT 1 FROM ref.course_teacher ct
          WHERE ct.course_id = a.course_id AND ct.teacher_id = $2
        )`,
@@ -225,11 +212,6 @@ export class DossierAcademiqueService {
       throw new NotFoundException(
         'Évaluation introuvable ou non attribuée à cet enseignant',
       );
-    if (evaluation.deliberee) {
-      throw new ConflictException(
-        'Cette évaluation a été délibérée et ses notes ne peuvent plus être modifiées',
-      );
-    }
     for (const entree of entrees) {
       if (
         entree.note !== null &&
@@ -253,11 +235,8 @@ export class DossierAcademiqueService {
          JOIN ref.enrollment ins ON ins.student_id = e.etudiant_id
                                AND ins.course_id = $3
          JOIN academic.assessment_columns a ON a.id = $1 AND a.course_id = $3
-         WHERE (e.note IS NULL OR e.note <= a.bareme)
-           AND NOT EXISTS (
-             SELECT 1 FROM academic.assessment_deliberations d
-             WHERE d.assessment_id = a.id
-           )
+         WHERE a.type = 'devoir'
+           AND (e.note IS NULL OR e.note <= a.bareme)
            AND EXISTS (
              SELECT 1 FROM ref.course_teacher ct
              WHERE ct.course_id = a.course_id AND ct.teacher_id = $4
@@ -283,18 +262,6 @@ export class DossierAcademiqueService {
       ],
     );
     if (resultat[0]?.input_count !== resultat[0]?.saved_count) {
-      const verrou = await this.db.query<{ deliberee: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM academic.assessment_deliberations
-           WHERE assessment_id = $1
-         ) AS deliberee`,
-        [evaluationId],
-      );
-      if (verrou[0]?.deliberee) {
-        throw new ConflictException(
-          'Cette évaluation a été délibérée et ses notes ne peuvent plus être modifiées',
-        );
-      }
       throw new BadRequestException(
         'Un ou plusieurs étudiants ne sont pas inscrits à cette UE',
       );
@@ -383,6 +350,7 @@ export class DossierAcademiqueService {
       presents: number;
       absents: number;
       retards: number;
+      justifiees: number;
     }>(
       `SELECT u.id, u.nom, u.prenom, u.matricule AS identifiant, p.statut,
               count(DISTINCT historique.id)::int AS seances_total,
@@ -392,7 +360,9 @@ export class DossierAcademiqueService {
               count(DISTINCT historique_presence.session_id)
                 FILTER (WHERE historique_presence.statut = 'absent')::int AS absents,
               count(DISTINCT historique_presence.session_id)
-                FILTER (WHERE historique_presence.statut = 'retard')::int AS retards
+                FILTER (WHERE historique_presence.statut = 'retard')::int AS retards,
+              count(DISTINCT historique_presence.session_id)
+                FILTER (WHERE historique_presence.statut = 'justifie')::int AS justifiees
        FROM ref.enrollment e
        JOIN identity.users u ON u.id = e.student_id
        LEFT JOIN academic.attendance_records p
@@ -421,6 +391,7 @@ export class DossierAcademiqueService {
           presents: etudiant.presents,
           absents: etudiant.absents,
           retards: etudiant.retards,
+          justifiees: etudiant.justifiees,
           tauxPresence:
             etudiant.seances_marquees > 0
               ? Math.round(
@@ -501,23 +472,21 @@ export class DossierAcademiqueService {
       code: string;
       intitule: string;
       libelle: string;
-      type: TypeEvaluation;
       bareme: number;
       note: number | null;
-      deliberee: boolean;
+      created_at: string;
     }>(
       `SELECT a.id AS evaluation_id, co.id AS course_id, ue.code, ue.intitule,
-              a.libelle, a.type, a.bareme::float8 AS bareme,
-              CASE WHEN a.type = 'devoir' OR d.assessment_id IS NOT NULL
-                   THEN n.note::float8 ELSE NULL END AS note,
-              (a.type = 'devoir' OR d.assessment_id IS NOT NULL) AS deliberee
+              a.libelle, a.bareme::float8 AS bareme, n.note::float8 AS note,
+              to_char(a.created_at AT TIME ZONE 'UTC',
+                'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
        FROM ref.enrollment e
        JOIN ref.course co ON co.id = e.course_id
        JOIN ref.ue ue ON ue.id = co.ue_id
-       JOIN academic.assessment_columns a ON a.course_id = co.id
+       JOIN academic.assessment_columns a
+         ON a.course_id = co.id AND a.type = 'devoir'
        LEFT JOIN academic.assessment_scores n
          ON n.assessment_id = a.id AND n.student_id = e.student_id
-       LEFT JOIN academic.assessment_deliberations d ON d.assessment_id = a.id
        WHERE e.student_id = $1
        ORDER BY ue.code, a.created_at, a.id`,
       [etudiantId],
@@ -528,10 +497,9 @@ export class DossierAcademiqueService {
       code: row.code,
       intitule: row.intitule,
       libelle: row.libelle,
-      type: row.type,
       bareme: row.bareme,
       note: row.note,
-      deliberee: row.deliberee,
+      createdAt: row.created_at,
     }));
   }
 
@@ -563,6 +531,7 @@ export class DossierAcademiqueService {
         presents: number;
         absents: number;
         retards: number;
+        justifiees: number;
       }>(
         `SELECT count(DISTINCT s.id)::int AS seances_total,
                 count(DISTINCT p.session_id)::int AS seances_marquees,
@@ -571,7 +540,9 @@ export class DossierAcademiqueService {
                 count(DISTINCT p.session_id)
                   FILTER (WHERE p.statut = 'absent')::int AS absents,
                 count(DISTINCT p.session_id)
-                  FILTER (WHERE p.statut = 'retard')::int AS retards
+                  FILTER (WHERE p.statut = 'retard')::int AS retards,
+                count(DISTINCT p.session_id)
+                  FILTER (WHERE p.statut = 'justifie')::int AS justifiees
          FROM ref.enrollment e
          JOIN academic.attendance_sessions s ON s.course_id = e.course_id
          LEFT JOIN academic.attendance_records p
@@ -586,6 +557,7 @@ export class DossierAcademiqueService {
       presents: 0,
       absents: 0,
       retards: 0,
+      justifiees: 0,
     };
     return {
       statistiques: {
@@ -594,6 +566,7 @@ export class DossierAcademiqueService {
         presents: resume.presents,
         absents: resume.absents,
         retards: resume.retards,
+        justifiees: resume.justifiees,
         tauxPresence:
           resume.seances_marquees > 0
             ? Math.round(

@@ -12,12 +12,12 @@ describe('DossierAcademiqueController', () => {
 
   beforeEach(() => jest.resetAllMocks());
 
-  it('valide le barème et le type avant de demander la création de la colonne', () => {
+  it('refuse la création d’une colonne de type examen', () => {
     expect(() =>
       controller.creerEvaluation(requete, '20', {
-        libelle: 'Devoir 1',
-        type: 'autre',
-        bareme: 20,
+        libelle: 'Examen final',
+        type: 'examen',
+        bareme: 50,
       }),
     ).toThrow(BadRequestException);
     expect(dossier.creerEvaluation).not.toHaveBeenCalled();
@@ -28,13 +28,11 @@ describe('DossierAcademiqueController', () => {
     await expect(
       controller.creerEvaluation(requete, '20', {
         libelle: 'Devoir 1',
-        type: 'devoir',
         bareme: 0.29,
       }),
     ).resolves.toEqual({ id: 1 });
     expect(dossier.creerEvaluation).toHaveBeenCalledWith(43, 20, {
       libelle: 'Devoir 1',
-      type: 'devoir',
       bareme: 0.29,
     });
   });

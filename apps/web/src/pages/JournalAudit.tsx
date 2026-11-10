@@ -65,7 +65,12 @@ export function JournalAudit() {
                   <td className="whitespace-nowrap px-3 py-2">
                     {new Date(ligne.creeLe).toLocaleString("fr-FR")}
                   </td>
-                  <td className="px-3 py-2">{ligne.userId ?? "Système"}</td>
+                  <td className="px-3 py-2">
+                    {ligne.userMatricule ??
+                      (ligne.userId === undefined
+                        ? "Système"
+                        : "Matricule indisponible")}
+                  </td>
                   <td className="px-3 py-2">{ligne.action}</td>
                   <td className="px-3 py-2">
                     {ligne.objet ?? ligne.courseId ?? "-"}

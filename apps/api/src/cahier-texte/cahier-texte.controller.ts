@@ -146,7 +146,15 @@ export class CahierTexteController {
   ) {}
 
   @Get('mes-ues')
-  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
+  @Acces(
+    'delegue',
+    'enseignant',
+    'etudiant',
+    'scolarite',
+    'chef_departement',
+    'directeur_campus',
+    'directeur_general',
+  )
   async mesUes(@Req() requete: RequeteAuthentifiee) {
     const user = utilisateur(requete);
     const roles = [user.activeRole];
@@ -155,7 +163,15 @@ export class CahierTexteController {
   }
 
   @Get('seances')
-  @Acces('delegue', 'enseignant', 'etudiant', 'scolarite', 'chef_departement')
+  @Acces(
+    'delegue',
+    'enseignant',
+    'etudiant',
+    'scolarite',
+    'chef_departement',
+    'directeur_campus',
+    'directeur_general',
+  )
   async seances(
     @Req() requete: RequeteAuthentifiee,
     @Query('ueId') ueIdBrut?: string,
@@ -245,8 +261,15 @@ export class CahierTexteController {
   }
 
   @Get('ues/:ueId/avancement')
-  @Acces('delegue', 'enseignant')
-  avancement(
+  @Acces(
+    'delegue',
+    'enseignant',
+    'chef_departement',
+    'scolarite',
+    'directeur_campus',
+    'directeur_general',
+  )
+  async avancement(
     @Req() requete: RequeteAuthentifiee,
     @Param('ueId') ueIdBrut: string,
   ) {
@@ -254,7 +277,14 @@ export class CahierTexteController {
     if (ueId === null)
       throw new BadRequestException('ueId doit être un entier positif');
     const user = utilisateur(requete);
-    return this.cahier.avancement(user.id, [user.activeRole], ueId);
+    const { campusId, departmentId } = await this.perimetreLecture(user);
+    return this.cahier.avancement(
+      user.id,
+      [user.activeRole],
+      ueId,
+      campusId,
+      departmentId,
+    );
   }
 
   @Get('export')
@@ -404,6 +434,14 @@ export class CahierTexteController {
     if (user.activeRole === 'scolarite') {
       return {
         campusId: await this.campusScope.forScolarite(user.id, [
+          user.activeRole,
+        ]),
+        departmentId: null,
+      };
+    }
+    if (user.activeRole === 'directeur_campus') {
+      return {
+        campusId: await this.campusScope.forDirecteurCampus(user.id, [
           user.activeRole,
         ]),
         departmentId: null,

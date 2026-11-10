@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS audit.journal (
   id          BIGSERIAL PRIMARY KEY,
   cree_le     TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_id     INT,
+  user_matricule TEXT,
   action      TEXT NOT NULL,
   campaign_id INT,
   course_id   INT,
@@ -70,8 +71,10 @@ BEGIN
   UPDATE ballot.ballot_comments SET statut = p_statut
   WHERE ballot_id = p_ballot AND type = p_type;
 
-  INSERT INTO audit.journal (user_id, action, campaign_id, course_id, objet, detail)
-  VALUES (p_user, 'moderation', v_campagne, v_course,
+  INSERT INTO audit.journal
+    (user_id, user_matricule, action, campaign_id, course_id, objet, detail)
+  VALUES (p_user, (SELECT matricule FROM identity.users WHERE id = p_user),
+          'moderation', v_campagne, v_course,
           p_ballot::text || '.' || p_type, v_ancien || ' -> ' || p_statut);
   RETURN 'ok';
 END

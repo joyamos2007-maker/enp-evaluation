@@ -210,6 +210,7 @@ export interface LigneAudit {
   id: number;
   creeLe: string;
   userId?: number;
+  userMatricule?: string;
   action: string;
   campaignId?: number;
   courseId?: number;
@@ -240,8 +241,7 @@ export interface Avancement {
 /*  Notes et présences                                                */
 /* ------------------------------------------------------------------ */
 
-export type TypeEvaluationAcademique = "devoir" | "examen";
-export type StatutPresenceEtudiant = "present" | "absent" | "retard";
+export type StatutPresenceEtudiant = "present" | "absent" | "retard" | "justifie";
 
 export interface CoursDossier {
   id: number;
@@ -259,16 +259,13 @@ export interface EtudiantDossier {
 export interface EvaluationDossier {
   id: number;
   libelle: string;
-  type: TypeEvaluationAcademique;
   bareme: number;
-  deliberee: boolean;
   creeLe?: string;
   notes: Record<number, number | null>;
 }
 
 export interface EntreeEvaluation {
   libelle: string;
-  type: TypeEvaluationAcademique;
   bareme: number;
 }
 
@@ -307,6 +304,7 @@ export interface StatistiquesPresence {
   presents: number;
   absents: number;
   retards: number;
+  justifiees: number;
   tauxPresence: number | null;
 }
 
@@ -321,30 +319,9 @@ export interface NoteEtudiant {
   code: string;
   intitule: string;
   libelle: string;
-  type: TypeEvaluationAcademique;
   bareme: number;
   note: number | null;
-  deliberee: boolean;
-}
-
-export interface ExamenADeliberer {
-  id: number;
-  coursId: number;
-  code: string;
-  intitule: string;
-  libelle: string;
-  bareme: number;
-  anneeUniversitaire: string;
-  semestre: number;
-  campus: string;
-  effectif: number;
-  notesSaisies: number;
-  delibereeLe: string | null;
-}
-
-export interface DetailsDeliberationExamen {
-  examen: ExamenADeliberer;
-  etudiants: (EtudiantDossier & { note: number | null })[];
+  createdAt: string;
 }
 
 export interface PresenceEtudiantLigne {
@@ -521,7 +498,9 @@ export type TypeImport =
   | "offres"
   | "affectations"
   | "inscriptions"
-  | "delegues";
+  | "delegues"
+  | "catalogue"
+  | "presences";
 
 export interface ErreurImport {
   ligne: number;
@@ -534,6 +513,7 @@ export interface RapportImport {
   lignesTotal: number;
   lignesValides: number;
   erreurs: ErreurImport[];
+  avertissements?: ErreurImport[];
 }
 
 export interface ResultatImport {

@@ -54,6 +54,22 @@ export class EmailService {
     }
   }
 
+  async verifier(): Promise<void> {
+    try {
+      if (!this.config.get<string>('SMTP_FROM')) {
+        throw new Error('SMTP_FROM doit etre configure pour envoyer les courriels');
+      }
+      await this.obtenirTransport().verify();
+    } catch (error) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String(error.code)
+          : 'inconnu';
+      this.logger.error(`Échec de vérification SMTP (${code})`);
+      throw error;
+    }
+  }
+
   private obtenirTransport(): Transporter {
     if (this.transport) return this.transport;
 

@@ -3,36 +3,54 @@ import {
   BookOpen,
   ClipboardList,
   Download,
-  Lock,
   Plus,
   Save,
   Table as TableIcon,
 } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { api, ApiError } from '@/api';
-import type { CahierNotes, CoursDossier, TypeEvaluationAcademique } from '@/api/types';
+import type { CahierNotes, CoursDossier } from '@/api/types';
 import { PageHeader, Button, Alert, Badge } from '@/components/ui';
 
-const PRESETS_EVAL: { libelle: string; type: TypeEvaluationAcademique }[] = [
-  { libelle: 'Devoir 1', type: 'devoir' },
-  { libelle: 'Devoir 2', type: 'devoir' },
-  { libelle: 'Examen final', type: 'examen' },
-];
+const PRESETS_EVAL = ['Devoir 1', 'Devoir 2'];
 
 export function EnseignantNotes() {
   const [cours, setCours] = useState<CoursDossier[]>([]);
   const [courseId, setCourseId] = useState<number | null>(null);
+  const [progressionStudentId, setProgressionStudentId] = useState<number | null>(null);
   const [cahier, setCahier] = useState<CahierNotes | null>(null);
   const [evalActiveId, setEvalActiveId] = useState<number | 'synthese' | null>(null);
   const [afficherCreation, setAfficherCreation] = useState(false);
 
   const [libelle, setLibelle] = useState('');
-  const [type, setType] = useState<TypeEvaluationAcademique>('devoir');
   const [bareme, setBareme] = useState('20');
 
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState<number | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const progression = useMemo(() => {
+    const studentId = progressionStudentId ?? cahier?.etudiants[0]?.id;
+    if (!cahier || studentId === undefined) return [];
+    return cahier.evaluations
+      .filter((evaluation) => evaluation.notes[studentId] != null)
+      .map((evaluation) => ({
+        date: evaluation.creeLe ?? '',
+        dateLabel: `${new Date(evaluation.creeLe ?? '').toLocaleDateString('fr-FR')} · ${evaluation.libelle}`,
+        noteSur20: ((evaluation.notes[studentId] ?? 0) / evaluation.bareme) * 20,
+        libelle: evaluation.libelle,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [cahier, progressionStudentId]);
 
   useEffect(() => {
     let actif = true;
@@ -96,7 +114,6 @@ export function EnseignantNotes() {
     try {
       const creee = await api.dossierCreerEvaluation(courseId, {
         libelle: libelle.trim(),
-        type,
         bareme: Number(bareme),
       });
       setLibelle('');
@@ -194,7 +211,7 @@ export function EnseignantNotes() {
     <div className="space-y-5 animate-fade-in max-w-6xl mx-auto pb-6">
       <PageHeader
         title="Saisie des notes"
-        description="Gérez les notes de devoirs et d'examens de vos promotions dans une grille unifiée."
+        description="Créez autant de devoirs que nécessaire et suivez la progression de vos étudiants."
         breadcrumbs={[
           { label: 'Accueil', href: '/' },
           { label: 'Saisie des notes' },
@@ -308,21 +325,18 @@ export function EnseignantNotes() {
                   <span className="text-[11px] text-enp-gray-medium">Modèles rapides :</span>
                   {PRESETS_EVAL.map((preset) => (
                     <button
-                      key={preset.libelle}
+                      key={preset}
                       type="button"
-                      onClick={() => {
-                        setLibelle(preset.libelle);
-                        setType(preset.type);
-                      }}
+                      onClick={() => setLibelle(preset)}
                       className="text-[11px] font-semibold px-2 py-0.5 bg-white border border-enp-border text-enp-blue-deep hover:border-enp-blue-primary transition-colors"
                     >
-                      {preset.libelle}
+                      {preset}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px_120px_auto] gap-3 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-3 items-end">
                 <label className="block text-xs font-bold text-enp-black">
                   Intitulé
                   <input
@@ -330,20 +344,9 @@ export function EnseignantNotes() {
                     maxLength={120}
                     value={libelle}
                     onChange={(event) => setLibelle(event.target.value)}
-                    placeholder="Ex. Devoir 1 ou Examen final"
+                    placeholder="Ex. Devoir 1"
                     className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm text-enp-black focus:border-enp-blue-primary outline-none min-h-[40px]"
                   />
-                </label>
-                <label className="block text-xs font-bold text-enp-black">
-                  Nature
-                  <select
-                    value={type}
-                    onChange={(event) => setType(event.target.value as TypeEvaluationAcademique)}
-                    className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm text-enp-black focus:border-enp-blue-primary outline-none min-h-[40px]"
-                  >
-                    <option value="devoir">Devoir continu</option>
-                    <option value="examen">Examen terminal</option>
-                  </select>
                 </label>
                 <label className="block text-xs font-bold text-enp-black">
                   Barème
@@ -370,7 +373,7 @@ export function EnseignantNotes() {
             <div className="space-y-4">
               {cahier.evaluations.length === 0 ? (
                 <div className="bg-white border border-enp-border p-8 text-center text-sm text-enp-gray-medium">
-                  Aucune évaluation créée pour cette UE. Utilisez le formulaire ci-dessus pour créer un devoir ou un examen.
+                  Aucun devoir créé pour cette UE. Utilisez le formulaire ci-dessus pour en ajouter un.
                 </div>
               ) : (
                 <>
@@ -399,9 +402,7 @@ export function EnseignantNotes() {
                             className={`text-[10px] font-mono px-1.5 py-0.5 font-bold ${
                               actif
                                 ? 'bg-white/20 text-white'
-                                : ev.type === 'examen'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-enp-blue-light text-enp-blue-deep'
+                                : 'bg-enp-blue-light text-enp-blue-deep'
                             }`}
                           >
                             {nbNotes}/{cahier.etudiants.length}
@@ -425,6 +426,52 @@ export function EnseignantNotes() {
                       </button>
                     )}
                   </div>
+
+                  {evalActiveId !== 'synthese' && cahier.etudiants.length > 0 && (
+                    <section className="space-y-3 border border-enp-border bg-white p-4">
+                      <label className="block max-w-xl text-xs font-bold text-enp-blue-deep">
+                        Suivre l’évolution de l’étudiant
+                        <select
+                          value={progressionStudentId ?? cahier.etudiants[0].id}
+                          onChange={(event) => setProgressionStudentId(Number(event.target.value))}
+                          className="mt-1 block w-full border border-enp-border bg-white px-3 py-2 text-sm font-normal"
+                        >
+                          {cahier.etudiants.map((etudiant) => (
+                            <option key={etudiant.id} value={etudiant.id}>
+                              {etudiant.identifiant} — {etudiant.prenom} {etudiant.nom}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {progression.length > 0 ? (
+                        <div className="h-64 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={progression}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="dateLabel" hide />
+                              <YAxis domain={[0, 20]} />
+                              <Tooltip
+                                labelFormatter={(_, payload) => payload[0]?.payload.dateLabel ?? ''}
+                                formatter={(value) => [`${Number(value ?? 0).toFixed(2)} / 20`, 'Note']}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="noteSur20"
+                                name="Note sur 20"
+                                stroke="#1D4ED8"
+                                strokeWidth={2}
+                                dot
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-enp-gray-medium">
+                          Aucune note saisie pour cet étudiant.
+                        </p>
+                      )}
+                    </section>
+                  )}
 
                   {/* VUE SYNTHÈSE (TOUTES LES COLONNES CÔTE À CÔTE) */}
                   {evalActiveId === 'synthese' ? (
@@ -500,15 +547,7 @@ export function EnseignantNotes() {
                               <h2 className="text-base font-bold text-enp-blue-deep">
                                 {evaluationActive.libelle}
                               </h2>
-                              <Badge
-                                variant={
-                                  evaluationActive.type === 'devoir' ? 'default' : 'institutional'
-                                }
-                              >
-                                {evaluationActive.type === 'devoir'
-                                  ? 'Devoir continu'
-                                  : 'Examen terminal'}
-                              </Badge>
+                              <Badge variant="default">Devoir</Badge>
                               <Badge variant="outline">Barème /{evaluationActive.bareme}</Badge>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 text-xs text-enp-gray-medium">
@@ -529,32 +568,20 @@ export function EnseignantNotes() {
                                   </span>
                                 </>
                               )}
-                              {evaluationActive.type === 'examen' && !evaluationActive.deliberee && (
-                                <span className="text-amber-800 font-medium">
-                                  • Publication aux étudiants après délibération par la Scolarité
-                                </span>
-                              )}
                             </div>
                           </div>
 
-                          {evaluationActive.type === 'examen' && evaluationActive.deliberee ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-enp-green-light text-enp-green-valid border border-enp-green-valid/30">
-                              <Lock className="w-3.5 h-3.5" />
-                              Délibéré • Modification verrouillée
-                            </span>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="primary"
-                              size="sm"
-                              disabled={enregistrement === evaluationActive.id}
-                              isLoading={enregistrement === evaluationActive.id}
-                              leftIcon={<Save className="w-4 h-4" />}
-                              onClick={() => void enregistrerEvaluation(evaluationActive.id)}
-                            >
-                              Enregistrer les notes
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            disabled={enregistrement === evaluationActive.id}
+                            isLoading={enregistrement === evaluationActive.id}
+                            leftIcon={<Save className="w-4 h-4" />}
+                            onClick={() => void enregistrerEvaluation(evaluationActive.id)}
+                          >
+                            Enregistrer les notes
+                          </Button>
                         </div>
 
                         {cahier.etudiants.length === 0 ? (
@@ -590,10 +617,6 @@ export function EnseignantNotes() {
                                       <td className="px-4 py-2 text-right">
                                         <input
                                           aria-label={`Note de ${etudiant.prenom} ${etudiant.nom}`}
-                                          disabled={
-                                            evaluationActive.type === 'examen' &&
-                                            evaluationActive.deliberee
-                                          }
                                           type="number"
                                           min="0"
                                           max={evaluationActive.bareme}

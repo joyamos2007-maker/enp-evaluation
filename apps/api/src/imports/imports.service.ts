@@ -9,8 +9,8 @@ interface ImportLigne {
   nom: string;
   prenom: string;
   role: ImportRole;
-  campusId: number | null;
-  departmentId: number | null;
+  campus: string | null;
+  departement: string | null;
 }
 
 export interface ErreurImport {
@@ -29,7 +29,7 @@ type ImportRole =
   | 'admin';
 
 const ENTETES = ['matricule', 'email', 'nom', 'prenom', 'role'];
-const ENTETES_OPTIONNELLES = ['campusid', 'departmentid'];
+const ENTETES_OPTIONNELLES = ['campus', 'departement'];
 const ROLES: ImportRole[] = [
   'etudiant',
   'delegue',
@@ -74,7 +74,7 @@ export class ImportsService {
       )
     ) {
       throw new BadRequestException(
-        'En-têtes CSV attendus : ' + ENTETES.join(', ') + ' (campusId, departmentId facultatifs, dans cet ordre)',
+        'En-têtes CSV attendus : ' + ENTETES.join(', ') + ' (campus, departement facultatifs, dans cet ordre)',
       );
     }
 
@@ -96,8 +96,8 @@ export class ImportsService {
           nom: valeurs[2] ?? '',
           prenom: valeurs[3] ?? '',
           role: valeurs[4] ?? '',
-          campusId: valeurs[5] ?? '',
-          departmentId: valeurs[6] ?? '',
+          campus: valeurs[5] ?? '',
+          departement: valeurs[6] ?? '',
         });
         if (
           operatorRoles.includes('scolarite') &&
@@ -109,27 +109,22 @@ export class ImportsService {
         if (
           operatorRoles.includes('scolarite') &&
           !operatorRoles.includes('admin') &&
-          row.campusId !== null &&
-          row.campusId !== campusId
+          row.campus !== null &&
+          (await this.trouverCampus(row.campus)) !== campusId
         ) {
           throw new BadRequestException('Le campus indiqué ne correspond pas au périmètre du service Scolarité');
         }
-        const campusAffectation = operatorRoles.includes('scolarite') && !operatorRoles.includes('admin')
-          ? campusId
-          : row.campusId;
-        const departmentAffectation = row.departmentId;
-        let campusFinal = campusAffectation;
-        if (departmentAffectation !== null) {
-          const departements = await this.db.query<{ campus_id: number }>(
-            `SELECT campus_id FROM ref.department
-             WHERE id = $1 AND ($2::int IS NULL OR campus_id = $2)`,
-            [departmentAffectation, campusAffectation],
-          );
-          if (departements.length === 0) {
-            throw new BadRequestException('Département introuvable ou hors du campus autorisé');
-          }
-          campusFinal ??= departements[0].campus_id;
-        }
+        const campusAffectation =
+          operatorRoles.includes('scolarite') && !operatorRoles.includes('admin')
+            ? campusId
+            : row.campus
+              ? await this.trouverCampus(row.campus)
+              : null;
+        const departement = row.departement
+          ? await this.trouverDepartement(row.departement, campusAffectation)
+          : null;
+        const departmentAffectation = departement?.id ?? null;
+        const campusFinal = campusAffectation ?? departement?.campus_id ?? null;
         if (row.role === 'scolarite' && campusFinal === null) {
           throw new BadRequestException('Un compte Scolarité doit être rattaché à un campus');
         }
@@ -202,11 +197,52 @@ export class ImportsService {
 
     return report;
   }
+
+  private async trouverCampus(nom: string): Promise<number> {
+    const rows = await this.db.query<{ id: number }>(
+      `SELECT id FROM ref.campus
+       WHERE LOWER(BTRIM(nom)) = LOWER(BTRIM($1))
+       LIMIT 2`,
+      [nom],
+    );
+    if (rows.length === 0) {
+      throw new BadRequestException(`Campus introuvable : ${nom}`);
+    }
+    if (rows.length > 1) {
+      throw new BadRequestException(`Nom de campus ambigu : ${nom}`);
+    }
+    return rows[0].id;
+  }
+
+  private async trouverDepartement(
+    nom: string,
+    campusId: number | null,
+  ): Promise<{ id: number; campus_id: number }> {
+    const rows = await this.db.query<{ id: number; campus_id: number }>(
+      `SELECT d.id, d.campus_id
+       FROM ref.department d
+       WHERE LOWER(BTRIM(d.nom)) = LOWER(BTRIM($1))
+         AND ($2::int IS NULL OR d.campus_id = $2)
+       LIMIT 2`,
+      [nom, campusId],
+    );
+    if (rows.length === 0) {
+      throw new BadRequestException(
+        `Département introuvable dans le campus indiqué : ${nom}`,
+      );
+    }
+    if (rows.length > 1) {
+      throw new BadRequestException(
+        `Nom de département ambigu, précisez le campus : ${nom}`,
+      );
+    }
+    return rows[0];
+  }
 }
 
 function validerLigne(record: Record<'matricule' | 'email' | 'nom' | 'prenom' | 'role', string> & {
-  campusId: string;
-  departmentId: string;
+  campus: string;
+  departement: string;
 }): ImportLigne {
   const matricule = record.matricule.trim();
   const email = record.email.trim().toLowerCase();
@@ -233,19 +269,17 @@ function validerLigne(record: Record<'matricule' | 'email' | 'nom' | 'prenom' | 
     nom,
     prenom,
     role,
-    campusId: lirePerimetre(record.campusId, 'campusId'),
-    departmentId: lirePerimetre(record.departmentId, 'departmentId'),
+    campus: lireNomPerimetre(record.campus, 'campus'),
+    departement: lireNomPerimetre(record.departement, 'departement'),
   };
 }
 
-function lirePerimetre(valeur: string, champ: string): number | null {
+function lireNomPerimetre(valeur: string, champ: string): string | null {
   if (!valeur.trim()) return null;
-  if (!/^[1-9]\d*$/.test(valeur.trim())) {
-    throw new BadRequestException(champ + ' doit être un entier positif');
+  if (valeur.trim().length > 150) {
+    throw new BadRequestException(`${champ} ne peut pas dépasser 150 caractères`);
   }
-  const id = Number(valeur);
-  if (!Number.isSafeInteger(id)) throw new BadRequestException(champ + ' doit être un entier positif');
-  return id;
+  return valeur.trim();
 }
 
 function estRole(role: string): role is ImportRole {
