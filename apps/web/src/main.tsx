@@ -3,6 +3,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { registerServiceWorker } from './pwa/registerServiceWorker';
 
 interface FrontendErrorBoundaryState {
   error: Error | null;
@@ -54,6 +55,8 @@ root.render(
     </FrontendErrorBoundary>
   </StrictMode>
 );
+
+registerServiceWorker();
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => root.unmount());

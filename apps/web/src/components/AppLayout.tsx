@@ -34,6 +34,7 @@ import {
   Circle,
   PlusCircle,
   Settings,
+  Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
@@ -41,6 +42,8 @@ import { entreesPourRoles, LIBELLES_ROLES, type EntreeMenu } from './menuConfig'
 import { ENPLogo } from './ENPLogo';
 import { api } from '@/api';
 import type { Notification, Role } from '@/api/types';
+import { PwaInstallBanner } from '@/pwa/PwaInstallBanner';
+import { usePwaInstall } from '@/pwa/usePwaInstall';
 
 const ICONES_MENU: Record<string, LucideIcon> = {
   ClipboardCheck,
@@ -186,6 +189,8 @@ export function AppLayout() {
     return notifications.filter((n) => !n.luLe).length;
   }, [notifications]);
 
+  const { peutInstaller, installer } = usePwaInstall();
+
   const tabsMobile = useMemo(() => {
     if (!utilisateur) return [];
     return getTabsMobile(utilisateur.activeRole);
@@ -288,6 +293,20 @@ export function AppLayout() {
             <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span className="truncate">Sécurité & MFA</span>
           </NavLink>
+
+          {peutInstaller && (
+            <button
+              type="button"
+              onClick={() => {
+                fermerMenuMobile();
+                void installer();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-enp-gold hover:text-white bg-white/5 hover:bg-white/10 border border-enp-gold/30 transition-colors text-left min-h-[38px]"
+            >
+              <Smartphone className="w-4 h-4 shrink-0 text-enp-gold" />
+              <span className="truncate">Installer l'application</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -425,6 +444,9 @@ export function AppLayout() {
           {erreurProfil}
         </div>
       )}
+
+      {/* Bannière PWA d'installation sur smartphone / tablette */}
+      <PwaInstallBanner />
 
       {/* ======================================================== */}
       {/* 2. ZONE PRINCIPALE : SIDEBAR FLUSH GAUCHE + CONTENU       */}
